@@ -12,7 +12,7 @@ const MAT = (() => {
   const slugify = (s) => String(s || 'Material').replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) || 'Material';
 
   /* ---------- Dateien auf der NAS ---------- */
-  async function fput(path, data) { const r = await fetch(url(path), { method: 'PUT', body: data, credentials: 'same-origin' }); if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Speichern fehlgeschlagen'); return r.json(); }
+  async function fput(path, data) { const r = await fetch(url(path), { method: 'PUT', body: data, credentials: 'same-origin' }); if (!r.ok) { const e = (await r.json().catch(() => ({}))).error || 'Speichern fehlgeschlagen'; throw new Error(/Unbekannte API/.test(e) ? 'Auf der NAS läuft noch die alte server.js. Bitte die neue server.js einspielen und den Container lehrerapp neu starten.' : e); } return r.json(); }
   async function fgetJson(path) { const r = await fetch(url(path), { credentials: 'same-origin' }); if (!r.ok) return null; return r.json(); }
   async function fgetBuf(path) { const r = await fetch(url(path), { credentials: 'same-origin' }); if (!r.ok) return null; return r.arrayBuffer(); }
   async function fdel(path) { await fetch(url(path), { method: 'DELETE', credentials: 'same-origin' }); }
