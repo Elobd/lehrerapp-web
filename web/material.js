@@ -81,7 +81,7 @@ const MAT = (() => {
     ['Frauen', null, ['frauen', 'frauenwahlrecht', 'emanzipation', 'suffragette']],
     ['Sport und Olympia', null, ['olympische spiele', 'olympia', 'leichtathletik', 'turnen', 'sportart', 'fußball', 'athlet', 'training']],
   ];
-  const EPCOL = { 'Urgeschichte': '#9a6b3f', 'Antike': '#d09a12', 'Mittelalter': '#3f9a35', 'Frühe Neuzeit': '#8a4aa8', '19. Jahrhundert': '#3b72c4', 'Zeitgeschichte': '#cc4337' };
+  const EPCOL = { 'Urgeschichte': '#9a6b3f', 'Antike': '#d09a12', 'Mittelalter': '#3f9a35', 'Frühe Neuzeit': '#14a3b8', '19. Jahrhundert': '#3b72c4', 'Zeitgeschichte': '#cc4337' };
   const epS = (e) => (EPCOL[e] ? ` style="--ec:${EPCOL[e]}"` : '');
   const wordHits = (low, kw) => { let n = 0, i = low.indexOf(kw); while (i >= 0 && n < 40) { if (i === 0 || !/[a-zäöüß]/.test(low[i - 1])) n++; i = low.indexOf(kw, i + kw.length); } return n; };
   function autoTags(title, extra, text) {
