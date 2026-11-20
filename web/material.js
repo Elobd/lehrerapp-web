@@ -324,6 +324,28 @@ const MAT = (() => {
     let t = u; try { const x = new URL(u); t = x.hostname.replace(/^www\./, '') + (x.pathname.length > 1 ? x.pathname.slice(0, 40) : ''); } catch (e) { /* */ }
     return newSrc(t, 'sonst', { url: u });
   }
+  /* Rückfrage bei unbekanntem Format */
+  function ask(title, msg, defVal, buttons) {
+    return new Promise((ok) => {
+      const o = document.createElement('div'); o.className = 'matask';
+      o.innerHTML = `<div class="matbox" role="dialog" aria-modal="true"><h3 style="margin:0 0 6px">${esc(title)}</h3><div class="muted sm" style="margin-bottom:10px">${esc(msg)}</div><label class="f">Titel der Quelle<input id="matask-t" value="${esc(defVal)}" autocomplete="off"></label><div class="row" style="gap:8px;margin-top:14px;flex-wrap:wrap">${buttons.map((b) => `<button class="btn ${b.primary ? 'good' : ''}" data-k="${b.k}">${esc(b.label)}</button>`).join('')}</div></div>`;
+      o.addEventListener('click', (e) => { const b = e.target.closest('button[data-k]'); if (!b) return; const v = o.querySelector('#matask-t').value.trim(); o.remove(); ok({ k: b.dataset.k, v: v || defVal }); });
+      document.body.appendChild(o); o.querySelector('button').focus();
+    });
+  }
+  async function unknownFile(f) {
+    const n = f.name || 'Datei';
+    const a = await ask('Format nicht erkannt: ' + n, 'Was soll ich mit dieser Datei tun?', base(n), [
+      { k: 'file', label: 'Als Datei ablegen (nicht durchsuchbar)', primary: true }, { k: 'text', label: 'Als Text lesen (durchsuchbar)' }, { k: 'skip', label: 'Überspringen' }]);
+    if (a.k === 'skip') return null;
+    const id = newSrc(a.v, 'sonst');
+    if (a.k === 'text') {
+      const raw = (await f.text()).replace(/\u0000/g, '').replace(/\s+/g, ' ').trim();
+      if (raw.length < 20) { toast('Kein lesbarer Text gefunden. Die Datei wurde stattdessen abgelegt.'); a.k = 'file'; } else await addPages(id, [{ p: 1, t: raw }]);
+    }
+    if (a.k === 'file') { const name = id + '-' + slugify(n); await fput(QDIR + '/' + name, f); put('settings', Object.assign({}, srcOf(id), { file: QDIR + '/' + name })); }
+    return id;
+  }
   async function intake(files, text) {
     const m = M(), made = [], imgs = [];
     try {
@@ -334,7 +356,7 @@ const MAT = (() => {
         else if (/^image\//.test(f.type) || ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'].includes(ext)) imgs.push(f);
         else if (ext === 'docx') { m.busy = 'Word-Datei wird gelesen …'; render(); const id = newSrc(base(n), 'sonst'); made.push(id); await addPages(id, [{ p: 1, t: await docxText(f) }]); }
         else if (['txt', 'md', 'csv', 'html', 'htm'].includes(ext) || /^text\//.test(f.type)) { const id = newSrc(base(n), 'sonst'); made.push(id); const raw = await f.text(); await addPages(id, [{ p: 1, t: (/html?$/.test(ext) ? new DOMParser().parseFromString(raw, 'text/html').body.textContent : raw).replace(/\s+/g, ' ').trim() }]); }
-        else toast('Format nicht erkannt: ' + n);
+        else { const id = await unknownFile(f); if (id) made.push(id); }
       }
       if (imgs.length) { const id = (m.open && srcOf(m.open)) ? m.open : newSrc('Screenshots ' + today(), 'sonst'); made.push(id); await ocrImages(id, imgs); }
       const t = String(text || '').trim();
@@ -359,7 +381,7 @@ const MAT = (() => {
     const form = `<section class="card matdz" id="matdz" tabindex="0" role="button" aria-label="Dateien oder Links hineinziehen"><div class="matdzi">⬇</div><div><b>Alles hierher ziehen</b><div class="muted sm">PDF, EPUB, Word, Textdatei, Screenshot, YouTube-Link, Internetadresse oder Text. Das Format wird automatisch erkannt und die Quelle angelegt. Du kannst auch hier klicken und mit Strg+V einfügen.</div></div><input type="file" id="matdzf" multiple hidden></section>`;
     const card = (s) => {
       const id = s.id.replace(/^mat_/, '');
-      return `<section class="card" style="margin-top:12px"><div class="row" style="align-items:center;gap:8px;flex-wrap:wrap"><h2 style="margin:0">${esc(s.title)}</h2><span class="pill">${esc(TYPES[s.type] || '')}</span><span class="muted sm">${s.pages || 0} Seiten/Abschnitte</span><span style="flex:1"></span>${s.url ? `<a class="btn sm" href="${esc(s.url)}" target="_blank" rel="noopener">${isYt(s.url) ? 'Video auf YouTube' : 'Link öffnen'}</a>` : ''}${s.channelUrl ? `<a class="btn sm" href="${esc(s.channelUrl)}" target="_blank" rel="noopener">Kanal</a>` : ''}${isYt(s.url) ? `<button class="btn sm" data-act="matyt" data-id="${id}" title="Titel, Dauer und Kanal neu lesen">Infos neu</button>` : ''}${s.file ? `<a class="btn sm" href="${url(s.file, '&inline=1')}" target="_blank">PDF ansehen</a>` : ''}<button class="btn sm bad" data-act="matdel" data-id="${id}">Löschen</button></div>
+      return `<section class="card" style="margin-top:12px"><div class="row" style="align-items:center;gap:8px;flex-wrap:wrap"><h2 style="margin:0">${esc(s.title)}</h2><span class="pill">${esc(TYPES[s.type] || '')}</span><span class="muted sm">${s.pages || 0} Seiten/Abschnitte</span><span style="flex:1"></span>${s.url ? `<a class="btn sm" href="${esc(s.url)}" target="_blank" rel="noopener">${isYt(s.url) ? 'Video auf YouTube' : 'Link öffnen'}</a>` : ''}${s.channelUrl ? `<a class="btn sm" href="${esc(s.channelUrl)}" target="_blank" rel="noopener">Kanal</a>` : ''}${isYt(s.url) ? `<button class="btn sm" data-act="matyt" data-id="${id}" title="Titel, Dauer und Kanal neu lesen">Infos neu</button>` : ''}${s.file ? `<a class="btn sm" href="${url(s.file, /\.pdf$/i.test(s.file) ? '&inline=1' : '')}" target="_blank">${/\.pdf$/i.test(s.file) ? 'PDF ansehen' : 'Datei öffnen'}</a>` : ''}<button class="btn sm bad" data-act="matdel" data-id="${id}">Löschen</button></div>
       ${s.vtitle || s.channel || s.seconds != null ? `<div class="sm" style="margin-top:8px"><span class="muted">Video:</span> <b>${esc(s.vtitle || s.title)}</b>${s.seconds != null ? ` · <span class="muted">Dauer:</span> ${esc(dur(s.seconds))}` : ''}${s.channel ? ` · <span class="muted">Kanal:</span> ${s.channelUrl ? `<a href="${esc(s.channelUrl)}" target="_blank" rel="noopener">${esc(s.channel)}</a>` : esc(s.channel)}` : ''}</div>` : ''}
       <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap;align-items:flex-end">
         <label class="btn sm">PDF hochladen<input type="file" accept="application/pdf" hidden data-ch="matpdf" data-id="${id}"></label>
@@ -449,6 +471,7 @@ const MAT = (() => {
   });
   const st = document.createElement('style');
   st.textContent = `.matdz{display:flex;gap:16px;align-items:center;border:2px dashed var(--line);cursor:pointer;padding:22px 24px}.matdz:hover,.matdz.over,.matdz:focus{border-color:var(--brand,var(--accent));background:var(--accent-soft);outline:none}.matdzi{font-size:34px;line-height:1;color:var(--muted)}
+.matask{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:3000;display:grid;place-items:center;padding:16px}.matbox{background:var(--surface);color:var(--ink);border-radius:14px;padding:20px;max-width:520px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.35)}
 .matgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;margin-top:14px}
 .mattile{display:flex;flex-direction:column;gap:5px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px;cursor:pointer;color:var(--ink);font:inherit}
 .mattile:hover{box-shadow:0 4px 14px rgba(0,0,0,.12)}.mattile.on{border-color:var(--brand,var(--accent));box-shadow:0 0 0 2px var(--brand,var(--accent))}
