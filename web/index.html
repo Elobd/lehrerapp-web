@@ -722,10 +722,12 @@ async function printStudents(slug,extra,landOpt,fsOpt,gf){
   if(!dl)return toast('Drucken ist in dieser Ansicht nicht möglich. Öffne die Seite direkt in Claude.');
   let J;try{J=await loadJsPdf()}catch(e){return toast('Das PDF-Modul konnte nicht geladen werden.')}
   const build=(useFont)=>{
-  const multi=G.classes.length>1,land=!!landOpt,doc=new J({unit:'mm',format:'a4',orientation:land?'landscape':'portrait'}),L=18,R=land?279:192,PB=land?195:280,m=list.filter(x=>x.g==='m').length,w=list.filter(x=>x.g==='w').length;
-  const cols=multi?[L,L+12,L+50,L+82,L+94]:[L,L+12,L+50,L+82,0],X0=L+(multi?108:94),ew=extra.length?(R-X0)/extra.length:0;
+  const multi=G.classes.length>1,land=!!landOpt,doc=new J({unit:'mm',format:'a4',orientation:land?'landscape':'portrait'}),L=10,R=land?287:200,PB=land?195:280,m=list.filter(x=>x.g==='m').length,w=list.filter(x=>x.g==='w').length;
   let FN='helvetica';if(useFont)try{doc.addFileToVFS('SS-r.ttf',SSF.r);doc.addFont('SS-r.ttf','SourceSans','normal');doc.addFileToVFS('SS-b.ttf',SSF.b);doc.addFont('SS-b.ttf','SourceSans','bold');FN='SourceSans'}catch(e){}
   const FS=[10,12,14,16].includes(fsOpt)?fsOpt:12,RH=FS*0.625;
+  doc.setFont(FN,'normal');doc.setFontSize(FS);const tw=(t)=>doc.getTextWidth(String(t||''));
+  const wNn=Math.max(tw('Nachname'),...list.map(x=>tw(x.nn)))+4,wVn=Math.max(tw('Vorname'),...list.map(x=>tw(x.vn)))+4,wKl=multi?Math.max(tw('Klasse'),...list.map(x=>tw(x.kl)))+4:0;
+  const cols=[L,L+11,L+11+wNn,L+11+wNn+wVn,L+11+wNn+wVn+12],X0=L+11+wNn+wVn+12+wKl,ew=extra.length?(R-X0)/extra.length:0;
   let y=22;
   const head=()=>{doc.setFont(FN,'bold');doc.setFontSize(9);doc.setTextColor(90);doc.text('Nr',L,y);doc.text('Nachname',cols[1],y);doc.text('Vorname',cols[2],y);doc.text('m/w',cols[3],y);if(multi)doc.text('Klasse',cols[4],y);extra.forEach((n,k)=>{doc.text(doc.splitTextToSize(n,ew-2)[0],X0+k*ew+1.5,y);doc.setDrawColor(190);doc.line(X0+k*ew,y-5,X0+k*ew,y+2)});doc.setDrawColor(120);doc.line(L,y+2,R,y+2);y+=8;doc.setFont(FN,'normal');doc.setFontSize(FS);doc.setTextColor(0)};
   doc.setFont(FN,'bold');doc.setFontSize(18);doc.text('Schülerliste '+LT(G)+' · '+G.subject,L,y);y+=7;
@@ -824,7 +826,7 @@ function prnCols(){try{return JSON.parse(localStorage.getItem('prnCols')||'[]')}
 function prnSync(slug){const p=U.prn&&U.prn[slug];if(!p)return;const v=[...document.querySelectorAll('.pcin')].map(i=>i.value.trim());p.cols=v;try{localStorage.setItem('prnCols',JSON.stringify(v.filter(Boolean)))}catch(e){}}
 function prnPrev(G,p){
   const multi=G.classes.length>1,ex=p.cols.filter(Boolean).slice(0,8),fl=studentsSorted(G).filter(x=>!p.gf||p.gf==='all'||x.g===p.gf),list=fl.slice(0,5),more=Math.max(0,fl.length-5);
-  const fx='grid-template-columns:22px 1.3fr 1.1fr 28px'+(multi?' 32px':'')+(ex.length?' '+ex.map(()=>'minmax(0,1fr)').join(' '):'');
+  const fx='grid-template-columns:22px 72px 62px 30px'+(multi?' 36px':'')+(ex.length?' '+ex.map(()=>'minmax(0,1fr)').join(' '):'');
   const row=(c,i,h)=>`<div class="pvr${h?' pvh':''}${!h&&i%2?' z':''}" style="${fx}">${c.map((t,k)=>`<span${k>=(multi?5:4)?' class="pvx"':''}>${esc(t)}</span>`).join('')}</div>`;
   return `<div class="pv"><div class="small muted" style="margin-bottom:4px">Vorschau (${p.land?'Querformat':'Hochformat'})</div><div class="pvp ${p.land?'q':'h'}" style="font-size:${((p.fs||12)*11/12).toFixed(1)}px"><div class="pvt">Schülerliste ${LB(G)} · ${esc(G.subject)}</div>${row(['Nr','Nachname','Vorname','m/w'].concat(multi?['Klasse']:[],ex),0,1)}${list.map((x,i)=>row([i+1,x.nn,x.vn,x.g==='m'||x.g==='w'||x.g==='d'?x.g:'–'].concat(multi?[x.kl||'']:[],ex.map(()=>'')),i,0)).join('')}${more?`<div class="pvm">… und ${more} weitere</div>`:''}</div></div>`;
 }
