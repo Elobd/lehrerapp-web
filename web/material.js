@@ -30,6 +30,7 @@ const MAT = (() => {
     if (!r.ok) throw new Error(j.error || (r.status === 404 ? 'Die neue server.js fehlt auf der NAS' : 'Abruf fehlgeschlagen'));
     return j;
   }
+  const ytVid = (u) => { const m = String(u || '').match(/(?:youtu\.be\/|[?&]v=|\/(?:shorts|embed|live)\/)([\w-]{11})/); return isYt(u) && m ? m[1] : null; };
   const ytFields = (i) => ({ url: i.url, vtitle: i.title || '', channel: i.channel || '', channelUrl: i.channelUrl || '', seconds: i.seconds == null ? null : i.seconds });
 
   /* ---------- Quellen ---------- */
@@ -314,7 +315,7 @@ const MAT = (() => {
   function quellen() {
     const m = M(), list = sources();
     const form = `<section class="card"><h2>Neue Quelle</h2><div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end"><label class="f" style="min-width:220px;flex:1">Titel (bei YouTube leer lassen)<input id="matn-t" placeholder="z. B. Zeitreise 2" autocomplete="off"></label><label class="f">Art<select id="matn-k">${Object.entries(TYPES).map(([k, n]) => `<option value="${k}">${n}</option>`).join('')}</select></label><label class="f" style="min-width:220px;flex:1">Link (YouTube: Titel, Dauer, Kanal werden gelesen)<input id="matn-u" placeholder="https://www.youtube.com/watch?v=…" autocomplete="off"></label><button class="btn good" data-act="matnew">Anlegen</button></div></section>`;
-    const cards = list.map((s) => {
+    const card = (s) => {
       const id = s.id.replace(/^mat_/, '');
       return `<section class="card" style="margin-top:12px"><div class="row" style="align-items:center;gap:8px;flex-wrap:wrap"><h2 style="margin:0">${esc(s.title)}</h2><span class="pill">${esc(TYPES[s.type] || '')}</span><span class="muted sm">${s.pages || 0} Seiten/Abschnitte</span><span style="flex:1"></span>${s.url ? `<a class="btn sm" href="${esc(s.url)}" target="_blank" rel="noopener">${isYt(s.url) ? 'Video auf YouTube' : 'Link öffnen'}</a>` : ''}${s.channelUrl ? `<a class="btn sm" href="${esc(s.channelUrl)}" target="_blank" rel="noopener">Kanal</a>` : ''}${isYt(s.url) ? `<button class="btn sm" data-act="matyt" data-id="${id}" title="Titel, Dauer und Kanal neu lesen">Infos neu</button>` : ''}${s.file ? `<a class="btn sm" href="${url(s.file, '&inline=1')}" target="_blank">PDF ansehen</a>` : ''}<button class="btn sm bad" data-act="matdel" data-id="${id}">Löschen</button></div>
       ${s.vtitle || s.channel || s.seconds != null ? `<div class="sm" style="margin-top:8px"><span class="muted">Video:</span> <b>${esc(s.vtitle || s.title)}</b>${s.seconds != null ? ` · <span class="muted">Dauer:</span> ${esc(dur(s.seconds))}` : ''}${s.channel ? ` · <span class="muted">Kanal:</span> ${s.channelUrl ? `<a href="${esc(s.channelUrl)}" target="_blank" rel="noopener">${esc(s.channel)}</a>` : esc(s.channel)}` : ''}</div>` : ''}
@@ -327,8 +328,14 @@ const MAT = (() => {
       </div>
       <details style="margin-top:10px"><summary class="sm" style="cursor:pointer">Text einfügen (z. B. Transkript eines Videos, abgetippte Buchseite)</summary><textarea id="matx-${id}" rows="5" style="width:100%;margin-top:6px" placeholder="Text hier einfügen"></textarea><div class="row" style="margin-top:6px"><button class="btn sm good" data-act="mattext" data-id="${id}">Text speichern</button></div></details>
       <div class="sm" style="margin-top:8px"><span class="muted">Notiz:</span> <input class="kminp" data-ch="matnote" data-id="${id}" value="${esc(s.notes || '')}" placeholder="Notiz zur Quelle" style="width:min(520px,100%)"></div></section>`;
-    }).join('');
-    return form + (cards || '<p class="muted" style="margin-top:12px">Noch keine Quellen. Lege oben eine an und lade ein PDF hoch oder füge Screenshots ein.</p>');
+    };
+    const tile = (s) => {
+      const id = s.id.replace(/^mat_/, ''), vid = ytVid(s.url), on = m.open === id;
+      const pic = vid ? `<img src="https://i.ytimg.com/vi/${vid}/hqdefault.jpg" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<div class="matph t-${esc(s.type || 'sonst')}"><span>${esc((TYPES[s.type] || 'Quelle'))}</span></div>`;
+      return `<button class="mattile${on ? ' on' : ''}" data-act="matopen" data-id="${id}" aria-pressed="${on}" title="${esc(s.title)}"><span class="matth">${pic}${s.seconds != null ? `<b class="matdur">${esc(dur(s.seconds).replace(/ (Min|Std)$/, ''))}</b>` : ''}</span><span class="matti">${esc(s.vtitle || s.title)}</span><span class="matsub">${esc(s.channel || TYPES[s.type] || '')}${s.pages ? ' · ' + s.pages + (s.type === 'video' ? ' Textabschn.' : ' S.') : ''}</span></button>`;
+    };
+    const open = list.find((s) => s.id.replace(/^mat_/, '') === m.open);
+    return form + (list.length ? `<div class="matgrid">${list.map(tile).join('')}</div>${open ? card(open) : '<p class="muted sm" style="margin-top:10px">Klicke auf eine Quelle, um PDFs, Screenshots oder Text hinzuzufügen.</p>'}` : '<p class="muted" style="margin-top:12px">Noch keine Quellen. Lege oben eine an und lade ein PDF hoch oder füge Screenshots ein.</p>');
   }
   function suche() {
     const m = M();
@@ -351,6 +358,7 @@ const MAT = (() => {
 
   /* ---------- Aktionen ---------- */
   Object.assign(A, {
+    matopen: (e) => { const m = M(); m.open = m.open === e.dataset.id ? null : e.dataset.id; render(); },
     mattab: (e) => { M().tab = e.dataset.t; if (e.dataset.t === 'ordner') M().files = null; render(); },
     matnew: async () => {
       let t = (document.getElementById('matn-t').value || '').trim(), u = (document.getElementById('matn-u').value || '').trim(), k = document.getElementById('matn-k').value, extra = {};
@@ -361,6 +369,7 @@ const MAT = (() => {
       }
       if (!t) return toast(u ? 'Titel konnte nicht gelesen werden, bitte einen Titel eingeben' : 'Bitte einen Titel eingeben');
       const id = Date.now().toString(36); put('settings', Object.assign({ id: 'mat_' + id, title: t, type: k, url: u, added: Date.now(), pages: 0 }, extra));
+      M().open = id;
       toast(extra.vtitle ? 'Quelle angelegt: ' + (extra.channel ? extra.channel + ', ' : '') + dur(extra.seconds) : 'Quelle angelegt');
       render();
     },
@@ -369,7 +378,7 @@ const MAT = (() => {
       try { put('settings', Object.assign({}, s, ytFields(await ytFetch(s.url)))); toast('Infos aktualisiert'); } catch (x) { toast('Nicht abrufbar: ' + (x.message || x)); }
       m.busy = ''; render();
     },
-    matdel: async (e) => { const s = srcOf(e.dataset.id); if (!s || !confirm('Quelle „' + s.title + '“ mit allen Texten löschen?')) return; await fdel(QDIR + '/' + e.dataset.id + '.json'); if (s.file) await fdel(s.file); if (s.epub) await fdel(s.epub); delete T[e.dataset.id]; del('settings', 'mat_' + e.dataset.id); render(); },
+    matdel: async (e) => { const s = srcOf(e.dataset.id); if (!s || !confirm('Quelle „' + s.title + '“ mit allen Texten löschen?')) return; await fdel(QDIR + '/' + e.dataset.id + '.json'); if (s.file) await fdel(s.file); if (s.epub) await fdel(s.epub); delete T[e.dataset.id]; del('settings', 'mat_' + e.dataset.id); M().open = null; render(); },
     mattext: async (e) => { const id = e.dataset.id, ta = document.getElementById('matx-' + id), txt = (ta.value || '').replace(/\s+/g, ' ').trim(); if (!txt) return; await addPages(id, [{ p: await nextPage(id), t: txt }]); ta.value = ''; toast('Text gespeichert'); render(); },
     matsearch: () => { const m = M(); m.q = document.getElementById('matq').value; search(); },
     matpick: (e) => { const m = M(), r = m.res[+e.dataset.i]; if (!r) return; const a = Math.max(0, r.first - 200); m.sel.push({ ref: r.title + ', ' + (r.h || 'S. ' + r.p), t: r.t.slice(a, a + 1500) }); toast('Übernommen'); render(); },
@@ -399,5 +408,14 @@ const MAT = (() => {
     const files = [...(e.clipboardData ? e.clipboardData.files : [])].filter((f) => /^image\//.test(f.type)); if (!files.length) return;
     e.preventDefault(); ocrImages(z.dataset.pz, files);
   });
+  const st = document.createElement('style');
+  st.textContent = `.matgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;margin-top:14px}
+.mattile{display:flex;flex-direction:column;gap:5px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px;cursor:pointer;color:var(--ink);font:inherit}
+.mattile:hover{box-shadow:0 4px 14px rgba(0,0,0,.12)}.mattile.on{border-color:var(--brand,var(--accent));box-shadow:0 0 0 2px var(--brand,var(--accent))}
+.matth{position:relative;display:block;aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:var(--surface2)}.matth img{width:100%;height:100%;object-fit:cover;display:block}
+.matph{width:100%;height:100%;display:grid;place-items:center;font:700 15px var(--font-head);color:#fff;background:#6b7280}.matph.t-buch{background:#587f0e}.matph.t-pdf{background:#b3261e}.matph.t-sonst{background:#6e7480}
+.matdur{position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.78);color:#fff;border-radius:5px;padding:1px 6px;font:700 12px var(--font-body)}
+.matti{font:700 14px/1.25 var(--font-body);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.matsub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}`;
+  document.head.appendChild(st);
   return { view };
 })();
