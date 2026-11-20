@@ -306,6 +306,48 @@ const MAT = (() => {
     return b;
   }
 
+  /* ---------- Alles-in-einem-Feld: Format erkennen und Quelle anlegen ---------- */
+  const newSrc = (title, type, extra) => { const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5); put('settings', Object.assign({ id: 'mat_' + id, title, type, url: '', added: Date.now(), pages: 0 }, extra || {})); return id; };
+  const base = (n) => n.replace(/\.[^.]+$/, '');
+  async function docxText(file) {
+    const Z = await loadZip(), z = await Z.loadAsync(await file.arrayBuffer()), f = z.file('word/document.xml'); if (!f) throw new Error('keine gültige Word-Datei');
+    const x = await f.async('string');
+    return x.replace(/<\/w:p>/g, ' ').replace(/<w:tab\/>/g, ' ').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/\s+/g, ' ').trim();
+  }
+  async function addLink(u) {
+    const m = M();
+    if (isYt(u)) {
+      m.busy = 'YouTube-Infos werden geholt …'; render(); let extra = {}, t = '';
+      try { const i = await ytFetch(u); extra = ytFields(i); t = i.title || ''; } catch (e) { toast('YouTube-Infos nicht abrufbar: ' + (e.message || e)); }
+      return newSrc(t || u, 'video', Object.assign({ url: u }, extra));
+    }
+    let t = u; try { const x = new URL(u); t = x.hostname.replace(/^www\./, '') + (x.pathname.length > 1 ? x.pathname.slice(0, 40) : ''); } catch (e) { /* */ }
+    return newSrc(t, 'sonst', { url: u });
+  }
+  async function intake(files, text) {
+    const m = M(), made = [], imgs = [];
+    try {
+      for (const f of files || []) {
+        const n = f.name || '', ext = (n.match(/\.([^.]+)$/) || [])[1] ? n.match(/\.([^.]+)$/)[1].toLowerCase() : '';
+        if (ext === 'pdf' || f.type === 'application/pdf') { const id = newSrc(base(n), 'pdf'); made.push(id); await importPdf(id, f); }
+        else if (ext === 'epub') { const id = newSrc(base(n), 'buch'); made.push(id); await importEpub(id, f); }
+        else if (/^image\//.test(f.type) || ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'].includes(ext)) imgs.push(f);
+        else if (ext === 'docx') { m.busy = 'Word-Datei wird gelesen …'; render(); const id = newSrc(base(n), 'sonst'); made.push(id); await addPages(id, [{ p: 1, t: await docxText(f) }]); }
+        else if (['txt', 'md', 'csv', 'html', 'htm'].includes(ext) || /^text\//.test(f.type)) { const id = newSrc(base(n), 'sonst'); made.push(id); const raw = await f.text(); await addPages(id, [{ p: 1, t: (/html?$/.test(ext) ? new DOMParser().parseFromString(raw, 'text/html').body.textContent : raw).replace(/\s+/g, ' ').trim() }]); }
+        else toast('Format nicht erkannt: ' + n);
+      }
+      if (imgs.length) { const id = (m.open && srcOf(m.open)) ? m.open : newSrc('Screenshots ' + today(), 'sonst'); made.push(id); await ocrImages(id, imgs); }
+      const t = String(text || '').trim();
+      if (t) {
+        const urls = t.split(/\s+/).filter((x) => /^https?:\/\/\S+$/i.test(x));
+        if (urls.length && urls.length === t.split(/\s+/).length) { for (const u of urls) made.push(await addLink(u)); }
+        else { const id = newSrc(t.replace(/\s+/g, ' ').slice(0, 50) + (t.length > 50 ? ' …' : ''), 'sonst'); made.push(id); await addPages(id, [{ p: 1, t: t.replace(/\s+/g, ' ') }]); }
+      }
+    } catch (e) { toast('Fehler: ' + (e.message || e)); }
+    m.busy = ''; if (made.length) { m.open = made[made.length - 1]; toast(made.length + (made.length === 1 ? ' Quelle angelegt' : ' Quellen angelegt')); }
+    render();
+  }
+
   /* ---------- Ansicht ---------- */
   function view() {
     const m = M(), tabs = [['quellen', 'Quellen'], ['suche', 'Suchen und Erstellen'], ['ordner', 'Ordner']];
@@ -314,7 +356,7 @@ const MAT = (() => {
   }
   function quellen() {
     const m = M(), list = sources();
-    const form = `<section class="card"><h2>Neue Quelle</h2><div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end"><label class="f" style="min-width:220px;flex:1">Titel (bei YouTube leer lassen)<input id="matn-t" placeholder="z. B. Zeitreise 2" autocomplete="off"></label><label class="f">Art<select id="matn-k">${Object.entries(TYPES).map(([k, n]) => `<option value="${k}">${n}</option>`).join('')}</select></label><label class="f" style="min-width:220px;flex:1">Link (YouTube: Titel, Dauer, Kanal werden gelesen)<input id="matn-u" placeholder="https://www.youtube.com/watch?v=…" autocomplete="off"></label><button class="btn good" data-act="matnew">Anlegen</button></div></section>`;
+    const form = `<section class="card matdz" id="matdz" tabindex="0" role="button" aria-label="Dateien oder Links hineinziehen"><div class="matdzi">⬇</div><div><b>Alles hierher ziehen</b><div class="muted sm">PDF, EPUB, Word, Textdatei, Screenshot, YouTube-Link, Internetadresse oder Text. Das Format wird automatisch erkannt und die Quelle angelegt. Du kannst auch hier klicken und mit Strg+V einfügen.</div></div><input type="file" id="matdzf" multiple hidden></section>`;
     const card = (s) => {
       const id = s.id.replace(/^mat_/, '');
       return `<section class="card" style="margin-top:12px"><div class="row" style="align-items:center;gap:8px;flex-wrap:wrap"><h2 style="margin:0">${esc(s.title)}</h2><span class="pill">${esc(TYPES[s.type] || '')}</span><span class="muted sm">${s.pages || 0} Seiten/Abschnitte</span><span style="flex:1"></span>${s.url ? `<a class="btn sm" href="${esc(s.url)}" target="_blank" rel="noopener">${isYt(s.url) ? 'Video auf YouTube' : 'Link öffnen'}</a>` : ''}${s.channelUrl ? `<a class="btn sm" href="${esc(s.channelUrl)}" target="_blank" rel="noopener">Kanal</a>` : ''}${isYt(s.url) ? `<button class="btn sm" data-act="matyt" data-id="${id}" title="Titel, Dauer und Kanal neu lesen">Infos neu</button>` : ''}${s.file ? `<a class="btn sm" href="${url(s.file, '&inline=1')}" target="_blank">PDF ansehen</a>` : ''}<button class="btn sm bad" data-act="matdel" data-id="${id}">Löschen</button></div>
@@ -324,7 +366,7 @@ const MAT = (() => {
         <label class="btn sm">EPUB hochladen<input type="file" accept=".epub,application/epub+zip" hidden data-ch="matepub" data-id="${id}"></label>
         <label class="f" style="width:84px">Ab Seite<input id="matpg-${id}" type="number" min="1" placeholder="auto"></label>
         <label class="btn sm">Screenshot(s) wählen<input type="file" accept="image/*" multiple hidden data-ch="matimg" data-id="${id}"></label>
-        <div class="matpz" tabindex="0" data-pz="${id}" style="border:2px dashed var(--line);border-radius:10px;padding:8px 14px;cursor:text;color:var(--muted)">Hier klicken, dann Strg+V (Screenshot einfügen)</div>
+        <span class="muted sm">Screenshots kannst du auch mit Strg+V einfügen, solange diese Quelle geöffnet ist.</span>
       </div>
       <details style="margin-top:10px"><summary class="sm" style="cursor:pointer">Text einfügen (z. B. Transkript eines Videos, abgetippte Buchseite)</summary><textarea id="matx-${id}" rows="5" style="width:100%;margin-top:6px" placeholder="Text hier einfügen"></textarea><div class="row" style="margin-top:6px"><button class="btn sm good" data-act="mattext" data-id="${id}">Text speichern</button></div></details>
       <div class="sm" style="margin-top:8px"><span class="muted">Notiz:</span> <input class="kminp" data-ch="matnote" data-id="${id}" value="${esc(s.notes || '')}" placeholder="Notiz zur Quelle" style="width:min(520px,100%)"></div></section>`;
@@ -360,19 +402,6 @@ const MAT = (() => {
   Object.assign(A, {
     matopen: (e) => { const m = M(); m.open = m.open === e.dataset.id ? null : e.dataset.id; render(); },
     mattab: (e) => { M().tab = e.dataset.t; if (e.dataset.t === 'ordner') M().files = null; render(); },
-    matnew: async () => {
-      let t = (document.getElementById('matn-t').value || '').trim(), u = (document.getElementById('matn-u').value || '').trim(), k = document.getElementById('matn-k').value, extra = {};
-      if (isYt(u)) {
-        k = 'video'; const m = M(); m.busy = 'YouTube-Infos werden geholt …'; render();
-        try { const i = await ytFetch(u); extra = ytFields(i); if (!t) t = i.title || ''; } catch (e) { toast('YouTube-Infos nicht abrufbar: ' + (e.message || e)); }
-        m.busy = '';
-      }
-      if (!t) return toast(u ? 'Titel konnte nicht gelesen werden, bitte einen Titel eingeben' : 'Bitte einen Titel eingeben');
-      const id = Date.now().toString(36); put('settings', Object.assign({ id: 'mat_' + id, title: t, type: k, url: u, added: Date.now(), pages: 0 }, extra));
-      M().open = id;
-      toast(extra.vtitle ? 'Quelle angelegt: ' + (extra.channel ? extra.channel + ', ' : '') + dur(extra.seconds) : 'Quelle angelegt');
-      render();
-    },
     matyt: async (e) => {
       const s = srcOf(e.dataset.id); if (!s || !s.url) return; const m = M(); m.busy = 'YouTube-Infos werden geholt …'; render();
       try { put('settings', Object.assign({}, s, ytFields(await ytFetch(s.url)))); toast('Infos aktualisiert'); } catch (x) { toast('Nicht abrufbar: ' + (x.message || x)); }
@@ -402,14 +431,25 @@ const MAT = (() => {
     mattpl: async (e) => { const f = e.files[0]; if (!f) return; try { await fput(TPL, f); M().tpl = true; toast('Vorlage gespeichert'); } catch (x) { toast('Fehler: ' + x.message); } e.value = ''; render(); },
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target && e.target.id === 'matq') { e.preventDefault(); A.matsearch(); } });
-  document.addEventListener('click', (e) => { const z = e.target.closest && e.target.closest('.matpz'); if (z) { U.matTarget = z.dataset.pz; z.focus(); z.textContent = 'Bereit: jetzt Strg+V drücken'; } });
+  const inView = () => U.view === 'material' && M().tab === 'quellen';
+  const zone = (e) => e.target && e.target.closest && e.target.closest('#matdz');
+  document.addEventListener('click', (e) => { if (zone(e) && !(e.target.tagName === 'INPUT')) { const f = document.getElementById('matdzf'); if (f) f.click(); } });
+  document.addEventListener('change', (e) => { if (e.target && e.target.id === 'matdzf') { const f = [...e.target.files]; e.target.value = ''; intake(f, ''); } });
+  document.addEventListener('dragover', (e) => { if (inView() && zone(e)) { e.preventDefault(); zone(e).classList.add('over'); } });
+  document.addEventListener('dragleave', (e) => { const z = zone(e); if (z) z.classList.remove('over'); });
+  document.addEventListener('drop', (e) => {
+    if (!inView()) return; const z = zone(e); if (!z) return; e.preventDefault(); z.classList.remove('over');
+    const dt = e.dataTransfer, files = [...(dt.files || [])], text = files.length ? '' : (dt.getData('text/uri-list') || dt.getData('text/plain') || '').split('\n').filter((l) => l && l[0] !== '#').join(' ');
+    intake(files, text);
+  });
   document.addEventListener('paste', (e) => {
-    const z = document.activeElement && document.activeElement.closest && document.activeElement.closest('.matpz'); if (!z) return;
-    const files = [...(e.clipboardData ? e.clipboardData.files : [])].filter((f) => /^image\//.test(f.type)); if (!files.length) return;
-    e.preventDefault(); ocrImages(z.dataset.pz, files);
+    if (!inView()) return; const ae = document.activeElement; if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return;
+    const files = [...(e.clipboardData ? e.clipboardData.files : [])], text = e.clipboardData ? e.clipboardData.getData('text/plain') : '';
+    if (!files.length && !text.trim()) return; e.preventDefault(); intake(files, text);
   });
   const st = document.createElement('style');
-  st.textContent = `.matgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;margin-top:14px}
+  st.textContent = `.matdz{display:flex;gap:16px;align-items:center;border:2px dashed var(--line);cursor:pointer;padding:22px 24px}.matdz:hover,.matdz.over,.matdz:focus{border-color:var(--brand,var(--accent));background:var(--accent-soft);outline:none}.matdzi{font-size:34px;line-height:1;color:var(--muted)}
+.matgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;margin-top:14px}
 .mattile{display:flex;flex-direction:column;gap:5px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px;cursor:pointer;color:var(--ink);font:inherit}
 .mattile:hover{box-shadow:0 4px 14px rgba(0,0,0,.12)}.mattile.on{border-color:var(--brand,var(--accent));box-shadow:0 0 0 2px var(--brand,var(--accent))}
 .matth{position:relative;display:block;aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:var(--surface2)}.matth img{width:100%;height:100%;object-fit:cover;display:block}
