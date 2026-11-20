@@ -773,13 +773,28 @@ const MAT = (() => {
     if (id && srcOf(id)) { e.preventDefault(); A.matdel({ dataset: { id } }); }
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target && e.target.id === 'matq') { e.preventDefault(); A.matsearch(); } });
+  /* PDF originalgetreu (mit Bildern, Layout) Seite für Seite anzeigen */
+  async function showPdf(o, file, title) {
+    const box = o.querySelector('.matpdfs'), zl = o.querySelector('[data-zl]'), pgl = o.querySelector('[data-pg]'); let zoom = 1, doc;
+    try { const lib = await loadPdfJs(); doc = await lib.getDocument({ url: url(file), withCredentials: true }).promise; } catch (e) { box.innerHTML = `<div class="matnote err"><span>PDF konnte nicht angezeigt werden: ${esc(e.message || e)}</span></div>`; return; }
+    const first = await doc.getPage(1), v1 = first.getViewport({ scale: 1 }), dpr = Math.min(2, window.devicePixelRatio || 1);
+    const build = () => {
+      box.innerHTML = ''; const w = Math.min(box.clientWidth - 24, 1000) * zoom, sc = w / v1.width, ph = [];
+      const io = new IntersectionObserver((ents) => ents.forEach((en) => { if (en.isIntersecting) { const i = +en.target.dataset.i; if (!en.target.dataset.done) { en.target.dataset.done = '1'; draw(en.target, i, sc); } pgl.textContent = 'Seite ' + i + ' von ' + doc.numPages; } }), { root: box, rootMargin: '300px' });
+      for (let i = 1; i <= doc.numPages; i++) { const d = document.createElement('div'); d.className = 'matpdfpg'; d.dataset.i = i; d.style.width = w + 'px'; d.style.height = Math.round(v1.height * sc) + 'px'; box.appendChild(d); io.observe(d); }
+      zl.textContent = Math.round(zoom * 100) + ' %';
+    };
+    const draw = async (el, i, sc) => { try { const pg = await doc.getPage(i), vp = pg.getViewport({ scale: sc * dpr }), cv = document.createElement('canvas'); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height); cv.style.width = '100%'; cv.style.height = '100%'; await pg.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise; el.style.height = ''; el.appendChild(cv); } catch (e) { el.textContent = 'Seite ' + i + ' konnte nicht gezeigt werden'; } };
+    o.querySelector('.matpdftb').addEventListener('click', (e) => { const b = e.target.closest('[data-z]'); if (!b) return; zoom = Math.max(0.5, Math.min(3, zoom + (b.dataset.z === '+' ? 0.25 : -0.25))); build(); });
+    build();
+  }
   /* Doppelklick auf eine Kachel: Quelle als Pop-up öffnen */
   async function popup(id) {
     const s = srcOf(id); if (!s) return;
     const o = document.createElement('div'); o.className = 'matask'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true');
     const kind = kindOf(s); let body = '';
     if (kind === 'video' && s.file && !(s.dl && s.dl.file) && /\.(mp4|m4v|mov|webm|mkv)$/i.test(s.file)) body = `<video controls autoplay src="${url(s.file, '&inline=1')}" style="width:100%;height:100%;background:#000"></video>`;
-    else if (kind === 'pdf' && s.file) body = `<iframe src="${url(s.file, '&inline=1')}" title="${esc(s.title)}" style="width:100%;height:100%;border:0;background:#fff"></iframe>`;
+    else if (kind === 'pdf' && s.file) body = `<div class="matpdf"><div class="matpdftb"><button class="btn sm" data-z="-" aria-label="Verkleinern">−</button><span class="muted sm" data-zl>100 %</span><button class="btn sm" data-z="+" aria-label="Vergrößern">+</button><span class="muted sm" data-pg style="margin-left:10px"></span><span style="flex:1"></span><a class="btn sm" href="${url(s.file, '&inline=1')}" target="_blank" rel="noopener">In neuem Tab öffnen</a></div><div class="matpdfs">⏳ PDF wird geladen …</div></div>`;
     else if (kind === 'video' && s.dl && s.dl.state === 'done' && s.dl.file) body = `<video controls autoplay src="${url(s.dl.file, '&inline=1')}" style="width:100%;height:100%;background:#000"></video>`;
     else {
       const t = await textOf(id), vid = ytVid(s.url);
@@ -792,6 +807,7 @@ const MAT = (() => {
     const esc1 = (e) => { if (e.key === 'Escape') close(); };
     o.addEventListener('click', (e) => { if (e.target === o || e.target.closest('[data-x]')) close(); });
     document.addEventListener('keydown', esc1); document.body.appendChild(o);
+    if (kind === 'pdf' && s.file) showPdf(o, s.file, s.title);
   }
   const inView = () => U.view === 'material';
   const zone = (e) => e.target && e.target.closest && e.target.closest('#matdz');
@@ -819,6 +835,7 @@ const MAT = (() => {
 .matnote{display:flex;gap:10px;align-items:flex-start;border-radius:10px;padding:10px 14px;margin:-4px 0 12px;font:600 14px var(--font-body)}.matnote.err{background:var(--bad-soft);color:var(--bad)}.matnote.ok{background:var(--good-soft);color:var(--good)}.matnote span{flex:1}.matnote button{border:0;background:transparent;color:inherit;font:700 18px/1 var(--font-body);cursor:pointer}
 .matinw{position:relative;display:block}.matinw input{padding-right:30px!important}.matclr{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:var(--surface2);color:var(--muted);width:22px;height:22px;border-radius:50%;cursor:pointer;font:700 15px/1 var(--font-body);display:grid;place-items:center;padding:0}.matclr:hover{background:var(--bad-soft);color:var(--bad)}
 .mattag.hq{padding:0 2px 0 4px}.mattag.hq button:first-child{padding:2px 6px 2px 4px;font:600 12px var(--font-body)}.mattag.hq button{color:inherit}
+.matpdf{display:flex;flex-direction:column;height:100%}.matpdftb{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--line);background:var(--surface2)}.matpdfs{flex:1;overflow:auto;background:#6b7280;padding:12px;text-align:center;color:#fff}.matpdfpg{margin:0 auto 12px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.35)}.matpdfpg canvas{display:block}
 .matbig{max-width:1100px;width:96vw;height:88vh;display:flex;flex-direction:column}.matview{flex:1;min-height:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
 .matcc{position:absolute;left:6px;top:6px;background:rgba(255,255,255,.9);color:#222;border-radius:5px;padding:0 5px;font:700 10px var(--font-body)}
 .matdraft{margin-top:12px}.matdgrid{display:grid;grid-template-columns:190px minmax(0,1fr);gap:16px;align-items:start}.matdpic{aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:var(--surface2)}.matdpic img{width:100%;height:100%;object-fit:cover;display:block}
