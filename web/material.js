@@ -688,7 +688,7 @@ const MAT = (() => {
     const view = m.view || 'liste';
     const rows = shown.map((s, i) => {
       const id = s.id.replace(/^mat_/, ''), on = m.open === id;
-      return `<div class="kmrow kmgo${on ? ' matsel' : ''}" data-act="matpop" data-id="${id}" tabindex="0" role="link"><span class="kmno">${i + 1}</span><span class="matth2">${thumbOf(s)}</span><span class="kmnm"><b>${esc(s.vtitle || s.title)}</b><small class="muted"> ${esc(s.channel || s.author || '')}</small>${clsAll(s).map((x) => `<span class="mattag mini">${esc(x)}</span>`).join('')}</span><span class="matc">${esc((KINDS.find(([k]) => k === kindOf(s)) || [0, ''])[1])}${s.dl && s.dl.state === 'done' ? ' <b class="matnas2">NAS</b>' : ''}</span><span class="matc chips2">${epTags(s)}</span><span class="matc">${esc(umfang(s))}</span><button class="matedit2" data-act="matopen" data-id="${id}" aria-expanded="${on}" aria-label="Bearbeiten" title="Bearbeiten"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button></div>`;
+      return `<div class="kmrow kmgo${on ? ' matsel' : ''}" data-act="matpop" data-id="${id}" tabindex="0" role="link"><span class="kmno">${i + 1}</span><span class="matth2">${thumbOf(s)}</span><span class="kmnm">${m.editT === id ? `<input class="matin matte" id="mat-ti-${id}" data-act="matnop" data-ch="mattitlein" data-id="${id}" value="${esc(s.vtitle || s.title)}">` : `<b class="mattitle" data-act="mattitleclick" data-id="${id}" title="Klick: öffnen · Doppelklick: umbenennen">${esc(s.vtitle || s.title)}</b>`}<small class="muted"> ${esc(s.channel || s.author || '')}</small>${clsAll(s).map((x) => `<span class="mattag mini">${esc(x)}</span>`).join('')}</span><span class="matc matpick" data-act="matkindmenu" data-id="${id}" title="Art ändern">${esc((KINDS.find(([k]) => k === kindOf(s)) || [0, ''])[1])}${s.dl && s.dl.state === 'done' ? ' <b class="matnas2">NAS</b>' : ''}</span><span class="matc chips2 matpick" data-act="matepmenu" data-id="${id}" title="Epoche ändern">${epTags(s)}</span><span class="matc">${esc(umfang(s))}</span><button class="matedit2" data-act="matopen" data-id="${id}" aria-expanded="${on}" aria-label="Bearbeiten" title="Bearbeiten"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button></div>`;
     }).join('');
     const tile = (s) => { const id = s.id.replace(/^mat_/, ''), on = m.open === id, e0 = tagsOf(s).epoche[0]; return `<div class="mattile${on ? ' on' : ''}${e0 ? ' hasep' : ''}"${epS(e0)}><button class="matmain" data-act="matpop" data-id="${id}" title="Öffnen: ${esc(s.title)}"><span class="matth">${thumbOf(s, true)}${s.dl && s.dl.state === 'done' ? '<b class="matnas" title="Video liegt auf der NAS">NAS</b>' : ''}${s.seconds != null ? `<b class="matdur">${esc(dur(s.seconds).replace(/ (Min|Std)$/, ''))}</b>` : ''}</span><span class="matti">${esc(s.vtitle || s.title)}</span><span class="matsub">${epTags(s)}</span></button><button class="matedit" data-act="matopen" data-id="${id}" aria-expanded="${on}" aria-label="Bearbeiten" title="Bearbeiten"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button></div>`; };
     const body = !list.length ? '<p class="muted" style="margin:0">Noch keine Quellen. Ziehe oben ein PDF, ein Video oder einen YouTube-Link hinein.</p>'
@@ -734,6 +734,15 @@ const MAT = (() => {
     matgdel: (e) => { const g = groups().map((x) => Object.assign({}, x, { items: x.items.slice() })), gr = g.find((x) => x.id === e.dataset.g); if (!gr) return; gr.items = gr.items.filter((x) => x !== e.dataset.v); saveGroups(g); render(); },
     matgrpadd: () => { const n = (prompt('Name der neuen Einteilung (z. B. „Schwierigkeit“):') || '').trim(); if (!n) return; const g = groups().map((x) => Object.assign({}, x, { items: x.items.slice() })); g.push({ id: 'g' + Date.now().toString(36), name: n, multi: true, items: [], custom: true }); saveGroups(g); render(); },
     matgrpdel: (e) => { const gr = groups().find((x) => x.id === e.dataset.g); if (!gr || !confirm('Einteilung „' + gr.name + '“ löschen? Bereits gesetzte Angaben bleiben an den Quellen gespeichert.')) return; saveGroups(groups().filter((x) => x.id !== e.dataset.g)); render(); },
+    matnop: () => {},
+    mattitleclick: (e) => {
+      const m = M(), id = e.dataset.id, now = Date.now();
+      if (m.tclk && m.tclk.id === id && now - m.tclk.t < 380) { clearTimeout(m.tclk.timer); m.tclk = null; m.editT = id; render(); setTimeout(() => { const i = document.getElementById('mat-ti-' + id); if (i) { i.focus(); i.select(); } }, 30); return; }
+      if (m.tclk) clearTimeout(m.tclk.timer);
+      m.tclk = { id, t: now, timer: setTimeout(() => { m.tclk = null; popup(id); }, 330) };
+    },
+    matkindmenu: (e) => { const id = e.dataset.id, s = srcOf(id); if (!s) return; openMenu(e, `<div class="matmt">Art ändern</div>${kindsOrdered().map(([k, n]) => `<button class="matmi${kindOf(s) === k ? ' on' : ''}" data-pick="${k}">${esc(n)}</button>`).join('')}`, (k) => { put('settings', Object.assign({}, srcOf(id), { kind: k })); render(); }); },
+    matepmenu: (e) => { const id = e.dataset.id, s = srcOf(id); if (!s) return; const cur = tagsOf(s).epoche; openMenu(e, `<div class="matmt">Epoche wählen</div>${EPOCHS.map((x) => `<button class="matmi${cur.includes(x) ? ' on' : ''}" data-pick="${esc(x)}"><i class="matdot" style="background:${EPCOL[x]}"></i>${esc(x)}${cur.includes(x) ? ' ✓' : ''}</button>`).join('')}`, (x) => A.mattoggle({ dataset: { id, t: x } })); },
     matkind: (e) => { const s = srcOf(e.dataset.id); if (s) { put('settings', Object.assign({}, s, { kind: e.dataset.v })); render(); } },
     mdkind: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d); if (d) { d.art = e.dataset.v; render(); } },
     matgoogle: (e) => { const s = srcOf(e.dataset.id); if (!s) return; googleImg(((s.vtitle || s.title || '') + ' ' + (tagsOf(s).epoche[0] || '')).trim()); },
@@ -792,6 +801,7 @@ const MAT = (() => {
     mdnew: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d), v = e.value.trim(); if (!d || !v) return; if (!d.tg.includes(v)) d.tg.push(v); e.value = ''; render(); },
     matatag: (e) => { const v = e.value.trim(); if (!v) return; const s = srcOf(e.dataset.id); if (!s) return; put('settings', Object.assign({}, s, { man: [...new Set((s.man || []).concat(v)) ], hid: (s.hid || []).filter((x) => x !== v) })); e.value = ''; render(); },
     matfq: (e) => { filterOf().q = e.value; render(); },
+    mattitlein: (e) => { const s = srcOf(e.dataset.id), v = e.value.trim(); M().editT = null; if (s && v) put('settings', Object.assign({}, s, s.vtitle ? { vtitle: v, title: v } : { title: v })); render(); },
     matgnew: (e) => { const v = e.value.trim(); if (!v) return; const g = groups().map((x) => Object.assign({}, x, { items: x.items.slice() })), gr = g.find((x) => x.id === e.dataset.g); if (!gr) return; if (!gr.items.includes(v)) gr.items.push(v); saveGroups(g); e.value = ''; render(); },
     matakey: (e) => { const v = e.value.trim(); if (!v) return; const s = srcOf(e.dataset.id); if (!s) return; put('settings', Object.assign({}, s, { mankeys: [...new Set((s.mankeys || []).concat(v))], hid: (s.hid || []).filter((x) => x !== v) })); e.value = ''; render(); },
     mdkey: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d), v = e.value.trim(); if (!d || !v) return; if (!d.keys.includes(v)) d.keys.push(v); e.value = ''; render(); },
@@ -849,6 +859,21 @@ const MAT = (() => {
   }
   const inView = () => U.view === 'material';
   /* Symbole der Seitenleiste per Drag-and-Drop anordnen (wird auf allen Geräten gespeichert) */
+  /* kleines Auswahlmenü an einer Zelle (Art, Epoche) */
+  let menuEl = null;
+  const closeMenu = () => { if (menuEl) { menuEl.remove(); menuEl = null; } };
+  function openMenu(el, html, pick) {
+    closeMenu(); const r = el.getBoundingClientRect(), m = document.createElement('div'); m.className = 'matmenu'; m.innerHTML = html;
+    m.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 240)) + 'px'; m.style.top = Math.min(r.bottom + 4, window.innerHeight - 300) + 'px';
+    m.addEventListener('click', (ev) => { const b = ev.target.closest('[data-pick]'); if (b) { const v = b.dataset.pick; closeMenu(); pick(v); } });
+    document.body.appendChild(m); menuEl = m;
+  }
+  document.addEventListener('click', (e) => { if (menuEl && !menuEl.contains(e.target)) closeMenu(); }, true);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeMenu();
+    if (e.target && e.target.classList && e.target.classList.contains('matte')) { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } if (e.key === 'Escape') { M().editT = null; render(); } }
+  });
+  document.addEventListener('focusout', (e) => { if (e.target && e.target.classList && e.target.classList.contains('matte')) setTimeout(() => { if (M().editT) { M().editT = null; render(); } }, 120); });
   let kdrag = null;
   const kicon = (e) => e.target && e.target.closest && e.target.closest('.kmside .kmicon[data-k], .matkindchip');
   document.addEventListener('dragstart', (e) => { const k = inView() && kicon(e); if (!k) return; kdrag = k.dataset.k; k.classList.add('drag'); try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', kdrag); } catch (x) { /* */ } });
@@ -897,14 +922,17 @@ const MAT = (() => {
     const all = groups().map((x) => Object.assign({}, x, { items: x.items.slice() })), gr = all.find((x) => x.id === gid); if (!gr) return;
     const fi = gr.items.indexOf(from), ti = gr.items.indexOf(to); gr.items.splice(fi, 1); gr.items.splice(ti, 0, from); saveGroups(all); render();
   }, true);
+  document.addEventListener('dragleave', (e) => { const row = e.target.closest && e.target.closest('.imgover'); if (row && !row.contains(e.relatedTarget)) row.classList.remove('imgover'); });
   document.addEventListener('dragend', () => { gdrag = null; document.querySelectorAll('.matgi.drag,.matgi.over').forEach((x) => x.classList.remove('drag', 'over')); kdrag = null; document.querySelectorAll('.kmicon.drag,.kmicon.over,.matkindchip.drag,.matkindchip.over').forEach((x) => x.classList.remove('drag', 'over')); });
   const zone = (e) => e.target && e.target.closest && e.target.closest('#matdz');
   document.addEventListener('click', (e) => { const pz = e.target.closest && e.target.closest('.matpz'); if (pz) { pz.focus(); return; } if (zone(e) && !(e.target.tagName === 'INPUT')) { const f = document.getElementById('matdzf'); if (f) f.click(); } });
   document.addEventListener('change', (e) => { if (e.target && e.target.id === 'matdzf') { const f = [...e.target.files]; e.target.value = ''; intake(f, ''); } });
-  document.addEventListener('dragover', (e) => { if (inView() && e.target.closest && e.target.closest('.matpz')) { e.preventDefault(); e.target.closest('.matpz').classList.add('over'); return; } if (inView() && zone(e)) { e.preventDefault(); zone(e).classList.add('over'); } });
+  const rowImg = (e) => { if (!inView() || kdrag || gdrag || rdrag || !e.target.closest) return null; const row = e.target.closest('.kmrow[data-id], .mattile'); if (!row) return null; const t = [...(e.dataTransfer ? e.dataTransfer.types : [])]; if (!(t.includes('Files') || t.includes('text/uri-list') || t.includes('text/html'))) return null; return row; };
+  const rowId = (row) => row.dataset.id || (row.querySelector('.matmain') || {dataset: {}}).dataset.id;
+  document.addEventListener('dragover', (e) => { const row = rowImg(e); if (row) { e.preventDefault(); document.querySelectorAll('.imgover').forEach((x) => x.classList.remove('imgover')); row.classList.add('imgover'); return; } if (inView() && e.target.closest && e.target.closest('.matpz')) { e.preventDefault(); e.target.closest('.matpz').classList.add('over'); return; } if (inView() && zone(e)) { e.preventDefault(); zone(e).classList.add('over'); } });
   document.addEventListener('dragleave', (e) => { const z = zone(e); if (z) z.classList.remove('over'); });
   document.addEventListener('drop', (e) => {
-    if (!inView()) return; const pzz = e.target.closest && e.target.closest('.matpz'); if (pzz) { e.preventDefault(); pzz.classList.remove('over'); takeImage(pzz, e.dataTransfer); return; } const z = zone(e); if (!z) return; e.preventDefault(); z.classList.remove('over');
+    if (!inView()) return; const imgRow = rowImg(e); if (imgRow) { e.preventDefault(); imgRow.classList.remove('imgover'); const id = rowId(imgRow); if (id) takeImage({ dataset: { pz: id } }, e.dataTransfer); return; } const pzz = e.target.closest && e.target.closest('.matpz'); if (pzz) { e.preventDefault(); pzz.classList.remove('over'); takeImage(pzz, e.dataTransfer); return; } const z = zone(e); if (!z) return; e.preventDefault(); z.classList.remove('over');
     const dt = e.dataTransfer, files = [...(dt.files || [])], text = files.length ? '' : (dt.getData('text/uri-list') || dt.getData('text/plain') || '').split('\n').filter((l) => l && l[0] !== '#').join(' ');
     intake(files, text);
   });
@@ -914,7 +942,9 @@ const MAT = (() => {
     if (!files.length && !text.trim()) return; e.preventDefault(); intake(files, text);
   });
   const st = document.createElement('style');
-  st.textContent = `.kmkvr.rd{position:relative}.matgrip{position:absolute;left:-14px;top:8px;cursor:grab;color:var(--muted);opacity:.35;font:700 13px/1 var(--font-body);letter-spacing:-2px;user-select:none;padding:2px}.kmkvr.rd:hover .matgrip{opacity:1}.kmkvr.rowdrag{opacity:.4}.kmkvr.rowover{box-shadow:inset 0 3px 0 var(--brand,var(--accent))}
+  st.textContent = `.matpick{cursor:pointer;border-radius:6px;padding:2px 4px;margin:-2px -4px}.matpick:hover{background:var(--accent-soft)}.mattitle{cursor:pointer}.mattitle:hover{text-decoration:underline}.matte{width:100%!important;font:700 14px var(--font-body)}.imgover{outline:2px dashed var(--brand,var(--accent));outline-offset:-2px;background:var(--accent-soft)}
+.matmenu{position:fixed;z-index:3500;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 36px rgba(0,0,0,.25);padding:6px;min-width:200px;max-height:70vh;overflow:auto}.matmt{font:700 11px var(--font-head);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:4px 8px}.matmi{display:flex;align-items:center;width:100%;text-align:left;border:0;background:transparent;color:inherit;border-radius:8px;padding:7px 10px;font:600 14px var(--font-body);cursor:pointer}.matmi:hover{background:var(--accent-soft)}.matmi.on{background:var(--accent-soft);color:var(--accent)}
+.kmkvr.rd{position:relative}.matgrip{position:absolute;left:-14px;top:8px;cursor:grab;color:var(--muted);opacity:.35;font:700 13px/1 var(--font-body);letter-spacing:-2px;user-select:none;padding:2px}.kmkvr.rd:hover .matgrip{opacity:1}.kmkvr.rowdrag{opacity:.4}.kmkvr.rowover{box-shadow:inset 0 3px 0 var(--brand,var(--accent))}
 .matgi{cursor:grab;padding-right:4px}.matgi .matgl{border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;padding:0}.matgx{border:0;background:transparent;color:inherit;opacity:.45;cursor:pointer;font:700 13px/1 var(--font-body);padding:0 2px}.matgx:hover{opacity:1;color:var(--bad)}.matgi.drag{opacity:.35}.matgi.over{box-shadow:inset 3px 0 0 var(--brand,var(--accent))}.matgrpx{margin-left:4px}
 .mattag.mini{margin:0 0 0 6px;font-size:10px;padding:0 6px;background:var(--accent-soft);color:var(--accent);border-color:transparent}
 .matdz{display:flex;gap:16px;align-items:center;border:2px dashed var(--line);cursor:pointer;padding:22px 24px}.matdz:hover,.matdz.over,.matdz:focus{border-color:var(--brand,var(--accent));background:var(--accent-soft);outline:none}.matdzi{font-size:34px;line-height:1;color:var(--muted)}
