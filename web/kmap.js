@@ -336,8 +336,8 @@ html{overflow-y:scroll;scrollbar-gutter:stable}
 .kmtools{display:flex;gap:6px}.kmtool{border:1px solid var(--line);background:var(--surface2);color:var(--ink);border-radius:8px;padding:6px 9px;cursor:pointer;font:600 12px var(--font-body);display:inline-flex;align-items:center}.kmtool.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .kmgen{color:var(--muted);font-weight:600}.kmflt{display:inline-flex;margin-left:6px;gap:4px;flex-wrap:wrap}.kmfb{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:7px;padding:3px 10px;font:600 13px var(--font-body);cursor:pointer}.kmfb.on{background:var(--brand,var(--accent));border-color:var(--brand,var(--accent));color:var(--brand-ink,var(--accent-ink))}
 .km>.kmh{margin:18px 0 12px}
-.kmchip .kmsep,.kmsidet .kmsep{margin:0 .35em;color:inherit;opacity:.55;font-weight:400}.kmsidet{overflow-wrap:normal}.kmsidet .kmsep{margin:0 .2em}.kmsidet b.m{font-size:12.5px;white-space:nowrap}.kmsidet b{display:block;text-transform:none;letter-spacing:0;font-size:15px;margin-top:3px}
-.kmbody{display:grid;grid-template-columns:84px minmax(0,1fr);gap:12px;align-items:start}
+.kmchip .kmsep,.kmsidet .kmsep{margin:0 .35em;color:inherit;opacity:.55;font-weight:400}.kmsidet{overflow-wrap:normal}.kmsidet .kmsep{margin:0 .2em}.kmsidet b.m{font-size:14px;white-space:nowrap}.kmsidet b{display:block;text-transform:none;letter-spacing:0;font-size:15px;margin-top:3px}
+.kmbody{display:grid;grid-template-columns:112px minmax(0,1fr);gap:12px;align-items:start}
 .kmside{position:sticky;top:8px;display:flex;flex-direction:column;gap:6px;background:#3a3d42;border-radius:var(--r);padding:10px 6px;color:#fff}
 .kmsidet{font:700 11px var(--font-head);text-transform:uppercase;letter-spacing:.05em;text-align:center;opacity:.85;padding:2px 2px 6px;border-bottom:1px solid rgba(255,255,255,.25);margin-bottom:2px;overflow-wrap:anywhere}
 .kmicon{background:none;border:0;color:#fff;opacity:.72;border-radius:10px;padding:8px 2px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px}.kmicon small{font-size:10px;font-weight:600}
