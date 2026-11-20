@@ -7,7 +7,7 @@ const KM = (() => {
   const ICON = {
     i: { d: '<circle cx="12" cy="12" r="9.5"/><path d="M12 11v5.5"/><circle cx="12" cy="7.6" r=".4" stroke-width="2.6"/>' },
     g: { d: '<polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" x2="19" y1="19" y2="13"/><line x1="16" x2="20" y1="16" y2="20"/><line x1="19" x2="21" y1="21" y2="19"/><polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5"/><line x1="5" x2="9" y1="14" y2="18"/><line x1="7" x2="4" y1="17" y2="20"/><line x1="3" x2="5" y1="19" y2="21"/>' },
-    s: { fill: true, d: '<path d="M13.49 5.48c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm-3.6 13.9l1-4.4 2.1 2v6h2v-7.5l-2.1-2 .6-3c1.3 1.5 3.3 2.5 5.5 2.5v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1l-5.2 2.2v4.7h2v-3.4l1.8-.7-1.6 8.1-4.9-1-.4 2 7 1.4z"/>' },
+    s: { d: '<circle cx="17.6" cy="4.3" r="2.2" fill="currentColor" stroke="none"/><path d="M15.4 7.6L10.2 12.6" stroke-width="3.8"/><path d="M15.2 8.4l3.5 2.2 1-3.3" stroke-width="2.2"/><path d="M14.6 8.6L11.4 7.6 8.2 9.6" stroke-width="2.2"/><path d="M10.4 12.8l4.2 2.1-1.2 4.7" stroke-width="2.8"/><path d="M10 12.9L7.2 17l-3.4 3" stroke-width="2.6"/><path d="M1.5 5.2h5.2M2.6 8h3.2M1.5 14.2h4.6M1.5 17h3" stroke-width="1.3" opacity=".7"/>' },
   };
   const svg = (k, s) => ICON[k].fill ? `<svg viewBox="0 0 24 24" width="${s || 24}" height="${s || 24}" fill="currentColor" stroke="none" aria-hidden="true">${ICON[k].d}</svg>` : `<svg viewBox="0 0 24 24" width="${s || 24}" height="${s || 24}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k].d}</svg>`;
   const cfg = () => S.settings.kmap || { id: 'kmap' };
