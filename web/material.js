@@ -31,7 +31,101 @@ const MAT = (() => {
     return j;
   }
   const ytVid = (u) => { const m = String(u || '').match(/(?:youtu\.be\/|[?&]v=|\/(?:shorts|embed|live)\/)([\w-]{11})/); return isYt(u) && m ? m[1] : null; };
-  const ytFields = (i) => ({ url: i.url, vtitle: i.title || '', channel: i.channel || '', channelUrl: i.channelUrl || '', seconds: i.seconds == null ? null : i.seconds });
+  const ytFields = (i) => ({ url: i.url, desc: i.description || '', vtitle: i.title || '', channel: i.channel || '', channelUrl: i.channelUrl || '', seconds: i.seconds == null ? null : i.seconds });
+
+  /* ---------- Automatische Tags (Epoche, Themen, Schlagwörter) ohne KI ---------- */
+  const EPOCHS = ['Urgeschichte', 'Antike', 'Mittelalter', 'Frühe Neuzeit', '19. Jahrhundert', 'Zeitgeschichte'];
+  const TAGS = [
+    ['Urgeschichte', 'Urgeschichte', ['urgeschicht', 'steinzeit', 'neandertal', 'jäger und sammler', 'höhlenmalerei', 'faustkeil', 'bronzezeit', 'eisenzeit', 'ötzi', 'neolithisch']],
+    ['Antike', 'Antike', ['antike', 'antiken', 'altertum']],
+    ['Griechenland', 'Antike', ['griech', 'athen', 'sparta', 'polis', 'olymp', 'perikles', 'sokrates', 'platon', 'aristoteles', 'alexander der große', 'hellenis', 'marathon', 'akropolis']],
+    ['Rom', 'Antike', ['röm', 'caesar', 'augustus', 'gladiator', 'legion', 'senat', 'konsul', 'limes', 'kolosseum', 'pompeji', 'hannibal', 'karthago', 'imperium romanum', 'kaiserzeit', 'punische']],
+    ['Ägypten', 'Antike', ['ägypt', 'pharao', 'pyramide', 'nil', 'hieroglyph', 'tutanchamun', 'kleopatra', 'mumie']],
+    ['Mesopotamien', 'Antike', ['mesopotam', 'babylon', 'sumer', 'assyr', 'keilschrift', 'zweistromland', 'hammurabi']],
+    ['Kelten und Germanen', 'Antike', ['kelt', 'germanen', 'hallstatt', 'noricum', 'carnuntum', 'völkerwanderung']],
+    ['Mittelalter', 'Mittelalter', ['mittelalter', 'mittelalterlich']],
+    ['Ritter und Burgen', 'Mittelalter', ['ritter', 'burg ', 'burgen', 'lehenswesen', 'lehen', 'feudal', 'turnier', 'knappe']],
+    ['Karl der Große', 'Mittelalter', ['karl der große', 'karolinger', 'merowinger', 'frankenreich', 'pippin']],
+    ['Kreuzzüge', 'Mittelalter', ['kreuzzug', 'kreuzzüge', 'kreuzfahrer', 'jerusalem', 'saladin']],
+    ['Wikinger', 'Mittelalter', ['wikinger', 'normannen']],
+    ['Stadt im Mittelalter', 'Mittelalter', ['stadtrecht', 'zunft', 'zünfte', 'hanse', 'marktrecht', 'bürger', 'handwerker']],
+    ['Kirche und Kloster', 'Mittelalter', ['kloster', 'mönch', 'papst', 'investitur', 'inquisition', 'dom ']],
+    ['Pest', 'Mittelalter', ['pest', 'schwarzer tod', 'seuche']],
+    ['Renaissance', 'Frühe Neuzeit', ['renaissance', 'humanismus', 'leonardo', 'michelangelo', 'gutenberg', 'buchdruck']],
+    ['Entdeckungen', 'Frühe Neuzeit', ['kolumbus', 'entdeckungsreise', 'conquista', 'kolonie', 'magellan', 'azteken', 'inka', 'vasco da gama']],
+    ['Reformation', 'Frühe Neuzeit', ['reformation', 'luther', 'protestant', 'gegenreformation', 'ablass', 'bauernkrieg']],
+    ['Habsburger', 'Frühe Neuzeit', ['habsburg', 'maria theresia', 'joseph ii', 'kaiser franz', 'türkenbelagerung', 'prinz eugen', 'kaisertum österreich']],
+    ['Absolutismus', 'Frühe Neuzeit', ['absolutis', 'ludwig xiv', 'sonnenkönig', 'versailles', 'barock', 'merkantilis']],
+    ['Dreißigjähriger Krieg', 'Frühe Neuzeit', ['dreißigjährig', 'wallenstein', 'westfälischer frieden']],
+    ['Aufklärung', 'Frühe Neuzeit', ['aufklär', 'voltaire', 'rousseau', 'montesquieu', 'kant', 'menschenrechte']],
+    ['Hexenverfolgung', 'Frühe Neuzeit', ['hexe', 'hexenverfolg', 'hexenprozess']],
+    ['Französische Revolution', '19. Jahrhundert', ['französische revolution', 'bastille', 'robespierre', 'jakobiner', 'marie antoinette', 'guillotine', 'sansculotte']],
+    ['Napoleon', '19. Jahrhundert', ['napoleon', 'wiener kongress', 'metternich', 'restauration']],
+    ['Revolution 1848', '19. Jahrhundert', ['1848', 'märzrevolution', 'paulskirche', 'franz joseph', 'biedermeier']],
+    ['Industrielle Revolution', '19. Jahrhundert', ['industrialisier', 'industrielle revolution', 'dampfmaschine', 'fabrik', 'arbeiterbewegung', 'proletar', 'eisenbahn']],
+    ['Imperialismus', '19. Jahrhundert', ['imperialis', 'kolonialismus', 'kolonialmacht', 'berliner konferenz', 'bismarck']],
+    ['Erster Weltkrieg', 'Zeitgeschichte', ['erster weltkrieg', 'weltkrieg 1', 'sarajevo', 'schützengraben', 'attentat', '1914', 'giftgas', 'verdun']],
+    ['Zwischenkriegszeit', 'Zeitgeschichte', ['zwischenkriegszeit', 'erste republik', 'weimarer', 'weltwirtschaftskrise', 'ständestaat', 'dollfuß', 'inflation']],
+    ['Nationalsozialismus', 'Zeitgeschichte', ['nationalsozial', 'nazi', 'hitler', 'ns-', 'anschluss', 'gestapo', 'drittes reich', 'ns-regime']],
+    ['Zweiter Weltkrieg', 'Zeitgeschichte', ['zweiter weltkrieg', 'weltkrieg 2', 'blitzkrieg', 'stalingrad', 'd-day', 'kapitulation', '1945', 'luftkrieg']],
+    ['Holocaust', 'Zeitgeschichte', ['holocaust', 'shoah', 'konzentrationslager', 'auschwitz', 'mauthausen', 'judenverfolg', 'novemberpogrom', 'widerstand']],
+    ['Kalter Krieg', 'Zeitgeschichte', ['kalter krieg', 'berliner mauer', 'eiserner vorhang', 'nato', 'warschauer pakt', 'kubakrise', 'ddr', 'wettrüsten']],
+    ['Österreich nach 1945', 'Zeitgeschichte', ['besatzung', 'staatsvertrag', 'neutralität', 'zweite republik', 'wiederaufbau', 'marshallplan']],
+    ['Europäische Union', 'Zeitgeschichte', ['europäische union', 'eu-', 'römische verträge', 'maastricht', 'eurozone', 'binnenmarkt']],
+    ['Demokratie', null, ['demokrat', 'wahlrecht', 'parlament', 'verfassung', 'gewaltenteilung', 'republik']],
+    ['Religion', null, ['christentum', 'judentum', 'islam', 'götter', 'mythologie', 'glaube', 'tempel']],
+    ['Alltag', null, ['alltag', 'lebensweise', 'ernährung', 'kleidung', 'wohnen', 'schule im']],
+    ['Wirtschaft und Handel', null, ['handel', 'wirtschaft', 'geld ', 'münzen', 'landwirtschaft', 'handwerk', 'markt']],
+    ['Krieg und Militär', null, ['schlacht', 'krieg', 'heer ', 'armee', 'soldat', 'waffen', 'belagerung', 'eroberung']],
+    ['Frauen', null, ['frauen', 'frauenwahlrecht', 'emanzipation', 'suffragette']],
+    ['Sport und Olympia', null, ['olympische spiele', 'olympia', 'leichtathletik', 'turnen', 'sportart', 'fußball', 'athlet', 'training']],
+  ];
+  const wordHits = (low, kw) => { let n = 0, i = low.indexOf(kw); while (i >= 0 && n < 40) { if (i === 0 || !/[a-zäöüß]/.test(low[i - 1])) n++; i = low.indexOf(kw, i + kw.length); } return n; };
+  function autoTags(title, extra, text) {
+    const head = norm(title + ' ' + (extra || '')), body = norm(String(text || '').slice(0, 80000)), tags = [], ep = {};
+    TAGS.forEach(([name, epoch, kws]) => {
+      let sc = 0; kws.forEach((k) => { sc += wordHits(head, k) * 4 + wordHits(body, k); });
+      if (sc >= (name.length && epoch === null ? 4 : 3)) { tags.push([name, sc]); if (epoch) ep[epoch] = (ep[epoch] || 0) + sc; }
+    });
+    const epochs = EPOCHS.filter((e) => ep[e]).sort((a, b) => ep[b] - ep[a]); const top = epochs.length ? ep[epochs[0]] : 0;
+    return { epoche: epochs.filter((e) => ep[e] >= Math.max(3, top * 0.5)).slice(0, 2), tags: tags.sort((a, b) => b[1] - a[1]).map((x) => x[0]).filter((x) => !EPOCHS.includes(x)).slice(0, 8), keys: keyWords((title + ' ' + (extra || '') + ' ' + text), 14).filter((k) => !tags.some((t) => norm(t[0]).startsWith(norm(k).slice(0, 6))) && !EPOCHS.includes(k) && !/^(video|antikes|antike)$/i.test(k)).slice(0, 8) };
+  }
+  const tagsOf = (s) => { const hid = s.hid || [], man = s.man || [], auto = s.auto || { tags: [], keys: [], epoche: [] }; return { epoche: [...new Set(auto.epoche.filter((x) => !hid.includes(x)).concat(man.filter((x) => EPOCHS.includes(x))))], tags: [...new Set(auto.tags.filter((x) => !hid.includes(x)).concat(man.filter((x) => !EPOCHS.includes(x))))], keys: (auto.keys || []).filter((x) => !hid.includes(x)) }; };
+  async function retag(id) {
+    const s = srcOf(id); if (!s) return; const t = await textOf(id);
+    put('settings', Object.assign({}, srcOf(id), { auto: autoTags(s.title + ' ' + (s.vtitle || ''), (s.desc || '') + ' ' + (s.notes || ''), t.pages.map((p) => p.t).join(' ')) }));
+  }
+
+  /* ---------- Video-Download auf die NAS ---------- */
+  const setDl = (id, dl) => { const s = srcOf(id); if (s) put('settings', Object.assign({}, s, { dl: Object.assign({}, s.dl || {}, dl) })); };
+  async function startDownload(id) {
+    const s = srcOf(id); if (!s || !s.url) return;
+    try {
+      const r = await fetch('/api/yt/download', { method: 'POST', credentials: 'same-origin', body: JSON.stringify({ url: s.url, id }) }), j = await r.json().catch(() => ({}));
+      if (!r.ok) { setDl(id, { state: 'error', msg: j.error || (r.status === 404 ? 'Die neue server.js fehlt auf der NAS' : 'Download nicht möglich') }); return render(); }
+      setDl(id, { state: j.state, msg: '' }); poll(); render();
+    } catch (e) { setDl(id, { state: 'error', msg: e.message }); render(); }
+  }
+  async function checkDl(id) {
+    const r = await fetch('/api/yt/status?id=' + encodeURIComponent(id), { credentials: 'same-origin' }); if (!r.ok) return null; const j = await r.json();
+    if (j.state === 'running' || j.state === 'queued') setDl(id, { state: j.state, msg: j.msg || '' });
+    else if (j.state === 'done') {
+      setDl(id, { state: 'done', msg: '', file: j.file, size: j.size });
+      if (j.transcript) { const words = j.transcript.split(' '), pages = []; let cur = '', n = 0; words.forEach((w) => { cur += (cur ? ' ' : '') + w; if (cur.length > 1800) { pages.push({ p: ++n, t: cur, h: 'Transkript, Teil ' + n }); cur = ''; } }); if (cur) pages.push({ p: ++n, t: cur, h: 'Transkript, Teil ' + n }); await addPages(id, pages); }
+    } else if (j.state === 'error') setDl(id, { state: 'error', msg: j.msg || 'Download fehlgeschlagen' });
+    else if (j.state === 'none' && (srcOf(id).dl || {}).state === 'running') setDl(id, { state: 'error', msg: 'Der Auftrag ist verloren gegangen (Neustart?). Bitte erneut starten.' });
+    return j;
+  }
+  function poll() {
+    const m = M(); if (m.polling) return;
+    m.polling = setInterval(async () => {
+      const act = sources().filter((s) => s.dl && (s.dl.state === 'running' || s.dl.state === 'queued'));
+      if (!act.length) { clearInterval(m.polling); m.polling = null; return; }
+      for (const s of act) await checkDl(s.id.replace(/^mat_/, ''));
+      if (U.view === 'material') render();
+    }, 4000);
+  }
+  const mb = (n) => (n >= 1e9 ? (n / 1e9).toFixed(1) + ' GB' : Math.max(1, Math.round(n / 1e6)) + ' MB');
 
   /* ---------- Quellen ---------- */
   const sources = () => Object.values(S.settings).filter((d) => d && /^mat_/.test(d.id || '')).sort((a, b) => (b.added || 0) - (a.added || 0));
@@ -41,7 +135,7 @@ const MAT = (() => {
     const j = await fgetJson(QDIR + '/' + id + '.json');
     return (T[id] = j || { pages: [] });
   }
-  async function saveText(id) { await fput(QDIR + '/' + id + '.json', new Blob([JSON.stringify(T[id])], { type: 'application/json' })); const s = srcOf(id); if (s) put('settings', Object.assign({}, s, { pages: T[id].pages.length })); }
+  async function saveText(id) { await fput(QDIR + '/' + id + '.json', new Blob([JSON.stringify(T[id])], { type: 'application/json' })); const s = srcOf(id); if (s) { put('settings', Object.assign({}, s, { pages: T[id].pages.length })); await retag(id); } }
   async function addPages(id, pages) {
     const t = await textOf(id);
     pages.forEach((p) => { const i = t.pages.findIndex((x) => x.p === p.p); if (i >= 0) t.pages[i] = p; else t.pages.push(p); });
@@ -124,7 +218,7 @@ const MAT = (() => {
     if (!q.length) { m.res = []; return render(); }
     m.busy = 'Suche läuft …'; render();
     const res = [];
-    for (const s of sources()) {
+    for (const s of sources().filter(matches)) {
       const t = await textOf(s.id.replace(/^mat_/, ''));
       t.pages.forEach((pg) => {
         const low = norm(pg.t); let hit = 0, cnt = 0, first = -1;
@@ -319,10 +413,10 @@ const MAT = (() => {
     if (isYt(u)) {
       m.busy = 'YouTube-Infos werden geholt …'; render(); let extra = {}, t = '';
       try { const i = await ytFetch(u); extra = ytFields(i); t = i.title || ''; } catch (e) { toast('YouTube-Infos nicht abrufbar: ' + (e.message || e)); }
-      return newSrc(t || u, 'video', Object.assign({ url: u }, extra));
+      const id = newSrc(t || u, 'video', Object.assign({ url: u }, extra)); await retag(id); startDownload(id); return id;
     }
     let t = u; try { const x = new URL(u); t = x.hostname.replace(/^www\./, '') + (x.pathname.length > 1 ? x.pathname.slice(0, 40) : ''); } catch (e) { /* */ }
-    return newSrc(t, 'sonst', { url: u });
+    const id = newSrc(t, 'sonst', { url: u }); await retag(id); return id;
   }
   /* Rückfrage bei unbekanntem Format */
   function ask(title, msg, defVal, buttons) {
@@ -372,9 +466,32 @@ const MAT = (() => {
 
   /* ---------- Ansicht ---------- */
   function view() {
+    if (sources().some((x) => x.dl && (x.dl.state === 'running' || x.dl.state === 'queued'))) poll();
     const m = M(), tabs = [['quellen', 'Quellen'], ['suche', 'Suchen und Erstellen'], ['ordner', 'Ordner']];
     const nav = `<div class="row" style="gap:6px;margin-bottom:14px;flex-wrap:wrap">${tabs.map(([k, n]) => `<button class="btn ${m.tab === k ? 'good' : ''}" data-act="mattab" data-t="${k}">${n}${k === 'suche' && m.sel.length ? ' (' + m.sel.length + ')' : ''}</button>`).join('')}${m.busy ? `<span class="muted sm" style="align-self:center">⏳ ${esc(m.busy)}</span>` : ''}</div>`;
     return `<div class="km"><div class="kmh"><h1>Material</h1><div class="muted">Quellen ablegen, Themen suchen, Arbeitsmaterial erstellen. Alles liegt auf deiner NAS.</div></div>${nav}${m.tab === 'quellen' ? quellen() : m.tab === 'suche' ? suche() : ordner()}</div>`;
+  }
+  function videoBlock(s, id) {
+    if (!isYt(s.url)) return '';
+    const d = s.dl || {}; let h;
+    if (d.state === 'done' && d.file) h = `<div class="sm"><b style="color:var(--good)">✓ Auf der NAS gespeichert</b> <span class="muted">(${esc(mb(d.size || 0))})</span> · <a href="${url(d.file)}" download>Herunterladen</a></div><video controls preload="metadata" src="${url(d.file, '&inline=1')}" style="max-width:min(560px,100%);margin-top:8px;border-radius:10px;background:#000"></video>`;
+    else if (d.state === 'running' || d.state === 'queued') h = `<div class="sm">⏳ ${esc(d.msg || (d.state === 'queued' ? 'Download wartet …' : 'Download läuft …'))}</div>`;
+    else h = `<div class="sm">${d.state === 'error' ? `<span style="color:var(--bad)">Download nicht möglich: ${esc(d.msg || '')}</span> ` : '<span class="muted">Video ist noch nicht auf der NAS.</span> '}<button class="btn sm" data-act="matdl" data-id="${id}">${d.state === 'error' ? 'Erneut versuchen' : 'Video auf die NAS laden'}</button></div>`;
+    return `<div style="margin-top:10px">${h}</div>`;
+  }
+  function tagBlock(s, id) {
+    const t = tagsOf(s), chip = (x, k) => `<span class="mattag ${k}">${esc(x)}<button data-act="matrm" data-id="${id}" data-t="${esc(x)}" aria-label="Entfernen">×</button></span>`;
+    return `<div style="margin-top:10px" class="sm"><span class="muted">Epoche:</span> ${t.epoche.map((x) => chip(x, 'ep')).join('') || '<span class="muted">nicht erkannt</span>'} &nbsp; <span class="muted">Themen:</span> ${t.tags.map((x) => chip(x, 'tg')).join('') || '<span class="muted">–</span>'} &nbsp; <span class="muted">Schlagwörter:</span> ${t.keys.map((x) => chip(x, 'ky')).join('') || '<span class="muted">–</span>'}
+      <div class="row" style="gap:6px;margin-top:6px;align-items:center"><input class="kminp" data-ch="matatag" data-id="${id}" placeholder="Tag hinzufügen (Enter)" style="width:200px"><button class="btn sm" data-act="matretag" data-id="${id}" title="Epoche, Themen und Schlagwörter aus Titel und Text neu bestimmen">Tags neu berechnen</button></div></div>`;
+  }
+  function filterOf() { const f = M().f || { q: '', e: '', t: [] }; return f; }
+  const matches = (s) => { const f = filterOf(), t = tagsOf(s); if (f.e && !t.epoche.includes(f.e)) return false; if (f.t.some((x) => !t.tags.includes(x) && !t.keys.includes(x))) return false; const q = norm(f.q).split(/\s+/).filter(Boolean); if (q.length) { const hay = norm([s.title, s.vtitle, s.channel, s.notes, ...t.epoche, ...t.tags, ...t.keys].join(' ')); if (q.some((w) => !hay.includes(w))) return false; } return true; };
+  function filterBar(list) {
+    const f = filterOf(), eps = EPOCHS.filter((e) => list.some((s) => tagsOf(s).epoche.includes(e))), cnt = {}; list.forEach((s) => { const t = tagsOf(s); t.tags.concat(t.keys).forEach((x) => { cnt[x] = (cnt[x] || 0) + 1; }); });
+    const tg = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a] || a.localeCompare(b, 'de')).slice(0, 30);
+    return `<div class="matfilter"><div class="row" style="gap:8px;align-items:center;flex-wrap:wrap"><input class="kminp" id="matfq" data-ch="matfq" value="${esc(f.q)}" placeholder="Bibliothek filtern: Titel, Kanal, Tag …" style="flex:1;min-width:200px">${f.q || f.e || f.t.length ? '<button class="btn sm" data-act="matfx">Filter zurücksetzen</button>' : ''}</div>
+      ${eps.length ? `<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px"><span class="muted sm">Epoche:</span>${eps.map((e) => `<button class="mattag ep sel${f.e === e ? ' on' : ''}" data-act="matfe" data-v="${esc(e)}">${esc(e)}</button>`).join('')}</div>` : ''}
+      ${tg.length ? `<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px"><span class="muted sm">Tags:</span>${tg.map((x) => `<button class="mattag tg sel${f.t.includes(x) ? ' on' : ''}" data-act="matft" data-v="${esc(x)}">${esc(x)}<small> ${cnt[x]}</small></button>`).join('')}</div>` : ''}</div>`;
   }
   function quellen() {
     const m = M(), list = sources();
@@ -383,6 +500,7 @@ const MAT = (() => {
       const id = s.id.replace(/^mat_/, '');
       return `<section class="card" style="margin-top:12px"><div class="row" style="align-items:center;gap:8px;flex-wrap:wrap"><h2 style="margin:0">${esc(s.title)}</h2><span class="pill">${esc(TYPES[s.type] || '')}</span><span class="muted sm">${s.pages || 0} Seiten/Abschnitte</span><span style="flex:1"></span>${s.url ? `<a class="btn sm" href="${esc(s.url)}" target="_blank" rel="noopener">${isYt(s.url) ? 'Video auf YouTube' : 'Link öffnen'}</a>` : ''}${s.channelUrl ? `<a class="btn sm" href="${esc(s.channelUrl)}" target="_blank" rel="noopener">Kanal</a>` : ''}${isYt(s.url) ? `<button class="btn sm" data-act="matyt" data-id="${id}" title="Titel, Dauer und Kanal neu lesen">Infos neu</button>` : ''}${s.file ? `<a class="btn sm" href="${url(s.file, /\.pdf$/i.test(s.file) ? '&inline=1' : '')}" target="_blank">${/\.pdf$/i.test(s.file) ? 'PDF ansehen' : 'Datei öffnen'}</a>` : ''}<button class="btn sm bad" data-act="matdel" data-id="${id}">Löschen</button></div>
       ${s.vtitle || s.channel || s.seconds != null ? `<div class="sm" style="margin-top:8px"><span class="muted">Video:</span> <b>${esc(s.vtitle || s.title)}</b>${s.seconds != null ? ` · <span class="muted">Dauer:</span> ${esc(dur(s.seconds))}` : ''}${s.channel ? ` · <span class="muted">Kanal:</span> ${s.channelUrl ? `<a href="${esc(s.channelUrl)}" target="_blank" rel="noopener">${esc(s.channel)}</a>` : esc(s.channel)}` : ''}</div>` : ''}
+      ${videoBlock(s, id)}${tagBlock(s, id)}
       <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap;align-items:flex-end">
         <label class="btn sm">PDF hochladen<input type="file" accept="application/pdf" hidden data-ch="matpdf" data-id="${id}"></label>
         <label class="btn sm">EPUB hochladen<input type="file" accept=".epub,application/epub+zip" hidden data-ch="matepub" data-id="${id}"></label>
@@ -396,19 +514,21 @@ const MAT = (() => {
     const tile = (s) => {
       const id = s.id.replace(/^mat_/, ''), vid = ytVid(s.url), on = m.open === id;
       const pic = vid ? `<img src="https://i.ytimg.com/vi/${vid}/hqdefault.jpg" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<div class="matph t-${esc(s.type || 'sonst')}"><span>${esc((TYPES[s.type] || 'Quelle'))}</span></div>`;
-      return `<button class="mattile${on ? ' on' : ''}" data-act="matopen" data-id="${id}" aria-pressed="${on}" title="${esc(s.title)}"><span class="matth">${pic}${s.seconds != null ? `<b class="matdur">${esc(dur(s.seconds).replace(/ (Min|Std)$/, ''))}</b>` : ''}</span><span class="matti">${esc(s.vtitle || s.title)}</span><span class="matsub">${esc(s.channel || TYPES[s.type] || '')}${s.pages ? ' · ' + s.pages + (s.type === 'video' ? ' Textabschn.' : ' S.') : ''}</span></button>`;
+      return `<button class="mattile${on ? ' on' : ''}" data-act="matopen" data-id="${id}" aria-pressed="${on}" title="${esc(s.title)}"><span class="matth">${pic}${s.dl && s.dl.state === 'done' ? '<b class="matnas" title="Video liegt auf der NAS">NAS</b>' : ''}${s.seconds != null ? `<b class="matdur">${esc(dur(s.seconds).replace(/ (Min|Std)$/, ''))}</b>` : ''}</span><span class="matti">${esc(s.vtitle || s.title)}</span><span class="matsub">${esc(tagsOf(s).epoche[0] ? tagsOf(s).epoche[0] + ' · ' : '')}${esc(s.channel || TYPES[s.type] || '')}${s.pages ? ' · ' + s.pages + (s.type === 'video' ? ' Textabschn.' : ' S.') : ''}</span></button>`;
     };
     const open = list.find((s) => s.id.replace(/^mat_/, '') === m.open);
-    return form + (list.length ? `<div class="matgrid">${list.map(tile).join('')}</div>${open ? card(open) : '<p class="muted sm" style="margin-top:10px">Klicke auf eine Quelle, um PDFs, Screenshots oder Text hinzuzufügen.</p>'}` : '<p class="muted" style="margin-top:12px">Noch keine Quellen. Lege oben eine an und lade ein PDF hoch oder füge Screenshots ein.</p>');
+    const shown = list.filter(matches);
+    return form + (list.length ? `${filterBar(list)}<div class="matgrid">${shown.map(tile).join('') || '<p class="muted">Keine Quelle passt zum Filter.</p>'}</div>${open ? card(open) : '<p class="muted sm" style="margin-top:10px">Klicke auf eine Quelle, um PDFs, Screenshots oder Text hinzuzufügen.</p>'}` : '<p class="muted" style="margin-top:12px">Noch keine Quellen. Lege oben eine an und lade ein PDF hoch oder füge Screenshots ein.</p>');
   }
   function suche() {
     const m = M();
     const res = m.res == null ? '' : m.res.length ? m.res.map((r, i) => `<div class="kmli" style="padding:8px 0;border-bottom:1px solid var(--line)"><div class="row" style="gap:8px;align-items:center"><b>${esc(r.title)}</b><span class="muted sm">${r.h ? esc(r.h) : 'Seite ' + r.p}</span><span style="flex:1"></span><button class="btn sm good" data-act="matpick" data-i="${i}">Übernehmen</button></div><div class="sm">${hl(snippet(r), m.q)}</div></div>`).join('') : '<p class="muted">Nichts gefunden. Lege mehr Quellen an oder suche mit anderen Wörtern.</p>';
     const sel = m.sel.length ? m.sel.map((x, i) => `<div style="margin-bottom:10px"><div class="row" style="gap:8px"><b class="sm">${esc(x.ref || 'Text')}</b><span style="flex:1"></span><button class="btn sm bad" data-act="matunpick" data-i="${i}" aria-label="Entfernen">×</button></div><textarea rows="5" style="width:100%" data-ch="matsel" data-i="${i}">${esc(x.t)}</textarea></div>`).join('') : '<p class="muted">Noch nichts übernommen. Suche ein Thema und klicke bei den Fundstellen auf „Übernehmen“.</p>';
-    const T0 = esc(m.title || m.q || '');
-    return `<section class="card"><h2>Thema suchen</h2><div class="row" style="gap:8px"><input id="matq" value="${esc(m.q)}" placeholder="z. B. Römische Republik" style="flex:1;min-width:200px" data-ch="matqs" autocomplete="off"><button class="btn good" data-act="matsearch">Suchen</button></div>${res ? `<div style="margin-top:10px">${res}</div>` : ''}</section>
+    const T0 = esc(m.title || m.q || ''), fl = filterOf(), act = fl.q || fl.e || fl.t.length, srcs = sources(), hit = srcs.filter(matches);
+    const srcList = act ? `<div style="margin-top:10px"><div class="muted sm" style="margin-bottom:4px">${hit.length} Quelle(n) passen zum Filter:</div>${hit.map((s) => { const id = s.id.replace(/^mat_/, ''), t = tagsOf(s); return `<div class="row" style="gap:8px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line)"><b class="sm">${esc(s.vtitle || s.title)}</b><span class="muted sm">${esc(TYPES[s.type] || '')} · ${s.pages || 0} Abschn.</span><span>${t.epoche.map((x) => `<span class="mattag ep">${esc(x)}</span>`).join('')}</span><span style="flex:1"></span><button class="btn sm" data-act="matall" data-id="${id}">Ganze Quelle übernehmen</button></div>`; }).join('') || '<span class="muted sm">–</span>'}</div>` : '';
+    return `<section class="card"><h2>Thema suchen</h2>${srcs.length ? filterBar(srcs) : ''}<div class="row" style="gap:8px;margin-top:10px"><input id="matq" value="${esc(m.q)}" placeholder="z. B. Römische Republik" style="flex:1;min-width:200px" data-ch="matqs" autocomplete="off"><button class="btn good" data-act="matsearch">Suchen</button></div>${srcList}${res ? `<div style="margin-top:10px">${res}</div>` : ''}</section>
     <section class="card" style="margin-top:12px"><h2>Auswahl (${m.sel.length})</h2><div class="muted sm" style="margin-bottom:8px">Du kannst die Texte hier kürzen oder ergänzen. Daraus entsteht das Material.</div>${sel}
-    ${m.sel.length ? `<div class="row" style="gap:8px;align-items:flex-end;flex-wrap:wrap;margin-top:6px"><label class="f" style="flex:1;min-width:220px">Titel des Materials<input id="mattitle" value="${T0}" data-ch="mattitles" autocomplete="off"></label><button class="btn good" data-act="matmake" data-k="Arbeitsblatt">Arbeitsblatt</button><button class="btn good" data-act="matmake" data-k="Lückentext">Lückentext</button><button class="btn good" data-act="matmake" data-k="Kreuzworträtsel">Kreuzworträtsel</button></div><div class="muted sm" style="margin-top:6px">Jedes Material wird als Word-Datei und PDF im Ordner gespeichert. Quiz, Test und Wiederholung kommen mit der KI.</div>` : ''}</section>`;
+    ${m.sel.length ? `<div class="row" style="gap:8px;align-items:flex-end;flex-wrap:wrap;margin-top:6px"><label class="f" style="flex:1;min-width:220px">Titel des Materials<input id="mattitle" value="${T0}" data-ch="mattitles" autocomplete="off"></label><button class="btn good" data-act="matmake" data-k="Arbeitsblatt">Arbeitsblatt</button><button class="btn good" data-act="matmake" data-k="Lückentext">Lückentext</button><button class="btn good" data-act="matmake" data-k="Kreuzworträtsel">Kreuzworträtsel</button><button class="btn" data-act="matai" data-k="Quiz">Quiz</button><button class="btn" data-act="matai" data-k="Test">Test</button><button class="btn" data-act="matai" data-k="Forms">Google/Microsoft Forms</button></div><div class="muted sm" style="margin-top:6px">Jedes Material wird als Word-Datei und PDF im Ordner gespeichert. Quiz, Test und Forms brauchen die KI und sind noch nicht freigeschaltet.</div>` : ''}</section>`;
   }
   function ordner() {
     const m = M();
@@ -422,11 +542,19 @@ const MAT = (() => {
 
   /* ---------- Aktionen ---------- */
   Object.assign(A, {
+    matall: async (e) => { const id = e.dataset.id, s = srcOf(id), t = await textOf(id); if (!t.pages.length) return toast('Diese Quelle hat noch keinen Text'); M().sel.push({ ref: (s.vtitle || s.title) + ' (ganze Quelle)', t: t.pages.map((p) => p.t).join('\n').slice(0, 15000) }); toast('Übernommen'); render(); },
+    matai: (e) => toast(e.dataset.k + ': Dafür brauche ich den KI-Schlüssel. Das schalten wir in der nächsten Stufe frei, die Auswahl bleibt erhalten.'),
+    matdl: (e) => startDownload(e.dataset.id),
+    matretag: async (e) => { await retag(e.dataset.id); toast('Tags neu berechnet'); render(); },
+    matrm: (e) => { const s = srcOf(e.dataset.id); if (!s) return; const t = e.dataset.t, man = (s.man || []).filter((x) => x !== t), hid = (s.hid || []).slice(); if ((s.man || []).includes(t)) { /* manuell entfernt */ } else if (!hid.includes(t)) hid.push(t); put('settings', Object.assign({}, s, { man, hid })); render(); },
+    matfe: (e) => { const f = (M().f = M().f || { q: '', e: '', t: [] }); f.e = f.e === e.dataset.v ? '' : e.dataset.v; render(); },
+    matft: (e) => { const f = (M().f = M().f || { q: '', e: '', t: [] }), v = e.dataset.v; f.t = f.t.includes(v) ? f.t.filter((x) => x !== v) : f.t.concat(v); render(); },
+    matfx: () => { M().f = { q: '', e: '', t: [] }; render(); },
     matopen: (e) => { const m = M(); m.open = m.open === e.dataset.id ? null : e.dataset.id; render(); },
     mattab: (e) => { M().tab = e.dataset.t; if (e.dataset.t === 'ordner') M().files = null; render(); },
     matyt: async (e) => {
       const s = srcOf(e.dataset.id); if (!s || !s.url) return; const m = M(); m.busy = 'YouTube-Infos werden geholt …'; render();
-      try { put('settings', Object.assign({}, s, ytFields(await ytFetch(s.url)))); toast('Infos aktualisiert'); } catch (x) { toast('Nicht abrufbar: ' + (x.message || x)); }
+      try { put('settings', Object.assign({}, s, ytFields(await ytFetch(s.url)))); await retag(e.dataset.id); toast('Infos aktualisiert'); } catch (x) { toast('Nicht abrufbar: ' + (x.message || x)); }
       m.busy = ''; render();
     },
     matdel: async (e) => { const s = srcOf(e.dataset.id); if (!s || !confirm('Quelle „' + s.title + '“ mit allen Texten löschen?')) return; await fdel(QDIR + '/' + e.dataset.id + '.json'); if (s.file) await fdel(s.file); if (s.epub) await fdel(s.epub); delete T[e.dataset.id]; del('settings', 'mat_' + e.dataset.id); M().open = null; render(); },
@@ -446,6 +574,8 @@ const MAT = (() => {
     matpdf: (e) => { const f = e.files[0]; if (f) importPdf(e.dataset.id, f); e.value = ''; },
     matepub: (e) => { const f = e.files[0]; if (f) importEpub(e.dataset.id, f); e.value = ''; },
     matimg: (e) => { const fs = [...e.files]; if (fs.length) ocrImages(e.dataset.id, fs); e.value = ''; },
+    matatag: (e) => { const v = e.value.trim(); if (!v) return; const s = srcOf(e.dataset.id); if (!s) return; put('settings', Object.assign({}, s, { man: [...new Set((s.man || []).concat(v)) ], hid: (s.hid || []).filter((x) => x !== v) })); e.value = ''; render(); },
+    matfq: (e) => { (M().f = M().f || { q: '', e: '', t: [] }).q = e.value; render(); },
     matnote: (e) => { const s = srcOf(e.dataset.id); if (s) put('settings', Object.assign({}, s, { notes: e.value })); },
     matsel: (e) => { const x = M().sel[+e.dataset.i]; if (x) x.t = e.value; },
     matqs: (e) => { M().q = e.value; },
@@ -472,6 +602,9 @@ const MAT = (() => {
   const st = document.createElement('style');
   st.textContent = `.matdz{display:flex;gap:16px;align-items:center;border:2px dashed var(--line);cursor:pointer;padding:22px 24px}.matdz:hover,.matdz.over,.matdz:focus{border-color:var(--brand,var(--accent));background:var(--accent-soft);outline:none}.matdzi{font-size:34px;line-height:1;color:var(--muted)}
 .matask{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:3000;display:grid;place-items:center;padding:16px}.matbox{background:var(--surface);color:var(--ink);border-radius:14px;padding:20px;max-width:520px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.35)}
+.mattag{display:inline-flex;align-items:center;gap:3px;border-radius:999px;padding:2px 9px;font:600 12px var(--font-body);margin:0 4px 4px 0;border:1px solid var(--line);background:var(--surface2);color:var(--ink)}.mattag button{border:0;background:transparent;color:inherit;cursor:pointer;font:700 14px/1 var(--font-body);padding:0 0 0 2px}
+.mattag.ep{background:#f6e7c8;border-color:#e0c48a;color:#5b3d00}.mattag.ky{background:transparent;border-style:dashed}.mattag.sel{cursor:pointer}.mattag.sel.on{background:var(--brand,var(--accent));border-color:var(--brand,var(--accent));color:var(--brand-ink,var(--accent-ink))}.mattag small{opacity:.7}
+.matfilter{margin-top:14px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}.matnas{position:absolute;left:6px;top:6px;background:var(--good);color:#fff;border-radius:5px;padding:1px 6px;font:700 11px var(--font-body)}
 .matgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;margin-top:14px}
 .mattile{display:flex;flex-direction:column;gap:5px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px;cursor:pointer;color:var(--ink);font:inherit}
 .mattile:hover{box-shadow:0 4px 14px rgba(0,0,0,.12)}.mattile.on{border-color:var(--brand,var(--accent));box-shadow:0 0 0 2px var(--brand,var(--accent))}
@@ -480,5 +613,6 @@ const MAT = (() => {
 .matdur{position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.78);color:#fff;border-radius:5px;padding:1px 6px;font:700 12px var(--font-body)}
 .matti{font:700 14px/1.25 var(--font-body);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.matsub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}`;
   document.head.appendChild(st);
-  return { view };
+  const picker = () => `<div class="kmh" style="margin:24px 0 10px"><h1 style="font-size:22px">Material suchen und auswählen</h1><div class="muted sm">Durchsucht alle Quellen (PDF, EPUB, Videos, Texte). Aus der Auswahl kannst du Material erstellen.</div></div>${suche()}`;
+  return { view, picker };
 })();

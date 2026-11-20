@@ -664,7 +664,7 @@ function stundeView(slug,id){
       <label class="f" style="flex:1;min-width:200px;color:#000;font-weight:700">Thema<input id="lgf-t" ${at} data-k="text" value="${esc(e.text)}"></label>
       <label class="f" style="flex:1;min-width:200px;color:#000;font-weight:700">Materialien<input id="lgf-m" ${at} data-k="mat" value="${esc(e.mat||'')}" placeholder="z. B. Arbeitsblatt, Link"></label></div>
     <label class="f">Genaue Stundenplanung und Themeninhalte<textarea class="cnotes" id="lgf-p" style="min-height:340px" ${at} data-k="plan" placeholder="Einstieg, Inhalte, Material, Methoden, Tafelbild, Hausübung …">${esc(e.plan||'')}</textarea></label>
-    <p class="muted sm" style="margin:6px 0 0">Änderungen werden automatisch gespeichert.</p>${isBspkG(G)?vidBlock(G,e):''}</section>${stuSide(G,e)}</div>`;
+    <p class="muted sm" style="margin:6px 0 0">Änderungen werden automatisch gespeichert.</p>${isBspkG(G)?vidBlock(G,e):''}</section>${stuSide(G,e)}</div>${typeof MAT!=='undefined'?`<div class="mat-in-plan">${MAT.picker()}</div>`:''}`;
 }
 const mitMap=e=>{const m={};if(Array.isArray(e.mit))e.mit.forEach(t=>{const i=String(t).indexOf('=');if(i>0)m[t.slice(0,i)]=t.slice(i+1)});else if(e.mit&&typeof e.mit==='object')Object.assign(m,e.mit);return m};
 const mitList=m=>Object.keys(m).filter(k=>m[k]).map(k=>k+'='+m[k]);

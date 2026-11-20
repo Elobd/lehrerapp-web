@@ -3,6 +3,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { spawn, spawnSync } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 
@@ -49,6 +50,7 @@ function parseWatchPage(html) {
   else { const d = html.match(/itemprop="duration" content="PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?"/); if (d) out.seconds = (+d[1] || 0) * 3600 + (+d[2] || 0) * 60 + (+d[3] || 0); }
   const ch = html.match(/"ownerChannelName":"((?:[^"\\]|\\.)*)"/); if (ch) out.channel = jsUnesc(ch[1]);
   const id = html.match(/"channelId":"(UC[\w-]{22})"/); if (id) out.channelUrl = 'https://www.youtube.com/channel/' + id[1];
+  const desc = html.match(/"shortDescription":"((?:[^"\\]|\\.)*)"/); if (desc) out.description = jsUnesc(desc[1]).replace(/\\n/g, ' ').slice(0, 1500);
   const t = html.match(/<meta property="og:title" content="([^"]*)"/); if (t) out.title = jsUnesc(t[1]);
   return out;
 }
@@ -62,9 +64,31 @@ async function ytInfo(rawUrl) {
   } catch { /* weiter mit der Seite */ }
   try {
     const r = await fetch(url, { headers: hdr, signal: AbortSignal.timeout(10000) });
-    if (r.ok) { const p = parseWatchPage(await r.text()); for (const k of ['seconds', 'title', 'channel', 'channelUrl']) if (info[k] == null && p[k] != null) info[k] = p[k]; }
+    if (r.ok) { const p = parseWatchPage(await r.text()); for (const k of ['seconds', 'title', 'channel', 'channelUrl', 'description']) if (info[k] == null && p[k] != null) info[k] = p[k]; }
   } catch { /* nur Teilergebnis */ }
   return info;
+}
+/* Video-Download auf die NAS (yt-dlp) samt Untertitel-Text. Läuft im Hintergrund, ein Auftrag nach dem anderen. */
+const YTDLP = (() => { try { const r = spawnSync('yt-dlp', ['--version'], { encoding: 'utf8' }); return r.status === 0 ? r.stdout.trim() : ''; } catch { return ''; } })();
+const jobs = new Map(), queue = [];
+const vttText = (v) => { const seen = new Set(), out = []; for (const ln of String(v).split(/\r?\n/)) { const t = ln.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&gt;/g, '>').replace(/&lt;/g, '<').trim(); if (!t || /^(WEBVTT|Kind:|Language:|NOTE)/.test(t) || /-->/.test(t) || /^\d+$/.test(t)) continue; if (seen.has(t)) continue; seen.add(t); out.push(t); } return out.join(' '); };
+function runNext() {
+  if (jobs.get('_run') || !queue.length) return;
+  const j = queue.shift(); jobs.set('_run', j.id); j.state = 'running'; j.msg = 'Download läuft …';
+  const dir = path.join(FILES_DIR, 'Material', 'Videos'); fs.mkdirSync(dir, { recursive: true });
+  const args = ['--no-playlist', '--no-progress', '-f', 'bv*[height<=720]+ba/b[height<=720]/b', '--merge-output-format', 'mp4', '--write-subs', '--write-auto-subs', '--sub-langs', 'de.*,en.*', '--sub-format', 'vtt', '--js-runtimes', 'node', '-o', path.join(dir, j.id + '.%(ext)s'), j.url];
+  const p = spawn('yt-dlp', args, { stdio: ['ignore', 'pipe', 'pipe'] }); let err = '';
+  p.stderr.on('data', (d) => { err = (err + d).slice(-1500); });
+  p.stdout.on('data', (d) => { const m = String(d).match(/\[download\]\s+([\d.]+)%/); if (m) j.msg = 'Download läuft … ' + m[1] + ' %'; });
+  const done = (code) => {
+    jobs.delete('_run');
+    const files = fs.readdirSync(dir).filter((f) => f.startsWith(j.id + '.')), mp4 = files.find((f) => /\.(mp4|mkv|webm)$/.test(f)), vtt = files.find((f) => /\.vtt$/.test(f));
+    if (code === 0 && mp4) { j.state = 'done'; j.file = 'Material/Videos/' + mp4; j.size = fs.statSync(path.join(dir, mp4)).size; j.transcript = vtt ? vttText(fs.readFileSync(path.join(dir, vtt), 'utf8')) : ''; j.msg = 'fertig'; }
+    else { j.state = 'error'; j.msg = (err.split('\n').filter(Boolean).pop() || 'Download fehlgeschlagen').slice(0, 300); }
+    runNext();
+  };
+  p.on('error', (e) => { j.state = 'error'; j.msg = String(e.message); jobs.delete('_run'); runNext(); });
+  p.on('close', done);
 }
 function bodyBuf(req, max) {
   return new Promise((ok, no) => { const ch = []; let n = 0; req.on('data', (c) => { n += c.length; if (n > max) { no(new Error('Datei zu groß')); req.destroy(); } else ch.push(c); }); req.on('end', () => ok(Buffer.concat(ch))); req.on('error', no); });
@@ -117,7 +141,7 @@ function broadcast(msg, exceptDevice) {
 // ---------- Hilfen ----------
 const json = (res, code, obj) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }); res.end(JSON.stringify(obj)); };
 const body = (req) => new Promise((ok, no) => { const ch = []; let n = 0; req.on('data', (c) => { n += c.length; if (n > MAX_BODY) { no(new Error('too large')); req.destroy(); } else ch.push(c); }); req.on('end', () => ok(Buffer.concat(ch).toString('utf8'))); req.on('error', no); });
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.css': 'text/css', '.woff2': 'font/woff2', '.ico': 'image/x-icon' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.mp4': 'video/mp4', '.webm': 'video/webm', '.mkv': 'video/x-matroska', '.vtt': 'text/vtt', '.epub': 'application/epub+zip', '.png': 'image/png', '.css': 'text/css', '.woff2': 'font/woff2', '.ico': 'image/x-icon' };
 
 function serveStatic(req, res, pathname) {
   let p = pathname === '/' ? '/index.html' : pathname;
@@ -203,6 +227,21 @@ const server = http.createServer(async (req, res) => {
         if (!info.title && info.seconds == null && !info.channel) return json(res, 502, { error: 'YouTube hat keine Daten geliefert.' });
         return json(res, 200, info);
       }
+      if (p === '/api/yt/download' && req.method === 'POST') {
+        if (!YTDLP) return json(res, 501, { error: 'yt-dlp ist auf der NAS nicht installiert. Der Container muss mit dem neuen Dockerfile neu gebaut werden.' });
+        const b = JSON.parse((await body(req)) || '{}'), vid = ytId(b.url || ''), id = String(b.id || '').replace(/[^\w-]/g, '').slice(0, 40);
+        if (!vid || !id) return json(res, 400, { error: 'Kein gültiger YouTube-Link' });
+        const cur = jobs.get(id);
+        if (cur && (cur.state === 'running' || cur.state === 'queued')) return json(res, 200, { state: cur.state });
+        const j = { id, url: 'https://www.youtube.com/watch?v=' + vid, state: 'queued', msg: 'wartet' }; jobs.set(id, j); queue.push(j); runNext();
+        return json(res, 200, { state: j.state });
+      }
+      if (p === '/api/yt/status' && req.method === 'GET') {
+        const id = String(url.searchParams.get('id') || '').replace(/[^\w-]/g, ''), j = jobs.get(id);
+        if (!j) { const f = ['mp4', 'mkv', 'webm'].map((e) => 'Material/Videos/' + id + '.' + e).find((x) => fs.existsSync(path.join(FILES_DIR, x))); return json(res, 200, f ? { state: 'done', file: f, size: fs.statSync(path.join(FILES_DIR, f)).size } : { state: 'none', available: !!YTDLP }); }
+        const out = { state: j.state, msg: j.msg, file: j.file, size: j.size, available: !!YTDLP }; if (j.state === 'done' && j.transcript != null) { out.transcript = j.transcript; delete j.transcript; }
+        return json(res, 200, out);
+      }
       /* Dateiablage (Material): data/files/<Ordner>/<Datei> */
       if (p === '/api/files' && req.method === 'GET') return json(res, 200, { files: listFiles(safeRel(url.searchParams.get('dir') || '')) });
       if (p === '/api/file') {
@@ -219,7 +258,14 @@ const server = http.createServer(async (req, res) => {
           if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) return json(res, 404, { error: 'Datei nicht gefunden' });
           const ext = path.extname(abs).toLowerCase();
           const types = { '.pdf': 'application/pdf', '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.txt': 'text/plain; charset=utf-8' };
-          res.writeHead(200, { 'content-type': types[ext] || 'application/octet-stream', 'content-length': fs.statSync(abs).size, 'cache-control': 'no-store', 'content-disposition': `${url.searchParams.get('inline') ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(path.basename(abs))}` });
+          const size = fs.statSync(abs).size, rg = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
+          if (rg && (rg[1] || rg[2])) {
+            let a0 = rg[1] ? +rg[1] : Math.max(0, size - +rg[2]), b0 = rg[1] && rg[2] ? Math.min(+rg[2], size - 1) : size - 1;
+            if (a0 > b0 || a0 >= size) { res.writeHead(416, { 'content-range': 'bytes */' + size }); return res.end(); }
+            res.writeHead(206, { 'content-type': types[ext] || 'application/octet-stream', 'accept-ranges': 'bytes', 'content-range': `bytes ${a0}-${b0}/${size}`, 'content-length': b0 - a0 + 1 });
+            return fs.createReadStream(abs, { start: a0, end: b0 }).pipe(res);
+          }
+          res.writeHead(200, { 'accept-ranges': 'bytes', 'content-type': types[ext] || 'application/octet-stream', 'content-length': size, 'cache-control': 'no-store', 'content-disposition': `${url.searchParams.get('inline') ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(path.basename(abs))}` });
           return fs.createReadStream(abs).pipe(res);
         }
         if (req.method === 'DELETE') {
