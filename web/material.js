@@ -96,7 +96,7 @@ const MAT = (() => {
     const epochs = EPOCHS.filter((e) => ep[e]).sort((a, b) => ep[b] - ep[a]); const top = epochs.length ? ep[epochs[0]] : 0;
     return { epoche: epochs.filter((e) => ep[e] >= Math.max(3, top * 0.5)).slice(0, 2), tags: tags.sort((a, b) => b[1] - a[1]).map((x) => x[0]).filter((x) => !EPOCHS.includes(x)).slice(0, 8), keys: keyWords((title + ' ' + (extra || '') + ' ' + text), 14).filter((k) => !tags.some((t) => norm(t[0]).startsWith(norm(k).slice(0, 6))) && !EPOCHS.includes(k) && !/^(video|antikes|antike)$/i.test(k)).slice(0, 8) };
   }
-  const tagsOf = (s) => { const hid = leg(s.hid), man = leg(s.man), auto = s.auto ? Object.assign({}, s.auto, { epoche: leg(s.auto.epoche) }) : { tags: [], keys: [], epoche: [] }; return { epoche: [...new Set(auto.epoche.filter((x) => !hid.includes(x)).concat(man.filter((x) => EPOCHS.includes(x))))], tags: [...new Set(auto.tags.filter((x) => !hid.includes(x)).concat(man.filter((x) => !EPOCHS.includes(x))))], keys: (auto.keys || []).filter((x) => !hid.includes(x)) }; };
+  const tagsOf = (s) => { const hid = leg(s.hid), man = leg(s.man), auto = s.auto ? Object.assign({}, s.auto, { epoche: leg(s.auto.epoche) }) : { tags: [], keys: [], epoche: [] }; return { epoche: [...new Set(auto.epoche.filter((x) => !hid.includes(x)).concat(man.filter((x) => EPOCHS.includes(x))))], tags: [...new Set(auto.tags.filter((x) => !hid.includes(x)).concat(man.filter((x) => !EPOCHS.includes(x))))], keys: [...new Set((auto.keys || []).filter((x) => !hid.includes(x)).concat(s.mankeys || []))] }; };
   async function retag(id, force) {
     const s = srcOf(id); if (!s) return; if (s.lock && !force) return; const t = await textOf(id);
     put('settings', Object.assign({}, srcOf(id), { auto: autoTags(s.title + ' ' + (s.vtitle || ''), (s.desc || '') + ' ' + (s.notes || ''), t.pages.map((p) => p.t).join(' ')) }));
@@ -530,6 +530,7 @@ const MAT = (() => {
       <div class="kmkvr"><span class="kmk">Art</span><span class="kmv chips">${KINDS.map(([kk, n]) => `<button class="mattag sel${(d.art || artOf(d)) === kk ? ' on' : ''}" data-act="mdkind" data-d="${did}" data-v="${kk}">${n}</button>`).join('')}</span></div>
       <div class="kmkvr"><span class="kmk">Epoche</span><span class="kmv chips">${epChips(EPOCHS, d.ep, 'mdep', did)}</span></div>
       <div class="kmkvr"><span class="kmk">Themen</span><span class="kmv chips">${tgChips(d.tg, d.tg, 'mdtg', did)}${tgChips(rest.slice(0, 6), d.tg, 'mdtg', did)}<details class="matmore"><summary class="mattag">Weitere ▾</summary><div>${tgChips(rest.slice(6), d.tg, 'mdtg', did)}</div></details><input class="matin" id="dr-${did}-new" data-ch="mdnew" data-d="${did}" placeholder="+ eigener Tag" style="width:130px"></span></div>
+      <div class="kmkvr"><span class="kmk">Schlagwörter</span><span class="kmv chips">${d.keys.map((x) => `<span class="mattag ky">${esc(x)}<button data-act="mdrmkey" data-d="${did}" data-v="${esc(x)}" aria-label="Entfernen">×</button></span>`).join('')}<input class="matin" id="dr-${did}-newkey" data-ch="mdkey" data-d="${did}" placeholder="+ Schlagwort" style="width:140px"></span></div>
       ${d.err ? `<div class="matnote err"><span>${esc(d.err)}</span></div>` : ''}
       <div class="matfoot">${d.status === 'saving' ? '<span class="muted">⏳ wird auf die NAS geladen …</span>' : `<button class="btn" data-act="mddel" data-d="${did}">Verwerfen</button><button class="btn good" data-act="mdgo" data-d="${did}">Anlegen</button>`}</div></section>`;
   }
@@ -538,6 +539,7 @@ const MAT = (() => {
     video: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z"/>',
     pdf: '<path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>',
     epub: '<path d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2z"/><path d="M4 19a2 2 0 012-2h13"/>',
+    buch: '<path d="M12 6c-2-1.5-5-2-8-2v14c3 0 6 .5 8 2 2-1.5 5-2 8-2V4c-3 0-6 .5-8 2z"/><path d="M12 6v14"/>',
     text: '<path d="M4 6h16M4 10h16M4 14h10M4 18h8"/>',
     bild: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/>',
     link: '<path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/>',
@@ -550,8 +552,8 @@ const MAT = (() => {
     const cnt = (e) => list.filter((x) => tagsOf(x).epoche.includes(e)).length;
     const eps = EPOCHS.map((e) => `<span class="kmchipw"><button class="kmchip matep${f.e === e ? ' on' : ''}${f.e && f.e !== e ? ' dim' : ''}" style="--ec:${EPCOL[e]}" data-act="matfe" data-v="${esc(e)}" title="${esc(e)}: ${cnt(e)} Quelle(n)">${esc(e)}<small>${cnt(e)}</small></button></span>`).join('');
     const bar = `<div class="kmcls"><div class="kmchips"><span class="kmchipw"><button class="kmchip matep matall${!f.e ? ' on' : ' dim'}" style="--ec:#6e7480" data-act="matfe" data-v="">Alle<small>${list.length}</small></button></span><span class="kmdiv" style="cursor:default"></span>${eps}</div></div>`;
-    const kinds = KINDS.filter(([k]) => list.some((x) => kindOf(x) === k));
-    const side = `<nav class="kmside" aria-label="Art"><div class="kmsidet">Art</div><button class="kmicon${!f.a ? ' on' : ''}" data-act="matfa" data-v="">${ico('all')}<small>Alle ${list.length}</small></button>${kinds.map(([k, n]) => `<button class="kmicon${f.a === k ? ' on' : ''}" data-act="matfa" data-v="${k}">${ico(k)}<small>${esc(n.split(' ')[0])} ${list.filter((x) => kindOf(x) === k).length}</small></button>`).join('')}</nav>`;
+    const kinds = KINDS;
+    const side = `<nav class="kmside" aria-label="Art"><div class="kmsidet">Art</div><button class="kmicon${!f.a ? ' on' : ''}" data-act="matfa" data-v="">${ico('all')}<small>Alle ${list.length}</small></button>${kinds.map(([k, n]) => `<button class="kmicon${f.a === k ? ' on' : ''}${list.some((x) => kindOf(x) === k) ? '' : ' zero'}" data-act="matfa" data-v="${k}">${ico(k)}<small>${esc(n.split(' ')[0])} ${list.filter((x) => kindOf(x) === k).length}</small></button>`).join('')}</nav>`;
     const artName = (KINDS.find(([k]) => k === f.a) || [0, 'Alle Quellen'])[1];
     const head = `<div class="kmh"><h1>Material<span class="kmsep kmh1">I</span><span class="muted" style="font-weight:500">${esc(f.e || 'Alle Epochen')}${f.a ? ' · ' + esc(artName) : ''}</span></h1></div>`;
     return `<div class="km">${bar}${head}${banner}<div class="kmbody">${side}<section class="kmmain">${quellen()}</section></div></div>`;
@@ -582,7 +584,7 @@ const MAT = (() => {
   const hist = () => ((S.settings.matq_hist || {}).items || []);
   const saveHist = (items) => put('settings', { id: 'matq_hist', items: items.slice(0, 12) });
   const clearBtn = (act, show) => (show ? `<button class="matclr" data-act="${act}" title="Eingabe löschen" aria-label="Eingabe löschen">×</button>` : '');
-  const KINDS = [['video', 'Video'], ['pdf', 'PDF'], ['epub', 'EPUB'], ['text', 'Text / Word'], ['bild', 'Screenshots'], ['link', 'Link']];
+  const KINDS = [['video', 'Video'], ['buch', 'Buch'], ['pdf', 'PDF'], ['epub', 'EPUB'], ['text', 'Text / Word'], ['bild', 'Screenshots'], ['link', 'Link']];
   const kindOf = (s) => (s.kind && KINDS.some((k) => k[0] === s.kind) ? s.kind : isYt(s.url) || s.type === 'video' ? 'video' : s.epub ? 'epub' : s.type === 'pdf' || /\.pdf$/i.test(s.file || '') ? 'pdf' : s.url && !s.pages ? 'link' : /^Screenshots /.test(s.title || '') ? 'bild' : 'text');
   const newF = () => ({ q: '', e: '', t: [], a: '' });
   function filterOf() { const m = M(); if (!m.f) m.f = newF(); if (m.f.a === undefined) m.f.a = ''; return m.f; }
@@ -617,7 +619,7 @@ const MAT = (() => {
       <div class="kmkvr"><span class="kmk">Vorschaubild</span><span class="kmv">${thumbBlock(s, id).replace('<span class="muted">Vorschaubild:</span>', '').replace('margin-top:10px', 'margin-top:0')}</span></div>
       <div class="kmkvr"><span class="kmk">Epoche</span><span class="kmv chips">${tog(EPOCHS, t.epoche, true)}</span></div>
       <div class="kmkvr"><span class="kmk">Themen</span><span class="kmv chips">${tog(t.tags, t.tags)}${tog(restT.slice(0, 6), t.tags)}<details class="matmore"><summary class="mattag">Weitere ▾</summary><div>${tog(restT.slice(6), t.tags)}</div></details><input class="matin" data-ch="matatag" data-id="${id}" placeholder="+ eigener Tag" style="width:130px"></span></div>
-      ${t.keys.length ? row('Schlagwörter', t.keys.map((x) => `<span class="mattag ky">${esc(x)}<button data-act="matrm" data-id="${id}" data-t="${esc(x)}" aria-label="Entfernen">×</button></span>`).join('')) : ''}
+      ${row('Schlagwörter', `<span class="chips">${t.keys.map((x) => `<span class="mattag ky">${esc(x)}<button data-act="matrmkey" data-id="${id}" data-t="${esc(x)}" aria-label="Entfernen">×</button></span>`).join('')}<input class="matin" data-ch="matakey" data-id="${id}" placeholder="+ Schlagwort" style="width:140px"></span>`)}
       ${row('Notiz', `<input class="matin" data-ch="matnote" data-id="${id}" value="${esc(s.notes || '')}" placeholder="Notiz zur Quelle">`)}
       <div class="matfoot"><button class="btn sm" data-act="matretag" data-id="${id}" title="Epoche, Themen und Schlagwörter aus Titel und Text neu bestimmen">Tags neu berechnen</button><button class="btn sm bad" data-act="matdel" data-id="${id}">Löschen</button></div></section>`;
   }
@@ -671,6 +673,8 @@ const MAT = (() => {
     matall: async (e) => { const id = e.dataset.id, s = srcOf(id), t = await textOf(id); if (!t.pages.length) return toast('Diese Quelle hat noch keinen Text'); M().sel.push({ ref: (s.vtitle || s.title) + ' (ganze Quelle)', t: t.pages.map((p) => p.t).join('\n').slice(0, 15000) }); toast('Übernommen'); render(); },
     matai: (e) => toast(e.dataset.k + ': Dafür brauche ich den KI-Schlüssel. Das schalten wir in der nächsten Stufe frei, die Auswahl bleibt erhalten.'),
     matnote0: () => { note(); render(); },
+    matrmkey: (e) => { const s = srcOf(e.dataset.id); if (!s) return; const t = e.dataset.t, mk = (s.mankeys || []).filter((x) => x !== t), hid = (s.hid || []).slice(); if (!(s.mankeys || []).includes(t) && !hid.includes(t)) hid.push(t); put('settings', Object.assign({}, s, { mankeys: mk, hid })); render(); },
+    mdrmkey: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d); if (d) { d.keys = d.keys.filter((x) => x !== e.dataset.v); render(); } },
     matkind: (e) => { const s = srcOf(e.dataset.id); if (s) { put('settings', Object.assign({}, s, { kind: e.dataset.v })); render(); } },
     mdkind: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d); if (d) { d.art = e.dataset.v; render(); } },
     matthumbdel: async (e) => { const id = e.dataset.id, s = srcOf(id); if (!s) return; if (e.dataset.back) { put('settings', Object.assign({}, s, { noThumb: false })); return render(); } if (s.thumb && s.thumb.file) { try { await fdel(s.thumb.file); } catch (x) { /* */ } } const n = Object.assign({}, s, { noThumb: true }); delete n.thumb; put('settings', n); toast('Vorschaubild entfernt'); render(); },
@@ -727,6 +731,8 @@ const MAT = (() => {
     mdnew: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d), v = e.value.trim(); if (!d || !v) return; if (!d.tg.includes(v)) d.tg.push(v); e.value = ''; render(); },
     matatag: (e) => { const v = e.value.trim(); if (!v) return; const s = srcOf(e.dataset.id); if (!s) return; put('settings', Object.assign({}, s, { man: [...new Set((s.man || []).concat(v)) ], hid: (s.hid || []).filter((x) => x !== v) })); e.value = ''; render(); },
     matfq: (e) => { filterOf().q = e.value; render(); },
+    matakey: (e) => { const v = e.value.trim(); if (!v) return; const s = srcOf(e.dataset.id); if (!s) return; put('settings', Object.assign({}, s, { mankeys: [...new Set((s.mankeys || []).concat(v))], hid: (s.hid || []).filter((x) => x !== v) })); e.value = ''; render(); },
+    mdkey: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d), v = e.value.trim(); if (!d || !v) return; if (!d.keys.includes(v)) d.keys.push(v); e.value = ''; render(); },
     matttl: (e) => { const s = srcOf(e.dataset.id); if (!s) return; const v = e.value.trim(); if (v) put('settings', Object.assign({}, s, s.vtitle ? { vtitle: v, title: v } : { title: v })); render(); },
     matnote: (e) => { const s = srcOf(e.dataset.id); if (s) put('settings', Object.assign({}, s, { notes: e.value })); },
     matsel: (e) => { const x = M().sel[+e.dataset.i]; if (x) x.t = e.value; },
@@ -802,7 +808,7 @@ const MAT = (() => {
 .matfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}.matnote.warn{background:var(--warn-soft);color:var(--warn);margin:10px 0}
 .matmore{display:inline}.matmore summary{list-style:none;cursor:pointer;display:inline-flex}.matmore[open] summary{background:var(--accent-soft)}.matmore>div{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
 html:root .kmchip.matep{background:var(--ec);border-color:var(--ec);color:#fff}html:root .kmchip.matep.dim{opacity:.45}html:root .kmchip.matep:hover{opacity:1}html:root .kmchip.matep.on{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ec)}html:root .kmchip.matep small,html:root .kmchip.matep.on small,html:root .kmchip.matep:hover small{color:#fff!important;opacity:1}
-.matdot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}.kmchip.zero{opacity:.55}.kmchip small{margin-left:4px}
+.matdot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}.kmchip.zero{opacity:.55}.kmside .kmicon.zero{opacity:.5}.kmside .kmicon.zero:hover{opacity:1}.kmchip small{margin-left:4px}
 .matth2{display:block;width:64px;height:36px;border-radius:6px;overflow:hidden;background:var(--surface2);position:relative}.matth2 img{width:100%;height:100%;object-fit:cover;display:block}.matth2 .matph{font-size:11px}.matth2 .matcc{display:none}
 .matc{font-size:13px;color:var(--ink)}.matc.chips2{display:flex;gap:3px;flex-wrap:wrap}.matc.chips2 .mattag{margin:0;font-size:11px;padding:1px 7px}.matnas2{background:var(--good);color:#fff;border-radius:4px;padding:0 5px;font-size:10px}
 .matedit2{border:0;background:transparent;color:var(--muted);cursor:pointer;border-radius:8px;padding:6px}.matedit2:hover,.matedit2[aria-expanded=true]{background:var(--accent-soft);color:var(--accent)}.kmrow.matsel{background:var(--accent-soft)}
