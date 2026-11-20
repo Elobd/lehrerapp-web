@@ -19,6 +19,23 @@ const MAX_BODY = 25 * 1024 * 1024;
 
 if (!PASSWORD || PASSWORD === 'HIER-PASSWORT-EINTRAGEN') { console.error('APP_PASSWORD ist nicht gesetzt (oder noch der Platzhalter). Bitte in docker-compose.yml ein eigenes Passwort eintragen. Abbruch.'); process.exit(1); }
 fs.mkdirSync(DATA_DIR, { recursive: true });
+
+const FILES_DIR = path.join(DATA_DIR, 'files');
+const MAX_FILE = 80 * 1024 * 1024;
+fs.mkdirSync(FILES_DIR, { recursive: true });
+function safeRel(rel) {
+  const parts = String(rel).split('/').map((x) => x.replace(/[\\:*?"<>|\u0000-\u001f]/g, '_').trim()).filter((x) => x && x !== '.' && x !== '..').map((x) => x.replace(/^\.+/, '_'));
+  return parts.slice(0, 6).join('/');
+}
+function listFiles(rel) {
+  const out = [], root = path.join(FILES_DIR, rel);
+  const walk = (d, pre) => { let ents = []; try { ents = fs.readdirSync(d, { withFileTypes: true }); } catch { return; } for (const e of ents) { const r = pre ? pre + '/' + e.name : e.name; if (e.isDirectory()) walk(path.join(d, e.name), r); else { const st = fs.statSync(path.join(d, e.name)); out.push({ path: rel ? rel + '/' + r : r, size: st.size, mtime: st.mtimeMs }); } } };
+  walk(root, '');
+  return out.sort((a, b) => b.mtime - a.mtime);
+}
+function bodyBuf(req, max) {
+  return new Promise((ok, no) => { const ch = []; let n = 0; req.on('data', (c) => { n += c.length; if (n > max) { no(new Error('Datei zu groß')); req.destroy(); } else ch.push(c); }); req.on('end', () => ok(Buffer.concat(ch))); req.on('error', no); });
+}
 const db = new DatabaseSync(path.join(DATA_DIR, 'lehrerapp.sqlite'));
 db.exec(`PRAGMA journal_mode=WAL;
 CREATE TABLE IF NOT EXISTS docs(coll TEXT NOT NULL, id TEXT NOT NULL, data TEXT NOT NULL, updated INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(coll,id));`);
@@ -145,6 +162,31 @@ const server = http.createServer(async (req, res) => {
         for (const c of COLLECTIONS) for (const [id, d] of Object.entries(inp[c] || {})) { qPut.run(c, String(id), JSON.stringify(d), now); n++; }
         broadcast({ type: 'reload' });
         return json(res, 200, { imported: n });
+      }
+
+      /* Dateiablage (Material): data/files/<Ordner>/<Datei> */
+      if (p === '/api/files' && req.method === 'GET') return json(res, 200, { files: listFiles(safeRel(url.searchParams.get('dir') || '')) });
+      if (p === '/api/file') {
+        const rel = safeRel(url.searchParams.get('path') || '');
+        if (!rel) return json(res, 400, { error: 'Pfad fehlt' });
+        const abs = path.join(FILES_DIR, rel);
+        if (req.method === 'PUT') {
+          const buf = await bodyBuf(req, MAX_FILE);
+          fs.mkdirSync(path.dirname(abs), { recursive: true });
+          fs.writeFileSync(abs, buf);
+          return json(res, 200, { ok: true, path: rel, size: buf.length });
+        }
+        if (req.method === 'GET') {
+          if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) return json(res, 404, { error: 'Datei nicht gefunden' });
+          const ext = path.extname(abs).toLowerCase();
+          const types = { '.pdf': 'application/pdf', '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.txt': 'text/plain; charset=utf-8' };
+          res.writeHead(200, { 'content-type': types[ext] || 'application/octet-stream', 'content-length': fs.statSync(abs).size, 'cache-control': 'no-store', 'content-disposition': `${url.searchParams.get('inline') ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(path.basename(abs))}` });
+          return fs.createReadStream(abs).pipe(res);
+        }
+        if (req.method === 'DELETE') {
+          if (fs.existsSync(abs) && fs.statSync(abs).isFile()) fs.unlinkSync(abs);
+          return json(res, 200, { ok: true });
+        }
       }
 
       const m = p.match(/^\/api\/c\/([a-z0-9_-]+)(?:\/([^/]+))?$/i);
