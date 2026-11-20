@@ -104,7 +104,7 @@ const KM = (() => {
     const side = tabsOf(c).map((t) => `<button class="kmicon${t === tab ? ' on' : ''}" data-act="kmtab" data-key="${c.key}" data-tab="${t}" title="${t === 'i' ? 'Allgemeine Informationen' : t === 'g' ? 'Geschichte' : 'Bewegung und Sport'}" aria-label="${t === 'i' ? 'Allgemein' : t === 'g' ? 'Geschichte' : 'Sport'}">${svg(t, 26)}<small>${t === 'i' ? 'Allgemein' : t === 'g' ? 'Geschichte' : 'Sport'}</small></button>`).join('');
     const body = tab === 'i' ? general(c) : tab === 'g' && col ? colPage(c, col) : subject(c, tab === 'g' ? 'gpb' : 'bspk');
     const hm = /<!--H-->([\s\S]*?)<!--\/H-->/.exec(body), headH = hm ? hm[1] : '', bodyH = hm ? body.replace(hm[0], '') : body;
-    return `<div class="km"><div class="kmcls"><div class="kmchips">${chips}</div>${cfg().manual || Number.isInteger(cfg().div) ? `<div class="kmtools"><button class="kmtool" data-act="kmauto" title="Automatische Reihenfolge wiederherstellen">Auto</button></div>` : ''}</div>
+    return `<div class="km"><div class="kmcls"><div class="kmchips">${chips}</div></div>
       ${headH}<div class="kmbody"><nav class="kmside" aria-label="Bereiche"><div class="kmsidet">Klasse<b${c.names.length > 1 ? ' class="m"' : ''}>${disp(c)}</b></div>${side}</nav><section class="kmmain">${bodyH}</section></div></div>`;
   }
 
