@@ -399,7 +399,8 @@ const MAT = (() => {
   const newSrc = (title, type, extra) => { const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5); put('settings', Object.assign({ id: 'mat_' + id, title, type, url: '', added: Date.now(), pages: 0 }, extra || {})); return id; };
   const base = (n) => n.replace(/\.[^.]+$/, '');
   const extOf = (n) => ((String(n).match(/\.([^.]+)$/) || [])[1] || '').toLowerCase();
-  const KLABEL = { pdf: 'PDF', epub: 'EPUB', yt: 'YouTube-Video', video: 'Video-Datei', bild: 'Screenshots', text: 'Text / Word', link: 'Internetadresse', datei: 'Datei' };
+  const KLABEL = { ppt: 'PowerPoint', pdf: 'PDF', epub: 'EPUB', yt: 'YouTube-Video', video: 'Video-Datei', bild: 'Screenshots', text: 'Text / Word', link: 'Internetadresse', datei: 'Datei' };
+  const PPTEXT = ['pptx', 'ppt', 'pps', 'ppsx', 'odp', 'pptm'];
   const VIDEXT = ['mp4', 'm4v', 'mov', 'webm', 'mkv', 'avi'], IMGEXT = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'];
   let dseq = 0;
   async function docxText(file) {
@@ -450,11 +451,26 @@ const MAT = (() => {
     d.meta = [['Abschnitte', String(d.pages.length)], ['Dateigröße', mb(f.size)], ['Datei', f.name]];
     d.cover = await epubCover(z, opf, bs);
   }
+  async function readPptx(d, f) {
+    const Z = await loadZip(); let z; try { z = await Z.loadAsync(await f.arrayBuffer()); } catch (e) { z = null; }
+    d.meta = [['Dateigröße', mb(f.size)]];
+    const slides = z ? Object.keys(z.files).filter((n) => /^ppt\/slides\/slide\d+\.xml$/.test(n)).sort((a, b) => parseInt(a.match(/\d+/)[0]) - parseInt(b.match(/\d+/)[0])) : [];
+    if (!slides.length) { d.warn = 'Den Text dieser Präsentation kann ich nicht lesen (nur .pptx wird ausgelesen). Sie wird als Datei abgelegt, ist aber nicht durchsuchbar.'; return; }
+    const txt = (x) => x.replace(/<\/a:p>/g, ' ').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/\s+/g, ' ').trim();
+    for (let i = 0; i < slides.length; i++) {
+      const n = parseInt(slides[i].match(/\d+/)[0]), t = txt(await z.file(slides[i]).async('string')), nf = z.file('ppt/notesSlides/notesSlide' + n + '.xml'), nt = nf ? txt(await nf.async('string')) : '';
+      d.pages.push({ p: i + 1, t: (t || '(ohne Text)') + (nt && nt !== String(n) ? ' Notizen: ' + nt : ''), h: 'Folie ' + (i + 1) });
+    }
+    const core = z.file('docProps/core.xml'); if (core) { const c = await core.async('string'), t = (c.match(/<dc:title>([^<]*)<\/dc:title>/) || [])[1], a = (c.match(/<dc:creator>([^<]*)<\/dc:creator>/) || [])[1]; if (t && t.trim()) d.f.title = t.trim(); if (a) d.f.author = a.trim(); }
+    d.meta = [['Folien', String(slides.length)], ['Dateigröße', mb(f.size)], ['Datei', f.name]];
+    const th = z.file('docProps/thumbnail.jpeg') || z.file('docProps/thumbnail.jpg') || z.file('docProps/thumbnail.png'); if (th) d.thumbBlob = await th.async('blob');
+  }
   async function readDraft(d) {
     const f = d.file;
     try {
       if (d.kind === 'pdf') await readPdf(d, f);
       else if (d.kind === 'epub') await readEpub(d, f);
+      else if (d.kind === 'ppt') await readPptx(d, f);
       else if (d.kind === 'video') { const v = await videoMeta(f); d.seconds = v.seconds; d.thumbBlob = v.thumb; d.meta = [['Dauer', v.seconds != null ? dur(v.seconds) : 'unbekannt'], ['Dateigröße', mb(f.size)], ['Datei', f.name]]; }
       else if (d.kind === 'bild') {
         const Tess = await loadOcr(); d.thumbBlob = d.files[0];
@@ -480,6 +496,7 @@ const MAT = (() => {
       const ext = extOf(f.name || ''), t = f.type || '';
       if (ext === 'pdf' || t === 'application/pdf') todo.push(push(mkDraft('pdf', f.name, { file: f })));
       else if (ext === 'epub') todo.push(push(mkDraft('epub', f.name, { file: f })));
+      else if (PPTEXT.includes(ext)) todo.push(push(mkDraft('ppt', f.name, { file: f })));
       else if (VIDEXT.includes(ext) || /^video\//.test(t)) todo.push(push(mkDraft('video', f.name, { file: f })));
       else if (IMGEXT.includes(ext) || /^image\//.test(t)) imgs.push(f);
       else if (['docx', 'txt', 'md', 'csv', 'html', 'htm'].includes(ext) || /^text\//.test(t)) todo.push(push(mkDraft('text', f.name, { file: f })));
@@ -508,6 +525,7 @@ const MAT = (() => {
       const setS = (o) => put('settings', Object.assign({}, srcOf(id), o));
       const saveSt = async () => { T[id] = { pages: d.pages }; await fput(QDIR + '/' + id + '.json', new Blob([JSON.stringify(T[id])], { type: 'application/json' })); setS({ pages: d.pages.length }); };
       if (d.kind === 'pdf') { const nm = QDIR + '/' + id + '-' + slugify(base(d.name)) + '.pdf'; await fput(nm, d.file); setS({ file: nm }); await saveSt(); }
+      else if (d.kind === 'ppt') { const nm = QDIR + '/' + id + '-' + slugify(d.name); await fput(nm, d.file); setS({ file: nm }); if (d.pages.length) await saveSt(); }
       else if (d.kind === 'epub') { const nm = QDIR + '/' + id + '-' + slugify(base(d.name)) + '.epub'; await fput(nm, d.file); setS({ epub: nm }); await saveSt(); }
       else if (d.kind === 'video') { const nm = 'Material/Videos/' + id + '.' + (extOf(d.name) || 'mp4'); await fput(nm, d.file); setS({ seconds: d.seconds == null ? null : d.seconds, dl: { state: 'done', file: nm, size: d.file.size } }); }
       else if (d.kind === 'bild') { for (let i = 0; i < d.files.length; i++) await fput(QDIR + '/' + id + '-s' + (i + 1) + '.png', d.files[i]); await saveSt(); }
@@ -518,7 +536,7 @@ const MAT = (() => {
       }
       if (d.kind === 'yt') await saveSt();
       if (d.noThumb) setS({ noThumb: true });
-      else if (d.thumbBlob) { const nm = QDIR + '/' + id + '-thumb.jpg'; await fput(nm, d.thumbBlob); setS({ thumb: { file: nm, src: d.thumbSrc || (d.kind === 'pdf' ? 'PDF, Seite 1' : d.kind === 'bild' ? 'Screenshot' : 'Video') } }); }
+      else if (d.thumbBlob) { const nm = QDIR + '/' + id + '-thumb.jpg'; await fput(nm, d.thumbBlob); setS({ thumb: { file: nm, src: d.thumbSrc || (d.kind === 'ppt' ? 'Präsentation' : d.kind === 'pdf' ? 'PDF, Seite 1' : d.kind === 'bild' ? 'Screenshot' : 'Video') } }); }
       else if (d.cover) { const nm = QDIR + '/' + id + '-thumb.' + d.cover.ext; await fput(nm, d.cover.blob); setS({ thumb: { file: nm, src: 'EPUB-Titelbild' } }); }
       if (d.kind === 'yt' && d.dl) startDownload(id);
       if (!d.noThumb && !d.thumbBlob && !d.cover && d.kind !== 'yt') autoThumb(id, false);
@@ -531,14 +549,14 @@ const MAT = (() => {
   const ro = (label, val, link) => `<div class="kmkvr"><span class="kmk">${label}</span><span class="kmv">${link ? `<a href="${esc(link)}" target="_blank" rel="noopener">${esc(val)}</a>` : esc(val)}</span></div>`;
   const epChips = (list, cur, act, did) => list.map((x) => `<button class="mattag ep sel${cur.includes(x) ? ' on' : ''}"${epS(x)} data-act="${act}" data-d="${did}" data-v="${esc(x)}">${esc(x)}</button>`).join('');
   const tgChips = (list, cur, act, did) => list.map((x) => `<button class="mattag sel${cur.includes(x) ? ' on' : ''}" data-act="${act}" data-d="${did}" data-v="${esc(x)}">${esc(x)}</button>`).join('');
-  const artOf = (d) => ({ pdf: 'pdf', epub: 'epub', video: 'video', yt: 'video', bild: 'bild', text: 'text', link: 'link', datei: 'text' }[d.kind] || 'text');
+  const artOf = (d) => ({ ppt: 'ppt', pdf: 'pdf', epub: 'epub', video: 'video', yt: 'video', bild: 'bild', text: 'text', link: 'link', datei: 'text' }[d.kind] || 'text');
   function draftCard(d) {
     const k = d.kind, did = d.id, head = `<h2>${KLABEL[k]}${d.name ? ' · ' + esc(d.name) : ''}</h2>`;
     if (d.status === 'reading') return `<section class="card matdraft" tabindex="-1" data-d="${did}">${head}<div class="row" style="align-items:center;gap:10px"><span class="muted">⏳ wird gelesen${d.prog ? ' … ' + esc(d.prog) : ' …'}</span><span style="flex:1"></span><button class="btn sm" data-act="mddel" data-d="${did}">Abbrechen</button></div></section>`;
     if (d.status === 'error') return `<section class="card matdraft" tabindex="-1" data-d="${did}">${head}<div class="matnote err" style="margin:0 0 10px"><span>Konnte nicht gelesen werden: ${esc(d.err)}</span></div><button class="btn sm" data-act="mddel" data-d="${did}">Entfernen</button></section>`;
     const ths = d.thumbBlob && d.thumbUrl ? d.thumbUrl : d.vid ? `https://i.ytimg.com/vi/${d.vid}/hqdefault.jpg` : d.thumbUrl;
     const rows = [fld(d, 'title', 'Titel')];
-    if (k === 'pdf') rows.push(fld(d, 'author', 'Autor'));
+    if (k === 'pdf' || k === 'ppt') rows.push(fld(d, 'author', 'Autor'));
     if (k === 'epub') rows.push(fld(d, 'author', 'Autor'), fld(d, 'publisher', 'Verlag'), fld(d, 'lang', 'Sprache'), fld(d, 'year', 'Jahr'));
     if (k === 'yt') rows.push(ro('Kanal', d.f.channel || '–', d.f.channelUrl), ro('Video', d.f.url, d.f.url));
     if (k === 'link') rows.push(ro('Adresse', d.f.url, d.f.url));
@@ -561,6 +579,7 @@ const MAT = (() => {
     video: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z"/>',
     pdf: '<path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>',
     epub: '<path d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2z"/><path d="M4 19a2 2 0 012-2h13"/>',
+    ppt: '<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M12 16v4M8 20h8M7 12l3-3 2 2 4-4"/>',
     buch: '<path d="M12 6c-2-1.5-5-2-8-2v14c3 0 6 .5 8 2 2-1.5 5-2 8-2V4c-3 0-6 .5-8 2z"/><path d="M12 6v14"/>',
     text: '<path d="M4 6h16M4 10h16M4 14h10M4 18h8"/>',
     bild: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/>',
@@ -606,9 +625,9 @@ const MAT = (() => {
   const hist = () => ((S.settings.matq_hist || {}).items || []);
   const saveHist = (items) => put('settings', { id: 'matq_hist', items: items.slice(0, 12) });
   const clearBtn = (act, show) => (show ? `<button class="matclr" data-act="${act}" title="Eingabe löschen" aria-label="Eingabe löschen">×</button>` : '');
-  const KINDS = [['video', 'Video'], ['buch', 'Buch'], ['pdf', 'PDF'], ['epub', 'EPUB'], ['text', 'Text / Word'], ['bild', 'Screenshots'], ['link', 'Link']];
+  const KINDS = [['video', 'Video'], ['buch', 'Buch'], ['pdf', 'PDF'], ['epub', 'EPUB'], ['ppt', 'PowerPoint'], ['text', 'Text / Word'], ['bild', 'Screenshots'], ['link', 'Link']];
   const kindsOrdered = () => { const sv = ((S.settings.matcfg || {}).order || []).filter((k) => KINDS.some((x) => x[0] === k)); return sv.map((k) => KINDS.find((x) => x[0] === k)).concat(KINDS.filter((x) => !sv.includes(x[0]))); };
-  const kindOf = (s) => (s.kind && KINDS.some((k) => k[0] === s.kind) ? s.kind : isYt(s.url) || s.type === 'video' ? 'video' : s.epub ? 'epub' : s.type === 'pdf' || /\.pdf$/i.test(s.file || '') ? 'pdf' : s.url && !s.pages ? 'link' : /^Screenshots /.test(s.title || '') ? 'bild' : 'text');
+  const kindOf = (s) => (s.kind && KINDS.some((k) => k[0] === s.kind) ? s.kind : isYt(s.url) || s.type === 'video' ? 'video' : s.epub ? 'epub' : /\.(pptx?|ppsx?|odp|pptm)$/i.test(s.file || '') ? 'ppt' : s.type === 'pdf' || /\.pdf$/i.test(s.file || '') ? 'pdf' : s.url && !s.pages ? 'link' : /^Screenshots /.test(s.title || '') ? 'bild' : 'text');
   const newF = () => ({ q: '', e: '', t: [], a: '' });
   function filterOf() { const m = M(); if (!m.f) m.f = newF(); if (m.f.a === undefined) m.f.a = ''; return m.f; }
   const matches = (s) => { const f = filterOf(), t = tagsOf(s); if (f.a && kindOf(s) !== f.a) return false; if (f.e && !t.epoche.includes(f.e)) return false; if (f.t.some((x) => !t.tags.includes(x) && !t.keys.includes(x))) return false; const q = norm(f.q).split(/\s+/).filter(Boolean); if (q.length) { const hay = norm([s.title, s.vtitle, s.channel, s.notes, ...t.epoche, ...t.tags, ...t.keys].join(' ')); if (q.some((w) => !hay.includes(w))) return false; } return true; };
@@ -800,7 +819,7 @@ const MAT = (() => {
     else {
       const t = await textOf(id), vid = ytVid(s.url);
       if (vid && kind === 'video') { const emb = `https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&rel=0`; body = `<iframe src="${emb}" title="${esc(s.title)}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen style="width:100%;height:100%;border:0;background:#000"></iframe>`; }
-      else body = `<div style="padding:18px 22px;overflow:auto;height:100%">${vid ? `<img src="https://i.ytimg.com/vi/${vid}/hqdefault.jpg" alt="" referrerpolicy="no-referrer" style="max-width:320px;border-radius:10px;float:right;margin:0 0 10px 14px">` : ''}${s.url ? `<p><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.url)}</a>${s.channelUrl ? ` · <a href="${esc(s.channelUrl)}" target="_blank" rel="noopener">Kanal ${esc(s.channel || '')}</a>` : ''}</p>` : ''}${kind === 'video' && !(s.dl && s.dl.state === 'done') ? '<p class="muted sm">Das Video ist noch nicht auf der NAS gespeichert.</p>' : ''}${t.pages.length ? t.pages.map((p) => `<h3 style="margin:16px 0 4px;font-size:15px">${esc(p.h || 'Seite ' + p.p)}</h3><p style="margin:0;white-space:pre-wrap">${esc(p.t)}</p>`).join('') : '<p class="muted">Zu dieser Quelle ist noch kein Text gespeichert.</p>'}</div>`;
+      else body = `<div style="padding:18px 22px;overflow:auto;height:100%">${kind === 'ppt' && s.file ? `<p><a class="btn sm" href="${url(s.file)}" download>Präsentation herunterladen</a></p>` : ''}${vid ? `<img src="https://i.ytimg.com/vi/${vid}/hqdefault.jpg" alt="" referrerpolicy="no-referrer" style="max-width:320px;border-radius:10px;float:right;margin:0 0 10px 14px">` : ''}${s.url ? `<p><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.url)}</a>${s.channelUrl ? ` · <a href="${esc(s.channelUrl)}" target="_blank" rel="noopener">Kanal ${esc(s.channel || '')}</a>` : ''}</p>` : ''}${kind === 'video' && !(s.dl && s.dl.state === 'done') ? '<p class="muted sm">Das Video ist noch nicht auf der NAS gespeichert.</p>' : ''}${t.pages.length ? t.pages.map((p) => `<h3 style="margin:16px 0 4px;font-size:15px">${esc(p.h || 'Seite ' + p.p)}</h3><p style="margin:0;white-space:pre-wrap">${esc(p.t)}</p>`).join('') : '<p class="muted">Zu dieser Quelle ist noch kein Text gespeichert.</p>'}</div>`;
     }
     const t0 = tagsOf(s);
     o.innerHTML = `<div class="matbox matbig"><div class="row" style="align-items:center;gap:10px;margin-bottom:8px"><h3 style="margin:0;flex:1">${esc(s.vtitle || s.title)}</h3><span class="muted sm">${t0.epoche.map(esc).join(', ')}</span><button class="btn sm" data-x="1" aria-label="Schließen">Schließen ✕</button></div><div class="matview">${body}</div></div>`;
