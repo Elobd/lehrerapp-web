@@ -470,7 +470,7 @@ const MAT = (() => {
   function view() {
     if (sources().some((x) => x.dl && (x.dl.state === 'running' || x.dl.state === 'queued'))) poll();
     const m = M(), tabs = [['quellen', 'Quellen'], ['suche', 'Suchen und Erstellen'], ['ordner', 'Ordner']];
-    const nav = `<div class="row" style="gap:6px;margin-bottom:14px;flex-wrap:wrap">${tabs.map(([k, n]) => `<button class="btn ${m.tab === k ? 'good' : ''}" data-act="mattab" data-t="${k}">${n}${k === 'suche' && m.sel.length ? ' (' + m.sel.length + ')' : ''}</button>`).join('')}${m.busy ? `<span class="muted sm" style="align-self:center">⏳ ${esc(m.busy)}</span>` : ''}</div>${m.note ? `<div class="matnote ${m.note.k}" role="status"><span>${esc(m.note.t)}</span><button data-act="matnote0" aria-label="Schließen">×</button></div>` : ''}`;
+    const nav = `<div class="row" style="gap:6px;margin-bottom:14px;flex-wrap:wrap">${tabs.map(([k, n]) => `<button class="btn ${m.tab === k ? 'good' : ''}" data-act="mattab" data-t="${k}">${n}${k === 'suche' && m.sel.length ? ' (' + m.sel.length + ')' : ''}</button>`).join('')}${m.busy ? `<span class="muted sm" style="align-self:center">⏳ ${esc(m.busy)}</span>` : ''}</div>${m.note ? `<div class="matnote ${m.note.k}" role="status"><span>${esc(m.note.t)}${/server\.js|Unbekannte API|Verbindung/.test(m.note.t) ? ' <a href="/diagnose.html" style="color:inherit;text-decoration:underline">Diagnose öffnen</a>' : ''}</span><button data-act="matnote0" aria-label="Schließen">×</button></div>` : ''}`;
     return `<div class="km"><div class="kmh"><h1>Material</h1><div class="muted">Quellen ablegen, Themen suchen, Arbeitsmaterial erstellen. Alles liegt auf deiner NAS.</div></div>${nav}${m.tab === 'quellen' ? quellen() : m.tab === 'suche' ? suche() : ordner()}</div>`;
   }
   function videoBlock(s, id) {
@@ -562,7 +562,11 @@ const MAT = (() => {
     matfe: (e) => { const f = filterOf(); f.e = f.e === e.dataset.v ? '' : e.dataset.v; render(); },
     matft: (e) => { const f = filterOf(), v = e.dataset.v; f.t = f.t.includes(v) ? f.t.filter((x) => x !== v) : f.t.concat(v); render(); },
     matfx: () => { M().f = newF(); setIn('matfq', ''); render(); },
-    matopen: (e) => { const m = M(); m.open = m.open === e.dataset.id ? null : e.dataset.id; render(); },
+    matopen: (e) => {
+      const m = M(), id = e.dataset.id, now = Date.now();
+      if (m.lastTile === id && now - (m.lastT || 0) < 450) { m.lastT = 0; m.open = m.prevOpen === undefined ? m.open : m.prevOpen; popup(id); return render(); } /* Doppelklick: Pop-up */
+      m.lastTile = id; m.lastT = now; m.prevOpen = m.open; m.open = m.open === id ? null : id; render();
+    },
     mattab: (e) => { M().tab = e.dataset.t; if (e.dataset.t === 'ordner') M().files = null; render(); },
     matyt: async (e) => {
       const s = srcOf(e.dataset.id); if (!s || !s.url) return; const m = M(); m.busy = 'YouTube-Infos werden geholt …'; render();
@@ -600,6 +604,24 @@ const MAT = (() => {
     mattpl: async (e) => { const f = e.files[0]; if (!f) return; try { await fput(TPL, f); M().tpl = true; toast('Vorlage gespeichert'); } catch (x) { toast('Fehler: ' + x.message); } e.value = ''; render(); },
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target && e.target.id === 'matq') { e.preventDefault(); A.matsearch(); } });
+  /* Doppelklick auf eine Kachel: Quelle als Pop-up öffnen */
+  async function popup(id) {
+    const s = srcOf(id); if (!s) return;
+    const o = document.createElement('div'); o.className = 'matask'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true');
+    const kind = kindOf(s); let body = '';
+    if (kind === 'pdf' && s.file) body = `<iframe src="${url(s.file, '&inline=1')}" title="${esc(s.title)}" style="width:100%;height:100%;border:0;background:#fff"></iframe>`;
+    else if (kind === 'video' && s.dl && s.dl.state === 'done' && s.dl.file) body = `<video controls autoplay src="${url(s.dl.file, '&inline=1')}" style="width:100%;height:100%;background:#000"></video>`;
+    else {
+      const t = await textOf(id), vid = ytVid(s.url);
+      body = `<div style="padding:18px 22px;overflow:auto;height:100%">${vid ? `<img src="https://i.ytimg.com/vi/${vid}/hqdefault.jpg" alt="" referrerpolicy="no-referrer" style="max-width:320px;border-radius:10px;float:right;margin:0 0 10px 14px">` : ''}${s.url ? `<p><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.url)}</a>${s.channelUrl ? ` · <a href="${esc(s.channelUrl)}" target="_blank" rel="noopener">Kanal ${esc(s.channel || '')}</a>` : ''}</p>` : ''}${kind === 'video' && !(s.dl && s.dl.state === 'done') ? '<p class="muted sm">Das Video ist noch nicht auf der NAS gespeichert.</p>' : ''}${t.pages.length ? t.pages.map((p) => `<h3 style="margin:16px 0 4px;font-size:15px">${esc(p.h || 'Seite ' + p.p)}</h3><p style="margin:0;white-space:pre-wrap">${esc(p.t)}</p>`).join('') : '<p class="muted">Zu dieser Quelle ist noch kein Text gespeichert.</p>'}</div>`;
+    }
+    const t0 = tagsOf(s);
+    o.innerHTML = `<div class="matbox matbig"><div class="row" style="align-items:center;gap:10px;margin-bottom:8px"><h3 style="margin:0;flex:1">${esc(s.vtitle || s.title)}</h3><span class="muted sm">${t0.epoche.map(esc).join(', ')}</span><button class="btn sm" data-x="1" aria-label="Schließen">Schließen ✕</button></div><div class="matview">${body}</div></div>`;
+    const close = () => { o.remove(); document.removeEventListener('keydown', esc1); };
+    const esc1 = (e) => { if (e.key === 'Escape') close(); };
+    o.addEventListener('click', (e) => { if (e.target === o || e.target.closest('[data-x]')) close(); });
+    document.addEventListener('keydown', esc1); document.body.appendChild(o);
+  }
   const inView = () => U.view === 'material' && M().tab === 'quellen';
   const zone = (e) => e.target && e.target.closest && e.target.closest('#matdz');
   document.addEventListener('click', (e) => { if (zone(e) && !(e.target.tagName === 'INPUT')) { const f = document.getElementById('matdzf'); if (f) f.click(); } });
@@ -625,6 +647,7 @@ const MAT = (() => {
 .matnote{display:flex;gap:10px;align-items:flex-start;border-radius:10px;padding:10px 14px;margin:-4px 0 12px;font:600 14px var(--font-body)}.matnote.err{background:var(--bad-soft);color:var(--bad)}.matnote.ok{background:var(--good-soft);color:var(--good)}.matnote span{flex:1}.matnote button{border:0;background:transparent;color:inherit;font:700 18px/1 var(--font-body);cursor:pointer}
 .matinw{position:relative;display:block}.matinw input{padding-right:30px!important}.matclr{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:var(--surface2);color:var(--muted);width:22px;height:22px;border-radius:50%;cursor:pointer;font:700 15px/1 var(--font-body);display:grid;place-items:center;padding:0}.matclr:hover{background:var(--bad-soft);color:var(--bad)}
 .mattag.hq{padding:0 2px 0 4px}.mattag.hq button:first-child{padding:2px 6px 2px 4px;font:600 12px var(--font-body)}.mattag.hq button{color:inherit}
+.matbig{max-width:1100px;width:96vw;height:88vh;display:flex;flex-direction:column}.matview{flex:1;min-height:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
 .matgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;margin-top:14px}
 .mattile{display:flex;flex-direction:column;gap:5px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px;cursor:pointer;color:var(--ink);font:inherit}
 .mattile:hover{box-shadow:0 4px 14px rgba(0,0,0,.12)}.mattile.on{border-color:var(--brand,var(--accent));box-shadow:0 0 0 2px var(--brand,var(--accent))}

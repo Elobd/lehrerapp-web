@@ -196,6 +196,7 @@ const server = http.createServer(async (req, res) => {
     if (p.startsWith('/api/')) {
       if (!authed(req)) return json(res, 401, { error: 'Nicht angemeldet' });
 
+      if (p === '/api/version') return json(res, 200, { version: '2026-11-20-material', files: true, ytdlp: !!YTDLP });
       if (p === '/api/events') {
         res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive', 'x-accel-buffering': 'no' });
         res.write('retry: 3000\n\n');

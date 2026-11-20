@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Diagnose</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;max-width:760px;margin:24px auto;padding:0 16px;color:#1a2410}h1{font-size:24px}.r{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #ddd}.r b{flex:none;width:26px}.ok{color:#1b7f4b}.bad{color:#b3261e}.box{background:#f4f7ec;border-radius:12px;padding:14px 16px;margin:16px 0}button{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid #888;background:#fff;cursor:pointer}small{color:#555}</style></head><body>
+<h1>Diagnose der Lehrer-App</h1>
+<p><small>Diese Seite prüft, welche Programmteile auf deiner NAS wirklich laufen. Du musst nichts eingeben.</small></p>
+<button id="go">Prüfung starten</button> <a href="/#material" style="margin-left:12px">Zurück zu Material</a>
+<div id="out"></div><div id="verdict"></div>
+<script>
+const out=document.getElementById('out'),v=document.getElementById('verdict');
+const row=(ok,t,d)=>{const e=document.createElement('div');e.className='r';e.innerHTML='<b class="'+(ok?'ok':'bad')+'">'+(ok?'✓':'✗')+'</b><div>'+t+(d?'<br><small>'+d+'</small>':'')+'</div>';out.appendChild(e)};
+async function f(u,o){try{const r=await fetch(u,Object.assign({credentials:'same-origin',cache:'no-store'},o||{}));let j=null;try{j=await r.clone().json()}catch(e){}return{s:r.status,j,t:j?'':await r.text().catch(()=>'')}}catch(e){return{s:0,err:String(e)}}}
+document.getElementById('go').onclick=async()=>{
+  out.innerHTML='';v.innerHTML='';
+  const ver=await f('/version.txt');row(ver.s===200,'Oberfläche (Update-Dienst)',ver.s===200?'Stand: '+ver.t.trim():'version.txt nicht gefunden');
+  const ses=await f('/api/session');row(ses.s===200,'Anmeldung',ses.s===200?'angemeldet':'Bitte zuerst in der App anmelden und diese Seite danach öffnen.');
+  if(ses.s!==200)return;
+  const sv=await f('/api/version');const newSrv=sv.s===200;
+  row(newSrv,'Server-Programm (server.js)',newSrv?'neue Version läuft ('+sv.j.version+')':'ALTE Version läuft. Die neue server.js ist auf der NAS nicht aktiv.');
+  const fl=await f('/api/files?dir=Material');row(fl.s===200,'Dateiablage',fl.s===200?'vorhanden':'fehlt (Antwort: '+(fl.j&&fl.j.error||fl.s)+')');
+  let put=await f('/api/file?path='+encodeURIComponent('Material/diagnose.txt'),{method:'PUT',body:'ok'});row(put.s===200,'Testdatei speichern',put.s===200?'funktioniert':'Fehler: '+(put.j&&put.j.error||put.s));
+  if(put.s===200)await f('/api/file?path='+encodeURIComponent('Material/diagnose.txt'),{method:'DELETE'});
+  const yt=await f('/api/yt/status?id=test');row(yt.s===200,'Video-Funktion im Server',yt.s===200?'vorhanden':'fehlt');
+  row(!!(yt.j&&yt.j.available),'yt-dlp (Video-Download)',yt.j&&yt.j.available?'installiert':'nicht installiert. Dafür muss der Container mit dem neuen Dockerfile neu gebaut werden.');
+  let m;
+  if(!newSrv||fl.s!==200)m='<b>Ergebnis:</b> Auf der NAS läuft noch die alte server.js. Das PDF-Hochladen kann so nicht funktionieren. Kopiere den Ordner „server“ (und die Dockerfile) aus der ZIP in den Projektordner, in dem auch die docker-compose.yml liegt, und baue das Projekt im Container Manager neu (nicht nur Neustart). Danach diese Seite noch einmal prüfen.';
+  else if(put.s!==200)m='<b>Ergebnis:</b> Die neue server.js läuft, aber das Speichern schlägt fehl. Prüfe, ob der Ordner „data“ auf der NAS beschreibbar ist und noch Speicherplatz frei ist.';
+  else m='<b>Ergebnis:</b> Alles Nötige für PDFs, EPUBs und Texte läuft.'+((yt.j&&yt.j.available)?' Der Video-Download ist ebenfalls bereit.':' Für den Video-Download fehlt noch yt-dlp.');
+  v.innerHTML='<div class="box">'+m+'</div>';
+};
+</script></body></html>
