@@ -138,6 +138,28 @@ const MAT = (() => {
     try { const c = await commonsFind(q, force && s.thumb ? [s.thumb.url] : null); if (c[0] && (force || !(srcOf(id) || {}).thumb)) setThumb(id, c[0]); } catch (e) { /* offline */ }
   }
 
+  /* ---------- Bild im Internet suchen: Google-Bildersuche im Pop-up, Bild per Strg+V oder Ziehen übernehmen ---------- */
+  const googleImg = (q) => window.open('https://www.google.com/search?tbm=isch&tbs=sur:fmc&q=' + encodeURIComponent(q), 'matgoogle', 'popup=yes,width=1100,height=820,left=' + Math.max(0, (screen.width - 1100) / 2) + ',top=40');
+  async function shrink(blob) {
+    const bmp = await createImageBitmap(blob), w = Math.min(480, bmp.width), cv = document.createElement('canvas'); cv.width = w; cv.height = Math.round(bmp.height * w / bmp.width);
+    cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height); return new Promise((ok) => cv.toBlob(ok, 'image/jpeg', 0.85));
+  }
+  async function pickImage(dt) {
+    const f = [...(dt.files || [])].find((x) => /^image\//.test(x.type)); if (f) return shrink(f);
+    const u = (dt.getData('text/uri-list') || dt.getData('text/plain') || '').split('\n')[0].trim();
+    if (/^https?:\/\//i.test(u)) { try { const r = await fetch(u); if (r.ok) return shrink(await r.blob()); } catch (e) { /* CORS */ } }
+    const h = dt.getData('text/html'), m = /<img[^>]+src="(data:image[^"]+)"/i.exec(h || ''); if (m) { try { return shrink(await (await fetch(m[1])).blob()); } catch (e) { /* */ } }
+    return null;
+  }
+  async function takeImage(pz, dt) {
+    const blob = await pickImage(dt); if (!blob) return toast('Dieses Bild konnte nicht übernommen werden. Rechtsklick auf das Bild, „Bild kopieren“, dann hier Strg+V.');
+    if (pz.dataset.pzd) { const d = M().drafts.find((x) => x.id === pz.dataset.pzd); if (d) { if (d.thumbUrl && d.thumbUrl.startsWith('blob:')) URL.revokeObjectURL(d.thumbUrl); d.thumbBlob = blob; d.cover = null; d.vid = null; d.noThumb = false; d.thumbUrl = URL.createObjectURL(blob); d.thumbSrc = 'Internet (eigene Auswahl)'; } return render(); }
+    const id = pz.dataset.pz, s = srcOf(id); if (!s) return;
+    try { const nm = QDIR + '/' + id + '-thumb.jpg'; await fput(nm, blob); put('settings', Object.assign({}, srcOf(id), { noThumb: false, thumb: { file: nm, src: 'Internet (eigene Auswahl)', v: Date.now() } })); toast('Vorschaubild gesetzt'); } catch (e) { toast('Fehler: ' + (e.message || e)); }
+    render();
+  }
+  const pzHtml = (attr) => `<div class="matpz" tabindex="0" ${attr} title="Bild hierher ziehen oder anklicken und Strg+V drücken">Gefundenes Bild: hier anklicken und <b>Strg+V</b> drücken, oder hineinziehen</div>`;
+
   /* ---------- Video-Download auf die NAS ---------- */
   const setDl = (id, dl) => { const s = srcOf(id); if (s) put('settings', Object.assign({}, s, { dl: Object.assign({}, s.dl || {}, dl) })); };
   async function startDownload(id) {
@@ -496,7 +518,7 @@ const MAT = (() => {
       }
       if (d.kind === 'yt') await saveSt();
       if (d.noThumb) setS({ noThumb: true });
-      else if (d.thumbBlob) { const nm = QDIR + '/' + id + '-thumb.jpg'; await fput(nm, d.thumbBlob); setS({ thumb: { file: nm, src: d.kind === 'pdf' ? 'PDF, Seite 1' : d.kind === 'bild' ? 'Screenshot' : 'Video' } }); }
+      else if (d.thumbBlob) { const nm = QDIR + '/' + id + '-thumb.jpg'; await fput(nm, d.thumbBlob); setS({ thumb: { file: nm, src: d.thumbSrc || (d.kind === 'pdf' ? 'PDF, Seite 1' : d.kind === 'bild' ? 'Screenshot' : 'Video') } }); }
       else if (d.cover) { const nm = QDIR + '/' + id + '-thumb.' + d.cover.ext; await fput(nm, d.cover.blob); setS({ thumb: { file: nm, src: 'EPUB-Titelbild' } }); }
       if (d.kind === 'yt' && d.dl) startDownload(id);
       if (!d.noThumb && !d.thumbBlob && !d.cover && d.kind !== 'yt') autoThumb(id, false);
@@ -514,7 +536,7 @@ const MAT = (() => {
     const k = d.kind, did = d.id, head = `<h2>${KLABEL[k]}${d.name ? ' · ' + esc(d.name) : ''}</h2>`;
     if (d.status === 'reading') return `<section class="card matdraft" tabindex="-1" data-d="${did}">${head}<div class="row" style="align-items:center;gap:10px"><span class="muted">⏳ wird gelesen${d.prog ? ' … ' + esc(d.prog) : ' …'}</span><span style="flex:1"></span><button class="btn sm" data-act="mddel" data-d="${did}">Abbrechen</button></div></section>`;
     if (d.status === 'error') return `<section class="card matdraft" tabindex="-1" data-d="${did}">${head}<div class="matnote err" style="margin:0 0 10px"><span>Konnte nicht gelesen werden: ${esc(d.err)}</span></div><button class="btn sm" data-act="mddel" data-d="${did}">Entfernen</button></section>`;
-    const ths = d.vid ? `https://i.ytimg.com/vi/${d.vid}/hqdefault.jpg` : d.thumbUrl;
+    const ths = d.thumbBlob && d.thumbUrl ? d.thumbUrl : d.vid ? `https://i.ytimg.com/vi/${d.vid}/hqdefault.jpg` : d.thumbUrl;
     const rows = [fld(d, 'title', 'Titel')];
     if (k === 'pdf') rows.push(fld(d, 'author', 'Autor'));
     if (k === 'epub') rows.push(fld(d, 'author', 'Autor'), fld(d, 'publisher', 'Verlag'), fld(d, 'lang', 'Sprache'), fld(d, 'year', 'Jahr'));
@@ -524,7 +546,7 @@ const MAT = (() => {
     const allTg = TAGS.map((t) => t[0]).filter((x) => !EPOCHS.includes(x)), rest = allTg.filter((x) => !d.tg.includes(x));
     const hasPic = !!ths && !d.noThumb;
     return `<section class="card matdraft" tabindex="-1" data-d="${did}">${head}
-      <div class="matdgrid${ths ? '' : ' nopic'}">${ths ? `<div>${hasPic ? `<div class="matdpic"><img src="${esc(ths)}" alt="" referrerpolicy="no-referrer"></div>` : '<div class="matdpic matnopic">Kein Vorschaubild</div>'}<button class="btn sm" style="margin-top:6px" data-act="mdnothumb" data-d="${did}">${d.noThumb ? 'Vorschaubild wieder verwenden' : 'Vorschaubild löschen'}</button></div>` : ''}<div>${rows.join('')}${k === 'yt' ? `<label class="matchk"><input type="checkbox" data-ch="mddl" data-d="${did}" ${d.dl ? 'checked' : ''}> Video zusätzlich auf die NAS herunterladen</label>` : ''}</div></div>
+      <div class="matdgrid">${true ? `<div>${hasPic ? `<div class="matdpic"><img src="${esc(ths)}" alt="" referrerpolicy="no-referrer"></div>` : `<div class="matdpic matnopic">${d.noThumb ? 'Vorschaubild gelöscht' : 'Kein Vorschaubild'}</div>`}<div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap"><button class="btn sm" data-act="mdnothumb" data-d="${did}">${d.noThumb ? 'Wieder verwenden' : 'Löschen'}</button><button class="btn sm" data-act="mdgoogle" data-d="${did}">Bild im Internet suchen</button></div>${pzHtml('data-pzd="' + did + '"')}</div>` : ''}<div>${rows.join('')}${k === 'yt' ? `<label class="matchk"><input type="checkbox" data-ch="mddl" data-d="${did}" ${d.dl ? 'checked' : ''}> Video zusätzlich auf die NAS herunterladen</label>` : ''}</div></div>
       ${d.warn ? `<div class="matnote warn"><span>${esc(d.warn)}</span></div>` : ''}
       ${k === 'datei' ? `<div class="kmkvr"><span class="kmk">Behandeln als</span><span class="kmv"><button class="mattag sel${d.mode === 'file' ? ' on' : ''}" data-act="mdmode" data-d="${did}" data-v="file">Datei ablegen</button><button class="mattag sel${d.mode === 'text' ? ' on' : ''}" data-act="mdmode" data-d="${did}" data-v="text">Als Text lesen</button></span></div>` : ''}
       <div class="kmkvr"><span class="kmk">Art</span><span class="kmv chips">${KINDS.map(([kk, n]) => `<button class="mattag sel${(d.art || artOf(d)) === kk ? ' on' : ''}" data-act="mdkind" data-d="${did}" data-v="${kk}">${n}</button>`).join('')}</span></div>
@@ -573,7 +595,7 @@ const MAT = (() => {
   function thumbBlock(s, id) {
     const th = s.thumb, has = !s.noThumb && (isYt(s.url) || th);
     const info = isYt(s.url) ? (has ? 'YouTube' : 'keines') : th && !s.noThumb ? esc(th.src || '') + (th.lic ? ` · ${esc(th.by || 'unbekannt')} · ${esc(th.lic)} · <a href="${esc(th.page || '#')}" target="_blank" rel="noopener">Quelle</a>` : '') : 'keines';
-    return `<div class="sm" style="margin-top:10px"><span class="muted">Vorschaubild:</span> ${info} ${has ? `<button class="btn sm bad" data-act="matthumbdel" data-id="${id}" title="Vorschaubild entfernen">Löschen</button>` : ''}${!isYt(s.url) ? ` <button class="btn sm" data-act="matthumb" data-id="${id}" title="Freie Bilder auf Wikimedia Commons suchen">${th && th.lic && !s.noThumb ? 'Anderes Bild' : 'Bild im Internet suchen'}</button>` : (s.noThumb ? ` <button class="btn sm" data-act="matthumbdel" data-id="${id}" data-back="1">Wieder anzeigen</button>` : '')}</div>`;
+    return `<div class="sm" style="margin-top:10px"><span class="muted">Vorschaubild:</span> ${info} ${has ? `<button class="btn sm bad" data-act="matthumbdel" data-id="${id}" title="Vorschaubild entfernen">Löschen</button>` : ''}${isYt(s.url) && s.noThumb ? ` <button class="btn sm" data-act="matthumbdel" data-id="${id}" data-back="1">Wieder anzeigen</button>` : ''} <button class="btn sm" data-act="matgoogle" data-id="${id}" title="Google-Bildersuche in einem Fenster öffnen">Bild im Internet suchen</button>${!isYt(s.url) ? ` <button class="btn sm" data-act="matthumb" data-id="${id}" title="Freie Bilder von Wikimedia Commons">Freie Bilder (Wikimedia)</button>` : ''}<div style="margin-top:6px">${pzHtml('data-pz="' + id + '"')}</div></div>`;
   }
   function tagBlock(s, id) {
     const t = tagsOf(s), chip = (x, k) => `<span class="mattag ${k}"${k === 'ep' ? epS(x) : ''}>${esc(x)}<button data-act="matrm" data-id="${id}" data-t="${esc(x)}" aria-label="Entfernen">×</button></span>`;
@@ -600,7 +622,7 @@ const MAT = (() => {
   function thumbOf(s, big) {
     const vid = s.noThumb ? null : ytVid(s.url), th = s.noThumb ? null : s.thumb, k = kindOf(s);
     if (vid) return `<img src="https://i.ytimg.com/vi/${vid}/hqdefault.jpg" alt="" loading="lazy" referrerpolicy="no-referrer">`;
-    if (th && (th.file || th.url)) return `<img src="${th.file ? url(th.file, '&inline=1') : esc(th.url)}" alt="" loading="lazy" referrerpolicy="no-referrer">${th.lic ? '<b class="matcc">CC</b>' : ''}`;
+    if (th && (th.file || th.url)) return `<img src="${th.file ? url(th.file, '&inline=1' + (th.v ? '&v=' + th.v : '')) : esc(th.url)}" alt="" loading="lazy" referrerpolicy="no-referrer">${th.lic ? '<b class="matcc">CC</b>' : ''}`;
     return `<div class="matph t-${esc(s.type || 'sonst')}"><span>${big ? esc(TYPES[s.type] || 'Quelle') : esc(((KINDS.find(([x]) => x === k) || [0, ''])[1] || '').split(' ')[0].slice(0, 5))}</span></div>`;
   }
   const epTags = (s) => tagsOf(s).epoche.map((e) => `<span class="mattag ep on"${epS(e)}>${esc(e)}</span>`).join('') || '<span class="muted sm">–</span>';
@@ -677,6 +699,8 @@ const MAT = (() => {
     mdrmkey: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d); if (d) { d.keys = d.keys.filter((x) => x !== e.dataset.v); render(); } },
     matkind: (e) => { const s = srcOf(e.dataset.id); if (s) { put('settings', Object.assign({}, s, { kind: e.dataset.v })); render(); } },
     mdkind: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d); if (d) { d.art = e.dataset.v; render(); } },
+    matgoogle: (e) => { const s = srcOf(e.dataset.id); if (!s) return; googleImg(((s.vtitle || s.title || '') + ' ' + (tagsOf(s).epoche[0] || '')).trim()); },
+    mdgoogle: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d); if (d) googleImg((d.f.title || d.name || '').trim()); },
     matthumbdel: async (e) => { const id = e.dataset.id, s = srcOf(id); if (!s) return; if (e.dataset.back) { put('settings', Object.assign({}, s, { noThumb: false })); return render(); } if (s.thumb && s.thumb.file) { try { await fdel(s.thumb.file); } catch (x) { /* */ } } const n = Object.assign({}, s, { noThumb: true }); delete n.thumb; put('settings', n); toast('Vorschaubild entfernt'); render(); },
     mdnothumb: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d); if (d) { d.noThumb = !d.noThumb; render(); } },
     matthumb: async (e) => {
@@ -771,17 +795,17 @@ const MAT = (() => {
   }
   const inView = () => U.view === 'material';
   const zone = (e) => e.target && e.target.closest && e.target.closest('#matdz');
-  document.addEventListener('click', (e) => { if (zone(e) && !(e.target.tagName === 'INPUT')) { const f = document.getElementById('matdzf'); if (f) f.click(); } });
+  document.addEventListener('click', (e) => { const pz = e.target.closest && e.target.closest('.matpz'); if (pz) { pz.focus(); return; } if (zone(e) && !(e.target.tagName === 'INPUT')) { const f = document.getElementById('matdzf'); if (f) f.click(); } });
   document.addEventListener('change', (e) => { if (e.target && e.target.id === 'matdzf') { const f = [...e.target.files]; e.target.value = ''; intake(f, ''); } });
-  document.addEventListener('dragover', (e) => { if (inView() && zone(e)) { e.preventDefault(); zone(e).classList.add('over'); } });
+  document.addEventListener('dragover', (e) => { if (inView() && e.target.closest && e.target.closest('.matpz')) { e.preventDefault(); e.target.closest('.matpz').classList.add('over'); return; } if (inView() && zone(e)) { e.preventDefault(); zone(e).classList.add('over'); } });
   document.addEventListener('dragleave', (e) => { const z = zone(e); if (z) z.classList.remove('over'); });
   document.addEventListener('drop', (e) => {
-    if (!inView()) return; const z = zone(e); if (!z) return; e.preventDefault(); z.classList.remove('over');
+    if (!inView()) return; const pzz = e.target.closest && e.target.closest('.matpz'); if (pzz) { e.preventDefault(); pzz.classList.remove('over'); takeImage(pzz, e.dataTransfer); return; } const z = zone(e); if (!z) return; e.preventDefault(); z.classList.remove('over');
     const dt = e.dataTransfer, files = [...(dt.files || [])], text = files.length ? '' : (dt.getData('text/uri-list') || dt.getData('text/plain') || '').split('\n').filter((l) => l && l[0] !== '#').join(' ');
     intake(files, text);
   });
   document.addEventListener('paste', (e) => {
-    if (!inView()) return; const ae = document.activeElement; if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return;
+    if (!inView()) return; const ae = document.activeElement; const pz = ae && ae.closest && ae.closest('.matpz'); if (pz) { e.preventDefault(); takeImage(pz, e.clipboardData); return; } if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return;
     const files = [...(e.clipboardData ? e.clipboardData.files : [])], text = e.clipboardData ? e.clipboardData.getData('text/plain') : '';
     if (!files.length && !text.trim()) return; e.preventDefault(); intake(files, text);
   });
@@ -804,6 +828,7 @@ const MAT = (() => {
 .matin{font:600 14px var(--font-body);padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);width:min(420px,100%)}.kmkvr .kmv.chips,.chips{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
 .matdz{display:flex;gap:16px;align-items:center;border:2px dashed var(--line);border-radius:12px;cursor:pointer;padding:18px 22px}.matdz:hover,.matdz.over,.matdz:focus{border-color:var(--brand,var(--accent));background:var(--accent-soft);outline:none}.matdzi{font-size:30px;line-height:1;color:var(--muted)}
 .matnopic{display:grid;place-items:center;color:var(--muted);font-size:12px;border:1px dashed var(--line);background:transparent!important}
+.matpz{margin-top:6px;border:2px dashed var(--line);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--muted);cursor:pointer;line-height:1.35}.matpz:hover,.matpz:focus,.matpz.over{border-color:var(--brand,var(--accent));background:var(--accent-soft);outline:none;color:var(--ink)}
 .matdgrid{display:grid;grid-template-columns:200px minmax(0,1fr);gap:18px;align-items:start}.matdgrid.nopic{grid-template-columns:1fr}.matdpic{aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:var(--surface2)}.matdpic img{width:100%;height:100%;object-fit:cover;display:block}
 .matfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}.matnote.warn{background:var(--warn-soft);color:var(--warn);margin:10px 0}
 .matmore{display:inline}.matmore summary{list-style:none;cursor:pointer;display:inline-flex}.matmore[open] summary{background:var(--accent-soft)}.matmore>div{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
