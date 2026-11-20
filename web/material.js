@@ -503,8 +503,8 @@ const MAT = (() => {
   const ro = (label, val, link) => `<div class="matfld ro"><span>${label}</span><div>${link ? `<a href="${esc(link)}" target="_blank" rel="noopener">${esc(val)}</a>` : esc(val)}</div></div>`;
   function draftCard(d) {
     const k = d.kind, did = d.id;
-    if (d.status === 'reading') return `<section class="card matdraft"><div class="row" style="align-items:center;gap:10px"><span class="mattag ep">${KLABEL[k]}</span><b>${esc(d.name || d.u || 'Text')}</b><span class="muted sm">⏳ wird gelesen${d.prog ? ' … ' + esc(d.prog) : ' …'}</span><span style="flex:1"></span><button class="btn sm" data-act="mddel" data-d="${did}">Abbrechen</button></div></section>`;
-    if (d.status === 'error') return `<section class="card matdraft"><div class="row" style="align-items:center;gap:10px"><span class="mattag ep">${KLABEL[k]}</span><b>${esc(d.name || d.u || '')}</b><span style="flex:1"></span><button class="btn sm" data-act="mddel" data-d="${did}">Entfernen</button></div><div class="matnote err" style="margin:10px 0 0"><span>Konnte nicht gelesen werden: ${esc(d.err)}</span></div></section>`;
+    if (d.status === 'reading') return `<section class="card matdraft" tabindex="-1" data-d="${did}"><div class="row" style="align-items:center;gap:10px"><span class="mattag ep">${KLABEL[k]}</span><b>${esc(d.name || d.u || 'Text')}</b><span class="muted sm">⏳ wird gelesen${d.prog ? ' … ' + esc(d.prog) : ' …'}</span><span style="flex:1"></span><button class="btn sm" data-act="mddel" data-d="${did}">Abbrechen</button></div></section>`;
+    if (d.status === 'error') return `<section class="card matdraft" tabindex="-1" data-d="${did}"><div class="row" style="align-items:center;gap:10px"><span class="mattag ep">${KLABEL[k]}</span><b>${esc(d.name || d.u || '')}</b><span style="flex:1"></span><button class="btn sm" data-act="mddel" data-d="${did}">Entfernen</button></div><div class="matnote err" style="margin:10px 0 0"><span>Konnte nicht gelesen werden: ${esc(d.err)}</span></div></section>`;
     const ths = d.vid ? `https://i.ytimg.com/vi/${d.vid}/hqdefault.jpg` : d.thumbUrl;
     const fields = [fld(d, 'title', 'Titel')];
     if (k === 'pdf') fields.push(fld(d, 'author', 'Autor'));
@@ -514,7 +514,7 @@ const MAT = (() => {
     d.meta.forEach(([a, b]) => fields.push(ro(a, b)));
     const sel = (list, cur, act) => list.map((x) => `<button class="mattag sel${cur.includes(x) ? ' on' : ''}" data-act="${act}" data-d="${did}" data-v="${esc(x)}">${esc(x)}</button>`).join('');
     const allTg = TAGS.map((t) => t[0]).filter((x) => !EPOCHS.includes(x)), rest = allTg.filter((x) => !d.tg.includes(x)), custom = d.tg.filter((x) => !allTg.includes(x));
-    return `<section class="card matdraft"><div class="matdgrid"><div class="matdpic">${ths ? `<img src="${esc(ths)}" alt="" referrerpolicy="no-referrer">` : `<div class="matph t-${k === 'pdf' ? 'pdf' : k === 'epub' ? 'buch' : 'sonst'}"><span>${KLABEL[k]}</span></div>`}</div><div style="min-width:0"><div class="row" style="align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap"><span class="mattag ep">${KLABEL[k]}</span><span class="muted sm">${esc(d.name || '')}</span><span style="flex:1"></span>${d.status === 'saving' ? '<span class="muted sm">⏳ wird auf die NAS geladen …</span>' : `<button class="btn good" data-act="mdgo" data-d="${did}">Anlegen</button><button class="btn" data-act="mddel" data-d="${did}">Verwerfen</button>`}</div><div class="matflds">${fields.join('')}</div></div></div>
+    return `<section class="card matdraft" tabindex="-1" data-d="${did}"><div class="matdgrid"><div class="matdpic">${ths ? `<img src="${esc(ths)}" alt="" referrerpolicy="no-referrer">` : `<div class="matph t-${k === 'pdf' ? 'pdf' : k === 'epub' ? 'buch' : 'sonst'}"><span>${KLABEL[k]}</span></div>`}</div><div style="min-width:0"><div class="row" style="align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap"><span class="mattag ep">${KLABEL[k]}</span><span class="muted sm">${esc(d.name || '')}</span><span style="flex:1"></span>${d.status === 'saving' ? '<span class="muted sm">⏳ wird auf die NAS geladen …</span>' : `<button class="btn good" data-act="mdgo" data-d="${did}">Anlegen</button><button class="btn" data-act="mddel" data-d="${did}">Verwerfen</button>`}</div><div class="matflds">${fields.join('')}</div></div></div>
       ${d.warn ? `<div class="matnote ok" style="background:var(--warn-soft);color:var(--warn);margin:10px 0 0"><span>${esc(d.warn)}</span></div>` : ''}
       ${k === 'datei' ? `<div class="row" style="gap:6px;margin-top:10px;align-items:center"><span class="muted sm">Behandeln als:</span><button class="mattag sel${d.mode === 'file' ? ' on' : ''}" data-act="mdmode" data-d="${did}" data-v="file">Datei ablegen</button><button class="mattag sel${d.mode === 'text' ? ' on' : ''}" data-act="mdmode" data-d="${did}" data-v="text">Als Text lesen</button></div>` : ''}
       ${k === 'yt' ? `<label class="matchk"><input type="checkbox" data-ch="mddl" data-d="${did}" ${d.dl ? 'checked' : ''}> Video zusätzlich auf die NAS herunterladen</label>` : ''}
@@ -671,6 +671,14 @@ const MAT = (() => {
     matqs: (e) => { M().q = e.value; },
     mattitles: (e) => { M().title = e.value; },
     mattpl: async (e) => { const f = e.files[0]; if (!f) return; try { await fput(TPL, f); M().tpl = true; toast('Vorlage gespeichert'); } catch (x) { toast('Fehler: ' + x.message); } e.value = ''; render(); },
+  });
+  /* Entf: markierte Kachel bzw. markierten Entwurf löschen */
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Delete' || U.view !== 'material' || document.querySelector('.matask')) return;
+    const ae = document.activeElement; if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return;
+    const dr = ae && ae.closest && ae.closest('.matdraft'); if (dr) { e.preventDefault(); A.mddel({ dataset: { d: dr.dataset.d } }); return; }
+    const tile = ae && ae.closest && ae.closest('.mattile'), mm = tile && tile.querySelector('.matmain'), id = (mm && mm.dataset.id) || M().open;
+    if (id && srcOf(id)) { e.preventDefault(); A.matdel({ dataset: { id } }); }
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target && e.target.id === 'matq') { e.preventDefault(); A.matsearch(); } });
   /* Doppelklick auf eine Kachel: Quelle als Pop-up öffnen */
