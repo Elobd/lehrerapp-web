@@ -668,7 +668,7 @@ const MAT = (() => {
       ${row('Art', `<span class="chips">${kindsOrdered().map(([k, n]) => `<button class="mattag sel matkindchip${kindOf(s) === k ? ' on' : ''}" draggable="true" data-k="${k}" title="Ziehen zum Verschieben" data-act="matkind" data-id="${id}" data-v="${k}">${n}</button>`).join('')}</span>`)}
       ${clsRows(s.cls, 'matcls', 'data-id="' + id + '"')}
       ${row('Titel', `<input class="matin" data-ch="matttl" data-id="${id}" value="${esc(s.vtitle || s.title)}">`)}${yt}${ang}
-      ${s.file ? row('Datei', `<a href="${url(s.file, /\.pdf$/i.test(s.file) ? '&inline=1' : '')}" target="_blank">${/\.pdf$/i.test(s.file) ? 'PDF ansehen' : 'Datei öffnen'}</a>`) : ''}
+      ${s.file ? row('Öffnen', `<a href="${url(s.file, /\.pdf$/i.test(s.file) ? '&inline=1' : '')}" target="_blank">${/\.pdf$/i.test(s.file) ? 'PDF ansehen' : 'Datei öffnen'}</a>`) : ''}
       ${isYt(s.url) ? `<div class="kmkvr"><span class="kmk">Video-Datei</span><span class="kmv">${videoBlock(s, id).replace('margin-top:10px', 'margin-top:0')}</span></div>` : ''}
       <div class="kmkvr"><span class="kmk">Vorschaubild</span><span class="kmv">${thumbBlock(s, id).replace('<span class="muted">Vorschaubild:</span>', '').replace('margin-top:10px', 'margin-top:0')}</span></div>
       <div class="kmkvr"><span class="kmk">Epoche</span><span class="kmv chips">${tog(EPOCHS, t.epoche, true)}</span></div>
@@ -860,6 +860,33 @@ const MAT = (() => {
     const order = kindsOrdered().map((x) => x[0]), fi = order.indexOf(from), ti = order.indexOf(to); order.splice(fi, 1); order.splice(ti, 0, from);
     put('settings', Object.assign({}, cfgM(), { id: 'matcfg', order })); render();
   }, true);
+  /* Zeilen der Bearbeitung / des Entwurfs per Drag-and-Drop umsortieren (Reihenfolge wird gespeichert) */
+  const rowKey = (r) => { const k = r.querySelector('.kmk'); return k && k.firstChild ? String(k.firstChild.textContent || '').trim() : ''; };
+  const scopeOf = (card) => (card.id === 'matdetail' ? 'edit' : 'draft');
+  function applyRowOrder() {
+    document.querySelectorAll('#matdetail, .matdraft').forEach((card) => {
+      if (card.dataset.ro) return; card.dataset.ro = '1';
+      const all = [...card.children].filter((c) => c.classList && c.classList.contains('kmkvr')); if (!all.length) return;
+      const rows = all.filter((r) => rowKey(r)), fixed = all.filter((r) => !rowKey(r)), ref = all[all.length - 1].nextSibling;
+      const saved = ((cfgM().rows || {})[scopeOf(card)] || []), idx = (r) => { const i = saved.indexOf(rowKey(r)); return i < 0 ? 1e6 : i; };
+      const ord = rows.map((r, i) => [r, i]).sort((a, b) => idx(a[0]) - idx(b[0]) || a[1] - b[1]).map((x) => x[0]);
+      ord.concat(fixed).forEach((r) => card.insertBefore(r, ref));
+      rows.forEach((r) => { r.classList.add('rd'); const g = document.createElement('span'); g.className = 'matgrip'; g.draggable = true; g.title = 'Zeile verschieben'; g.textContent = '⋮⋮'; r.insertBefore(g, r.firstChild); });
+    });
+  }
+  let rdrag = null;
+  const rowOf = (e) => e.target && e.target.closest && e.target.closest('.kmkvr.rd');
+  document.addEventListener('dragstart', (e) => { const g = e.target && e.target.closest && e.target.closest('.matgrip'); if (!g) return; const r = g.parentNode; rdrag = r; r.classList.add('rowdrag'); try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', rowKey(r)); const k = r; e.dataTransfer.setDragImage(k, 10, 10); } catch (x) { /* */ } });
+  document.addEventListener('dragover', (e) => { const r = rdrag && rowOf(e); if (r && r !== rdrag && r.parentNode === rdrag.parentNode) { e.preventDefault(); document.querySelectorAll('.kmkvr.rowover').forEach((x) => x.classList.remove('rowover')); r.classList.add('rowover'); } });
+  document.addEventListener('drop', (e) => {
+    const r = rdrag && rowOf(e); if (!r || r === rdrag || r.parentNode !== rdrag.parentNode) return; e.preventDefault(); e.stopImmediatePropagation();
+    const card = r.parentNode, list = [...card.children].filter((c) => c.classList && c.classList.contains('kmkvr') && rowKey(c)), fi = list.indexOf(rdrag), ti = list.indexOf(r);
+    if (fi < ti) card.insertBefore(rdrag, r.nextSibling); else card.insertBefore(rdrag, r);
+    const keys = [...card.children].filter((c) => c.classList && c.classList.contains('kmkvr') && rowKey(c)).map(rowKey), sc = scopeOf(card);
+    rdrag = null; put('settings', Object.assign({}, cfgM(), { id: 'matcfg', rows: Object.assign({}, cfgM().rows || {}, { [sc]: keys }) }));
+  }, true);
+  document.addEventListener('dragend', () => { rdrag = null; document.querySelectorAll('.kmkvr.rowdrag,.kmkvr.rowover').forEach((x) => x.classList.remove('rowdrag', 'rowover')); });
+  try { new MutationObserver(applyRowOrder).observe(document.getElementById('main'), { childList: true, subtree: true }); applyRowOrder(); } catch (e) { /* */ }
   let gdrag = null;
   const gitem = (e) => e.target && e.target.closest && e.target.closest('.matgi');
   document.addEventListener('dragstart', (e) => { const g = gitem(e); if (!g) return; gdrag = { g: g.dataset.g, v: g.dataset.v }; g.classList.add('drag'); try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', g.dataset.v); } catch (x) { /* */ } });
@@ -887,7 +914,8 @@ const MAT = (() => {
     if (!files.length && !text.trim()) return; e.preventDefault(); intake(files, text);
   });
   const st = document.createElement('style');
-  st.textContent = `.matgi{cursor:grab;padding-right:4px}.matgi .matgl{border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;padding:0}.matgx{border:0;background:transparent;color:inherit;opacity:.45;cursor:pointer;font:700 13px/1 var(--font-body);padding:0 2px}.matgx:hover{opacity:1;color:var(--bad)}.matgi.drag{opacity:.35}.matgi.over{box-shadow:inset 3px 0 0 var(--brand,var(--accent))}.matgrpx{margin-left:4px}
+  st.textContent = `.kmkvr.rd{position:relative}.matgrip{position:absolute;left:-14px;top:8px;cursor:grab;color:var(--muted);opacity:.35;font:700 13px/1 var(--font-body);letter-spacing:-2px;user-select:none;padding:2px}.kmkvr.rd:hover .matgrip{opacity:1}.kmkvr.rowdrag{opacity:.4}.kmkvr.rowover{box-shadow:inset 0 3px 0 var(--brand,var(--accent))}
+.matgi{cursor:grab;padding-right:4px}.matgi .matgl{border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;padding:0}.matgx{border:0;background:transparent;color:inherit;opacity:.45;cursor:pointer;font:700 13px/1 var(--font-body);padding:0 2px}.matgx:hover{opacity:1;color:var(--bad)}.matgi.drag{opacity:.35}.matgi.over{box-shadow:inset 3px 0 0 var(--brand,var(--accent))}.matgrpx{margin-left:4px}
 .mattag.mini{margin:0 0 0 6px;font-size:10px;padding:0 6px;background:var(--accent-soft);color:var(--accent);border-color:transparent}
 .matdz{display:flex;gap:16px;align-items:center;border:2px dashed var(--line);cursor:pointer;padding:22px 24px}.matdz:hover,.matdz.over,.matdz:focus{border-color:var(--brand,var(--accent));background:var(--accent-soft);outline:none}.matdzi{font-size:34px;line-height:1;color:var(--muted)}
 .matask{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:3000;display:grid;place-items:center;padding:16px}.matbox{background:var(--surface);color:var(--ink);border-radius:14px;padding:20px;max-width:520px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.35)}
