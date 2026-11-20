@@ -95,6 +95,43 @@ const MAT = (() => {
   async function retag(id) {
     const s = srcOf(id); if (!s) return; const t = await textOf(id);
     put('settings', Object.assign({}, srcOf(id), { auto: autoTags(s.title + ' ' + (s.vtitle || ''), (s.desc || '') + ' ' + (s.notes || ''), t.pages.map((p) => p.t).join(' ')) }));
+    if (!isYt(s.url)) autoThumb(id, false);
+  }
+
+  /* ---------- Vorschaubilder: PDF-Seite 1, EPUB-Titelbild, Screenshot, sonst Wikimedia Commons (freie Lizenzen) ---------- */
+  const setThumb = (id, th) => { const s = srcOf(id); if (s) put('settings', Object.assign({}, s, { thumb: th })); };
+  async function pdfThumb(id, doc) {
+    try {
+      const pg = await doc.getPage(1), v1 = pg.getViewport({ scale: 1 }), vp = pg.getViewport({ scale: 420 / v1.width }), cv = document.createElement('canvas');
+      cv.width = Math.round(vp.width); cv.height = Math.round(vp.height); const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height);
+      await pg.render({ canvasContext: cx, viewport: vp }).promise;
+      const blob = await new Promise((ok) => cv.toBlob(ok, 'image/jpeg', 0.82)); if (!blob) return;
+      await fput(QDIR + '/' + id + '-thumb.jpg', blob); setThumb(id, { file: QDIR + '/' + id + '-thumb.jpg', src: 'PDF, Seite 1' });
+    } catch (e) { /* Vorschau ist optional */ }
+  }
+  async function epubThumb(id, z, opf, base) {
+    try {
+      let href = null; const ci = opf.querySelector('manifest > item[properties~="cover-image"]'); if (ci) href = ci.getAttribute('href');
+      if (!href) { const mc = opf.querySelector('metadata > meta[name="cover"]'); if (mc) { const it = opf.querySelector('manifest > item[id="' + mc.getAttribute('content') + '"]'); if (it) href = it.getAttribute('href'); } }
+      if (!href) { const it = [...opf.querySelectorAll('manifest > item')].find((x) => /image\//.test(x.getAttribute('media-type') || '') && /cover|titel/i.test(x.getAttribute('href') || '')); if (it) href = it.getAttribute('href'); }
+      if (!href) return; const f = z.file(decodeURIComponent(base + href)); if (!f) return;
+      const ext = (href.match(/\.(jpe?g|png|gif|webp)$/i) || [0, 'jpg'])[1].toLowerCase().replace('jpeg', 'jpg'), blob = await f.async('blob');
+      await fput(QDIR + '/' + id + '-thumb.' + ext, blob); setThumb(id, { file: QDIR + '/' + id + '-thumb.' + ext, src: 'EPUB-Titelbild' });
+    } catch (e) { /* optional */ }
+  }
+  const OKLIC = /^(CC BY|CC0|CC-BY|Public domain|PD|Gemeinfrei|Attribution)/i;
+  async function commonsFind(q, skip) {
+    const api = 'https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrlimit=12&prop=imageinfo&iiprop=url|extmetadata|mime&iiurlwidth=480&format=json&origin=*&gsrsearch=' + encodeURIComponent(q + ' filetype:bitmap');
+    const j = await (await fetch(api)).json(), pages = Object.values((j.query || {}).pages || {}).sort((a, b) => a.index - b.index), out = [];
+    pages.forEach((p) => { const ii = (p.imageinfo || [])[0]; if (!ii || !/^image\/(jpeg|png)/.test(ii.mime || '')) return; const em = ii.extmetadata || {}, lic = (em.LicenseShortName || {}).value || ''; if (!OKLIC.test(lic)) return;
+      out.push({ url: ii.thumburl || ii.url, page: ii.descriptionurl, lic, by: String((em.Artist || {}).value || '').replace(/<[^>]+>/g, '').slice(0, 60), src: 'Wikimedia Commons' }); });
+    return skip ? out.filter((x) => !skip.includes(x.url)) : out;
+  }
+  async function autoThumb(id, force, query) {
+    const s = srcOf(id); if (!s || isYt(s.url) || (!force && (s.thumb || s.type === 'pdf' || s.type === 'buch' || /^Screenshots /.test(s.title || '')))) return;
+    const t = tagsOf(s), q = query || (t.tags[0] ? t.tags[0] + (t.epoche[0] ? ' ' + t.epoche[0] : '') : t.epoche[0] || s.title);
+    if (!q || /^Screenshots /.test(q)) return;
+    try { const c = await commonsFind(q, force && s.thumb ? [s.thumb.url] : null); if (c[0] && (force || !(srcOf(id) || {}).thumb)) setThumb(id, c[0]); } catch (e) { /* offline */ }
   }
 
   /* ---------- Video-Download auf die NAS ---------- */
@@ -160,6 +197,7 @@ const MAT = (() => {
       }
       await addPages(id, pages);
       put('settings', Object.assign({}, srcOf(id) || s, { file: QDIR + '/' + name, pages: pages.length }));
+      await pdfThumb(id, doc);
       const msg = 'PDF gespeichert: ' + pages.length + ' Seiten' + (empty ? ', davon ' + empty + ' ohne Text (vermutlich gescannt). Für diese Seiten „Screenshot(s) wählen“ nutzen.' : '');
       toast(msg); note(empty === pages.length ? 'err' : 'ok', empty === pages.length ? 'Das PDF enthält keinen lesbaren Text (Scan). Bitte Seiten als Screenshot einfügen. ' + msg : msg);
     } catch (e) { toast('PDF-Fehler: ' + (e.message || e)); note('err', 'PDF konnte nicht verarbeitet werden: ' + (e.message || e) + (/Failed to fetch|NetworkError/i.test(String(e.message || e)) ? ' (Verbindung zur NAS unterbrochen, vermutlich ist die Datei zu groß oder die neue server.js fehlt)' : '')); }
@@ -191,6 +229,7 @@ const MAT = (() => {
       await fput(QDIR + '/' + name, file);
       await addPages(id, pages);
       put('settings', Object.assign({}, srcOf(id), { epub: QDIR + '/' + name, pages: pages.length }));
+      await epubThumb(id, z, opf, base);
       toast('EPUB gespeichert: ' + pages.length + ' Abschnitte'); note('ok', 'EPUB gespeichert: ' + pages.length + ' Abschnitte');
     } catch (e) { toast('EPUB-Fehler: ' + (e.message || e)); note('err', 'EPUB konnte nicht verarbeitet werden: ' + (e.message || e)); }
     m.busy = ''; render();
@@ -205,7 +244,7 @@ const MAT = (() => {
         const r = await Tess.recognize(f, 'deu');
         const txt = (r.data.text || '').replace(/-\n/g, '').replace(/\s*\n\s*/g, ' ').replace(/\s+/g, ' ').trim();
         done.push({ p, t: txt }); p++;
-        try { await fput(QDIR + '/' + id + '-s' + (p - 1) + '.png', f); } catch (e) { /* Bild optional */ }
+        try { await fput(QDIR + '/' + id + '-s' + (p - 1) + '.png', f); if (!(srcOf(id) || {}).thumb) setThumb(id, { file: QDIR + '/' + id + '-s' + (p - 1) + '.png', src: 'Screenshot' }); } catch (e) { /* Bild optional */ }
       }
       await addPages(id, done);
       toast(done.length + ' Seite(n) erkannt und gespeichert. Prüfe bitte den Text in der Quelle.'); note('ok', done.length + ' Seite(n) per Texterkennung gespeichert. Prüfe bitte den Text.');
@@ -481,6 +520,11 @@ const MAT = (() => {
     else h = `<div class="sm">${d.state === 'error' ? `<span style="color:var(--bad)">Download nicht möglich: ${esc(d.msg || '')}</span> ` : '<span class="muted">Video ist noch nicht auf der NAS.</span> '}<button class="btn sm" data-act="matdl" data-id="${id}">${d.state === 'error' ? 'Erneut versuchen' : 'Video auf die NAS laden'}</button></div>`;
     return `<div style="margin-top:10px">${h}</div>`;
   }
+  function thumbBlock(s, id) {
+    if (isYt(s.url)) return '';
+    const th = s.thumb;
+    return `<div class="sm" style="margin-top:10px"><span class="muted">Vorschaubild:</span> ${th ? esc(th.src || '') + (th.lic ? ` · ${esc(th.by || 'unbekannt')} · ${esc(th.lic)} · <a href="${esc(th.page || '#')}" target="_blank" rel="noopener">Quelle</a>` : '') : 'keines'} <button class="btn sm" data-act="matthumb" data-id="${id}" title="Freie Bilder auf Wikimedia Commons suchen">${th && th.lic ? 'Anderes Bild' : 'Bild im Internet suchen'}</button></div>`;
+  }
   function tagBlock(s, id) {
     const t = tagsOf(s), chip = (x, k) => `<span class="mattag ${k}">${esc(x)}<button data-act="matrm" data-id="${id}" data-t="${esc(x)}" aria-label="Entfernen">×</button></span>`;
     return `<div style="margin-top:10px" class="sm"><span class="muted">Epoche:</span> ${t.epoche.map((x) => chip(x, 'ep')).join('') || '<span class="muted">nicht erkannt</span>'} &nbsp; <span class="muted">Themen:</span> ${t.tags.map((x) => chip(x, 'tg')).join('') || '<span class="muted">–</span>'} &nbsp; <span class="muted">Schlagwörter:</span> ${t.keys.map((x) => chip(x, 'ky')).join('') || '<span class="muted">–</span>'}
@@ -510,7 +554,7 @@ const MAT = (() => {
       const id = s.id.replace(/^mat_/, '');
       return `<section class="card" id="matdetail" style="margin-top:12px"><div class="row" style="align-items:center;gap:8px;flex-wrap:wrap"><h2 style="margin:0">${esc(s.title)}</h2><span class="pill">${esc(TYPES[s.type] || '')}</span><span class="muted sm">${s.pages || 0} Seiten/Abschnitte</span><span style="flex:1"></span>${s.url ? `<a class="btn sm" href="${esc(s.url)}" target="_blank" rel="noopener">${isYt(s.url) ? 'Video auf YouTube' : 'Link öffnen'}</a>` : ''}${s.channelUrl ? `<a class="btn sm" href="${esc(s.channelUrl)}" target="_blank" rel="noopener">Kanal</a>` : ''}${isYt(s.url) ? `<button class="btn sm" data-act="matyt" data-id="${id}" title="Titel, Dauer und Kanal neu lesen">Infos neu</button>` : ''}${s.file ? `<a class="btn sm" href="${url(s.file, /\.pdf$/i.test(s.file) ? '&inline=1' : '')}" target="_blank">${/\.pdf$/i.test(s.file) ? 'PDF ansehen' : 'Datei öffnen'}</a>` : ''}<button class="btn sm bad" data-act="matdel" data-id="${id}">Löschen</button></div>
       ${s.vtitle || s.channel || s.seconds != null ? `<div class="sm" style="margin-top:8px"><span class="muted">Video:</span> <b>${esc(s.vtitle || s.title)}</b>${s.seconds != null ? ` · <span class="muted">Dauer:</span> ${esc(dur(s.seconds))}` : ''}${s.channel ? ` · <span class="muted">Kanal:</span> ${s.channelUrl ? `<a href="${esc(s.channelUrl)}" target="_blank" rel="noopener">${esc(s.channel)}</a>` : esc(s.channel)}` : ''}</div>` : ''}
-      ${videoBlock(s, id)}${tagBlock(s, id)}
+      ${videoBlock(s, id)}${thumbBlock(s, id)}${tagBlock(s, id)}
       <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap;align-items:flex-end">
         <label class="btn sm">PDF hochladen<input type="file" accept="application/pdf" hidden data-ch="matpdf" data-id="${id}"></label>
         <label class="btn sm">EPUB hochladen<input type="file" accept=".epub,application/epub+zip" hidden data-ch="matepub" data-id="${id}"></label>
@@ -523,7 +567,7 @@ const MAT = (() => {
     };
     const tile = (s) => {
       const id = s.id.replace(/^mat_/, ''), vid = ytVid(s.url), on = m.open === id;
-      const pic = vid ? `<img src="https://i.ytimg.com/vi/${vid}/hqdefault.jpg" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<div class="matph t-${esc(s.type || 'sonst')}"><span>${esc((TYPES[s.type] || 'Quelle'))}</span></div>`;
+      const th = s.thumb, pic = vid ? `<img src="https://i.ytimg.com/vi/${vid}/hqdefault.jpg" alt="" loading="lazy" referrerpolicy="no-referrer">` : th && (th.file || th.url) ? `<img src="${th.file ? url(th.file, '&inline=1') : esc(th.url)}" alt="" loading="lazy" referrerpolicy="no-referrer"${th.lic ? ` title="Bild: ${esc(th.by || '')} (${esc(th.lic)}), Wikimedia Commons"` : ''}>${th.lic ? '<b class="matcc">CC</b>' : ''}` : `<div class="matph t-${esc(s.type || 'sonst')}"><span>${esc((TYPES[s.type] || 'Quelle'))}</span></div>`;
       return `<div class="mattile${on ? ' on' : ''}"><button class="matmain" data-act="matpop" data-id="${id}" title="Öffnen: ${esc(s.title)}"><span class="matth">${pic}${s.dl && s.dl.state === 'done' ? '<b class="matnas" title="Video liegt auf der NAS">NAS</b>' : ''}${s.seconds != null ? `<b class="matdur">${esc(dur(s.seconds).replace(/ (Min|Std)$/, ''))}</b>` : ''}</span><span class="matti">${esc(s.vtitle || s.title)}</span><span class="matsub">${esc(tagsOf(s).epoche[0] ? tagsOf(s).epoche[0] + ' · ' : '')}${esc(s.channel || TYPES[s.type] || '')}${s.pages ? ' · ' + s.pages + (s.type === 'video' ? ' Textabschn.' : ' S.') : ''}</span></button><button class="matedit" data-act="matopen" data-id="${id}" aria-expanded="${on}" aria-label="Bearbeiten" title="Bearbeiten (Tags, Dateien, Notiz, Löschen)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div>`;
     };
     const open = list.find((s) => s.id.replace(/^mat_/, '') === m.open);
@@ -555,6 +599,12 @@ const MAT = (() => {
     matall: async (e) => { const id = e.dataset.id, s = srcOf(id), t = await textOf(id); if (!t.pages.length) return toast('Diese Quelle hat noch keinen Text'); M().sel.push({ ref: (s.vtitle || s.title) + ' (ganze Quelle)', t: t.pages.map((p) => p.t).join('\n').slice(0, 15000) }); toast('Übernommen'); render(); },
     matai: (e) => toast(e.dataset.k + ': Dafür brauche ich den KI-Schlüssel. Das schalten wir in der nächsten Stufe frei, die Auswahl bleibt erhalten.'),
     matnote0: () => { note(); render(); },
+    matthumb: async (e) => {
+      const id = e.dataset.id, s = srcOf(id), t = tagsOf(s), q = prompt('Suchbegriff für das Vorschaubild (freie Bilder von Wikimedia Commons):', (s.thumb && s.thumb.q) || t.tags[0] || t.epoche[0] || s.title); if (!q) return;
+      const m = M(); m.busy = 'Bild wird gesucht …'; render();
+      try { const c = await commonsFind(q, s.thumb && s.thumb.url ? [s.thumb.url] : null); if (!c.length) toast('Kein passendes freies Bild gefunden. Versuche einen anderen Suchbegriff.'); else { setThumb(id, Object.assign({ q }, c[0])); toast('Vorschaubild gesetzt'); } } catch (x) { toast('Bildsuche nicht möglich: ' + (x.message || x)); }
+      m.busy = ''; render();
+    },
     matdl: (e) => startDownload(e.dataset.id),
     matretag: async (e) => { await retag(e.dataset.id); toast('Tags neu berechnet'); render(); },
     matrm: (e) => { const s = srcOf(e.dataset.id); if (!s) return; const t = e.dataset.t, man = (s.man || []).filter((x) => x !== t), hid = (s.hid || []).slice(); if ((s.man || []).includes(t)) { /* manuell entfernt */ } else if (!hid.includes(t)) hid.push(t); put('settings', Object.assign({}, s, { man, hid })); render(); },
@@ -646,6 +696,7 @@ const MAT = (() => {
 .matinw{position:relative;display:block}.matinw input{padding-right:30px!important}.matclr{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:var(--surface2);color:var(--muted);width:22px;height:22px;border-radius:50%;cursor:pointer;font:700 15px/1 var(--font-body);display:grid;place-items:center;padding:0}.matclr:hover{background:var(--bad-soft);color:var(--bad)}
 .mattag.hq{padding:0 2px 0 4px}.mattag.hq button:first-child{padding:2px 6px 2px 4px;font:600 12px var(--font-body)}.mattag.hq button{color:inherit}
 .matbig{max-width:1100px;width:96vw;height:88vh;display:flex;flex-direction:column}.matview{flex:1;min-height:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.matcc{position:absolute;left:6px;top:6px;background:rgba(255,255,255,.9);color:#222;border-radius:5px;padding:0 5px;font:700 10px var(--font-body)}
 .matgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;margin-top:14px}
 .mattile{position:relative;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px;color:var(--ink);font:inherit}.matmain{display:flex;flex-direction:column;gap:5px;text-align:left;background:none;border:0;padding:0;cursor:pointer;color:inherit;font:inherit;width:100%}.matedit{position:absolute;right:12px;top:12px;display:inline-flex;align-items:center;gap:2px;border:0;border-radius:8px;padding:5px 7px;background:rgba(0,0,0,.65);color:#fff;cursor:pointer;z-index:2}.matedit:hover,.matedit[aria-expanded=true]{background:var(--brand,var(--accent));color:var(--brand-ink,#fff)}
 .mattile:hover{box-shadow:0 4px 14px rgba(0,0,0,.12)}.mattile.on{border-color:var(--brand,var(--accent));box-shadow:0 0 0 2px var(--brand,var(--accent))}
