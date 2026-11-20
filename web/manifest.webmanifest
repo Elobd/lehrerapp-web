@@ -1,0 +1,9 @@
+{
+  "name": "Lehrer-Übersicht",
+  "short_name": "Übersicht",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#3a3d42",
+  "theme_color": "#3a3d42",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
