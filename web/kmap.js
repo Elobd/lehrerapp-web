@@ -80,18 +80,18 @@ const KM = (() => {
   const pctL = (v) => `<span class="kmp ${lvl(v)}">${v == null ? '–' : v + ' %'}</span>`;
   const fmt = (n) => String(n).replace('.', ',');
   const pct = (v, cls) => `<span class="kmp ${cls}">${v == null ? '–' : v + ' %'}</span>`;
-  const route = (key, tab) => 'mappe-' + key + '-' + tab;
+  const route = (key, tab, col) => 'mappe-' + key + '-' + tab + (col ? '-' + col : '');
   function parse(v) {
-    const m = /^mappe(?:-([a-z0-9äöü]+)(?:-([igs]))?)?$/.exec(v) || [];
+    const m = /^mappe(?:-([a-z0-9äöü]+)(?:-([igs])(?:-([a-z0-9]+))?)?)?$/.exec(v) || [];
     const list = sorted(); let c = list.find((x) => x.key === m[1]);
     if (!c) { let last = null; try { last = JSON.parse(localStorage.getItem('kmLast')); } catch (e) { /* */ } c = list.find((x) => last && x.key === last.key) || list[0]; }
     let tab = m[2]; if (c && !tabsOf(c).includes(tab)) tab = 'i';
-    return { list, c, tab: tab || 'i' };
+    return { list, c, tab: tab || 'i', col: tab === 'g' ? m[3] : null };
   }
 
   /* ---------- Ansicht ---------- */
   function view(v) {
-    const { list, c, tab } = parse(v);
+    const { list, c, tab, col } = parse(v);
     if (!list.length) return `<section class="card"><div class="hd"><h2>Klassenmappen</h2></div><p class="muted">Klassen entstehen aus deinem Stundenplan. Hole ihn im Stundenplan über „Von WebUntis übernehmen“.</p></section>`;
     try { localStorage.setItem('kmLast', JSON.stringify({ key: c.key })); } catch (e) { /* */ }
     const kvKey = norm(cfg().kvClass || '');
@@ -99,7 +99,7 @@ const KM = (() => {
     const kvC = list.find((x) => x.key === kvKey), rest = list.filter((x) => x.key !== kvKey), d = divAt(rest);
     const chips = (kvC ? chip(kvC) : '') + rest.map((x, i) => (i === d ? '<span class="kmdiv" draggable="true" data-key="|" title="Trennlinie, ziehbar"></span>' : '') + chip(x)).join('') + (d >= rest.length && rest.length ? '<span class="kmdiv" draggable="true" data-key="|" title="Trennlinie, ziehbar"></span>' : '');
     const side = tabsOf(c).map((t) => `<button class="kmicon${t === tab ? ' on' : ''}" data-act="kmtab" data-key="${c.key}" data-tab="${t}" title="${t === 'i' ? 'Allgemeine Informationen' : t === 'g' ? 'Geschichte' : 'Bewegung und Sport'}" aria-label="${t === 'i' ? 'Allgemein' : t === 'g' ? 'Geschichte' : 'Sport'}">${svg(t, 26)}<small>${t === 'i' ? 'Allgemein' : t === 'g' ? 'Geschichte' : 'Sport'}</small></button>`).join('');
-    const body = tab === 'i' ? general(c) : subject(c, tab === 'g' ? 'gpb' : 'bspk');
+    const body = tab === 'i' ? general(c) : tab === 'g' && col ? colPage(c, col) : subject(c, tab === 'g' ? 'gpb' : 'bspk');
     return `<div class="km"><div class="kmcls"><div class="kmchips">${chips}</div>${cfg().manual || Number.isInteger(cfg().div) ? `<div class="kmtools"><button class="kmtool" data-act="kmauto" title="Automatische Reihenfolge wiederherstellen">Auto</button></div>` : ''}</div></div>
       <div class="kmbody"><nav class="kmside" aria-label="Bereiche"><div class="kmsidet">Klasse ${esc(c.label)}</div>${side}</nav><section class="kmmain">${body}</section></div></div>`;
   }
@@ -124,6 +124,28 @@ const KM = (() => {
     ${isKv ? `<div class="card" style="margin-top:14px"><h2>Klassenvorstand-Übersicht</h2><p class="muted sm" style="margin:0">Lehrpersonen mit Fächern und Notenübersicht aller Fächer folgen in einem späteren Schritt.</p></div>` : ''}`;
   }
 
+  /* ---------- Eingabeseite einer Spalte (Eingabeblatt) ---------- */
+  function colPage(c, colId) {
+    const G = primary(c.gpb), col = colsDef().find((k) => k.id === colId), back = route(c.key, 'g');
+    if (!col) return `<section class="card"><p class="muted">Diese Spalte gibt es nicht (mehr).</p><button class="btn" data-act="go" data-v="${back}">Zur Notenübersicht</button></section>`;
+    const sts = studentsSorted(G), items = resItems(G).filter((e) => e.col === colId).sort((a, b) => a.date.localeCompare(b.date) || String(a.id).localeCompare(String(b.id)));
+    const ds = `data-slug="${G.slug}"`;
+    const eh = items.map((e) => `<th class="kmeh"><button class="kmedel" data-act="kmedel" ${ds} data-eid="${esc(e.id)}" title="Eintrag löschen" aria-label="Eintrag löschen">×</button><input class="kmet" data-ch="kmetitle" ${ds} data-eid="${esc(e.id)}" value="${esc(e.title)}" placeholder="Titel" aria-label="Titel"><input class="kmed" type="date" data-ch="kmedate" ${ds} data-eid="${esc(e.id)}" value="${esc(e.date)}" aria-label="Datum"><label class="kmem2">max. <input class="kmem" data-ch="kmemax" ${ds} data-eid="${esc(e.id)}" inputmode="decimal" value="${esc(fmt(e.max))}" aria-label="Höchstpunktzahl"> Pkt.</label></th>`).join('');
+    const rows = sts.map((x, i) => `<tr data-sid="${esc(x.id)}"><td class="kmno">${i + 1}</td><td class="kmn"><span class="kmnl" data-act="kmstu" ${ds} data-id="${esc(x.id)}" role="link" tabindex="0"><b>${esc(up(x.nn))}</b> ${esc(x.vn)}</span></td>${items.map((e) => `<td class="kmpt"><input data-ch="kmept" ${ds} data-eid="${esc(e.id)}" data-sid="${esc(x.id)}" inputmode="decimal" autocomplete="off" value="${has(e, x) ? esc(fmt(e.pts[x.id])) : ''}" aria-label="Punkte ${esc(x.nn)}"></td>`).join('')}<td class="kmsp kmtot"></td><td class="kmsm2 kmtot"></td><td class="kmspc kmtot"></td></tr>`).join('');
+    const avg = `<tr class="kmavg"><td colspan="2">Durchschnitt in Prozent</td>${items.map((e) => `<td data-avg="${esc(e.id)}"></td>`).join('')}<td colspan="3"></td></tr>`;
+    return `<div class="kmh"><a class="kmmore" href="#${back}" data-act="go" data-v="${back}" style="margin:0 0 6px">‹ Zurück zur Notenübersicht</a><h1>${esc(col.name)}<span class="kmsep kmh1">I</span><span class="muted" style="font-weight:500">Klasse ${esc(c.label)}</span></h1></div>
+    <section class="card"><div class="row" style="margin-bottom:10px"><h2 style="margin:0">Eingabe</h2><span class="muted sm">${items.length} Einträge · ${sts.length} Schüler</span><span style="flex:1"></span><button class="btn good" data-act="kmeadd" ${ds} data-col="${colId}">+ Neuer Eintrag</button></div>
+      ${sts.length ? `<div class="kmnwrap"><table class="kmin" data-col="${colId}" ${ds}><thead><tr><th class="kmsub" colspan="2" style="text-align:left">Punkte pro Eintrag</th>${eh}<th class="kmvh kmtot"><span>Summe Punkte</span></th><th class="kmvh kmtot"><span>Summe Maximum</span></th><th class="kmvh kmtot"><span>Prozent</span></th></tr></thead><tbody>${rows}${avg}</tbody></table></div>
+      <p class="muted sm" style="margin:8px 0 0">Leer lassen heißt „nicht teilgenommen“ und zählt nicht. Mit Enter springst du eine Zeile nach unten, mit Tab ein Feld nach rechts. Alles wird sofort gespeichert.</p>` : '<p class="muted" style="margin:0">Noch keine Schüler in dieser Klasse.</p>'}
+      ${items.length || !sts.length ? '' : '<p class="muted" style="margin:12px 0 0">Noch kein Eintrag. Mit „+ Neuer Eintrag“ legst du zum Beispiel einen Check-Up an.</p>'}</section>`;
+  }
+  /* Summen und Durchschnitt der Eingabeseite sofort aktualisieren (ohne die Seite neu zu zeichnen) */
+  function sheetRefresh() {
+    const t = document.querySelector('.kmin'); if (!t) return; const G = groups().find((g) => g.slug === t.dataset.slug); if (!G) return;
+    const items = resItems(G).filter((e) => e.col === t.dataset.col);
+    t.querySelectorAll('tbody tr[data-sid]').forEach((tr) => { const sid = tr.dataset.sid; let p = 0, m = 0, n = 0; items.forEach((e) => { if (has(e, { id: sid })) { p += +e.pts[sid]; m += +e.max || 0; n++; } }); const pc = m > 0 ? Math.round((p * 100) / m) : null; tr.querySelector('.kmsp').textContent = n ? r1(p) : ''; tr.querySelector('.kmsm2').textContent = n ? r1(m) : ''; const c = tr.querySelector('.kmspc'); c.textContent = pc == null ? '' : pc; c.className = 'kmspc kmtot kmpc2 ' + lvl(pc); });
+    items.forEach((e) => { const ids = Object.keys(e.pts || {}).filter((id) => has(e, { id })), cell = t.querySelector('[data-avg="' + e.id + '"]'); if (cell) cell.textContent = ids.length && +e.max ? Math.round(ids.reduce((a, id) => a + +e.pts[id], 0) * 100 / (ids.length * +e.max)) : ''; });
+  }
   const prnIcon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="9" rx="2"/><path d="M7 14h10v7H7z"/></svg>';
   function subject(c, kd) {
     const G = primary(kd === 'gpb' ? c.gpb : c.bspk), ci = cinfo(G.slug), multi = G.classes.length > 1;
@@ -142,18 +164,17 @@ const KM = (() => {
       const m = list.filter((x) => x.g === 'm').length, w = list.filter((x) => x.g === 'w').length;
       const sy = (() => { const d = new Date(), y = d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1; return y + '/' + String(y + 1).slice(2); })();
       const vh = (t) => `<th class="kmvh"><span>${t}</span></th>`;
-      const g1 = cols.map((k) => { const col = colColor(k, all.findIndex((z) => z.id === k.id)); return `<th colspan="3" class="kmgh" style="--c:${col};color:${darkText(col) ? '#17212b' : '#fff'}"><div class="kmcolh" draggable="true" data-col="${k.id}" title="Ziehen zum Verschieben · Klick: Einträge verwalten"><span class="kmcoln" data-act="kmcol" data-slug="${G.slug}" data-col="${k.id}">${esc(k.name)}</span><span class="kmplus" data-act="kmnew" data-slug="${G.slug}" data-col="${k.id}" title="Neuer Eintrag" role="button" aria-label="Neuer Eintrag">+</span></div></th>`; }).join('');
-      const g2 = cols.map(() => vh('erreichte Punkte') + vh('Punktemaximum') + vh('Prozent')).join('');
+      const cats = cols.map((k) => { const col = colColor(k, all.findIndex((z) => z.id === k.id)); return `<th class="kmcat" style="--c:${col};color:${darkText(col) ? '#17212b' : '#fff'}"><div class="kmcolh" draggable="true" data-col="${k.id}" data-act="kmcol" data-key="${c.key}" data-slug="${G.slug}" title="Klick: Eingabe öffnen · Ziehen: Spalte verschieben" tabindex="0" role="link"><span class="kmvt">${esc(k.name)}</span></div></th>`; }).join('') || '<th class="kmcat" style="--c:#a8aab0"><div class="kmvt">keine Spalten</div></th>';
       const rows = list.map((x, i) => {
         const P = perfOf(G, x, cols), bad = P.note === 5, warn = P.note === 4, e = ew[x.id] || {}, sm = sem[x.id] || {};
-        const cells = P.per.map((a, ci) => { const col = colColor(cols[ci], all.findIndex((z) => z.id === cols[ci].id)), st = `style="--c:${col}"`; return a.n ? `<td class="kmc" ${st}>${r1(a.p)}</td><td class="kmc" ${st}>${r1(a.m)}</td><td class="kmc kmpc2 ${lvl(a.pc)}" ${st}>${a.pc} </td>` : `<td class="kmc" ${st}></td><td class="kmc" ${st}></td><td class="kmc" ${st}></td>`; }).join('');
+        const cells = P.per.map((a, ci) => { const col = colColor(cols[ci], all.findIndex((z) => z.id === cols[ci].id)); return `<td class="kmc kmpc2 ${a.n ? lvl(a.pc) : ''}" style="--c:${col}">${a.n ? a.pc : ''}</td>`; }).join('') || '<td class="kmc"></td>';
         const ck = (k) => { const d = e[k]; return `<td class="kmck${d ? ' on' : ''}">${P.note >= 4 || d ? `<span class="kmbox" data-act="kmew" data-slug="${G.slug}" data-id="${esc(x.id)}" data-k="${k}" role="checkbox" aria-checked="${!!d}" tabindex="0" title="${d ? 'Eingetragen am ' + esc(dshort(d)) + ' · Klick zum Zurücknehmen' : 'Klick trägt das heutige Datum ein'}">${d ? '✓' : ''}</span>${d ? `<small>${esc(dshort(d).replace(/^[A-Za-z]+, /, ''))}</small>` : ''}` : ''}</td>`; };
         const sinp = (k) => `<td class="kmsm"><input data-act="kmnop" data-ch="kmsem" data-slug="${G.slug}" data-id="${esc(x.id)}" data-s="${k}" inputmode="numeric" maxlength="1" value="${esc(sm[k] || '')}" aria-label="Note ${k}. Semester"></td>`;
-        return `<tr class="${bad ? 'kmbad' : warn ? 'kmwarn' : ''}"><td class="kmno">${i + 1}</td><td class="kmn"><span class="kmnl" data-act="kmstu" data-slug="${G.slug}" data-id="${esc(x.id)}" tabindex="0" role="link"><b>${esc(up(x.nn))}</b> ${esc(x.vn)}</span></td><td class="kmmw">${x.g === 'm' || x.g === 'w' ? x.g : ''}</td>${cells}${P.tm ? `<td class="kmc kmtot">${r1(P.tp)}</td><td class="kmc kmtot">${r1(P.tm)}</td><td class="kmc kmtot"><b>${P.pc}</b></td><td class="kmns kmtot">${GRADES[P.note]}</td><td class="kmnn kmtot"><b>${P.note}</b></td>` : '<td class="kmtot"></td><td class="kmtot"></td><td class="kmtot"></td><td class="kmtot"></td><td class="kmtot"></td>'}${sinp(1)}${sinp(2)}${ck('out')}${ck('back')}</tr>`;
+        return `<tr class="${bad ? 'kmbad' : warn ? 'kmwarn' : ''}"><td class="kmno">${i + 1}</td><td class="kmn"><span class="kmnl" data-act="kmstu" data-slug="${G.slug}" data-id="${esc(x.id)}" tabindex="0" role="link"><b>${esc(up(x.nn))}</b> ${esc(x.vn)}</span></td><td class="kmmw">${x.g === 'm' || x.g === 'w' ? x.g : ''}</td>${cells}${P.tm ? `<td class="kmc kmtot kmpc2 ${lvl(P.pc)}"><b>${P.pc}</b></td><td class="kmns kmtot">${GRADES[P.note]}</td><td class="kmnn kmtot"><b>${P.note}</b></td>` : '<td class="kmtot"></td><td class="kmtot"></td><td class="kmtot"></td>'}${sinp(1)}${sinp(2)}${ck('out')}${ck('back')}</tr>`;
       }).join('');
-      const thead = `<thead><tr class="kmr1"><th colspan="3" class="kmtitle">Notenübersicht<small>Schuljahr ${sy}</small></th>${g1 || '<th class="kmgh" style="--c:#a8aab0">keine Spalten</th>'}<th colspan="5" class="kmgh kmgesamt">Gesamtübersicht und Notenstand</th><th colspan="2" class="kmgh kmgesamt">Semesternote</th><th colspan="2" class="kmgh kmwarnh">Frühwarnungen <span class="kmsok" data-act="kmsok" role="button" tabindex="0" title="Frühwarnung in Sokrates verfassen: Schritte ansehen und bearbeiten" aria-label="Frühwarnung verfassen">?</span></th></tr>
-        <tr class="kmr2"><th class="kmsub" colspan="3"><span class="kmcnt">Gesamt: ${list.length} / ${m} männlich / ${w} weiblich</span></th>${g2 || '<th></th>'}${vh('erreichte Punkte')}${vh('Punktemaximum')}${vh('Prozent')}<th class="kmvh wide" colspan="2"><span class="h">aktueller Notenstand</span></th>${vh('Note 1. Semester')}${vh('Note 2. Semester')}${vh('ausgeteilt')}${vh('zurückbekommen')}</tr></thead>`;
-      tbl = list.length ? `<div class="kmnwrap"><table class="kmnt">${thead}<tbody>${rows}</tbody></table></div>${resItems(G).length ? '' : '<p class="muted sm" style="margin:8px 0 0">Mit dem „+“ in der Überschrift einer Spalte legst du einen Eintrag an, zum Beispiel einen Check-Up mit Punkten. Punkte, Prozent und Notenstand werden daraus berechnet.</p>'}` : '<p class="muted" style="margin:0">Noch keine Schüler. Im Stundenplan „Von WebUntis übernehmen“ und „Alle Klassen holen“ nutzen.</p>';
+      const thead = `<thead><tr class="kmr1"><th colspan="3" class="kmtitle">Notenübersicht<small>Schuljahr ${sy}</small></th><th colspan="${Math.max(cols.length, 1)}" class="kmgh kmlb">Leistungen in Prozent <span class="muted" style="font-weight:500">· Spaltenname anklicken zur Eingabe</span></th><th colspan="3" class="kmgh kmgesamt">Gesamt</th><th colspan="2" class="kmgh kmgesamt">Semesternote</th><th colspan="2" class="kmgh kmwarnh">Frühwarnungen <span class="kmsok" data-act="kmsok" role="button" tabindex="0" title="Frühwarnung in Sokrates verfassen: Schritte ansehen und bearbeiten" aria-label="Frühwarnung verfassen">?</span></th></tr>
+        <tr class="kmr2"><th class="kmsub" colspan="3"><span class="kmcnt">Gesamt: ${list.length} / ${m} männlich / ${w} weiblich</span></th>${cats}${vh('Prozent')}<th class="kmvh wide" colspan="2"><span class="h">aktueller Notenstand</span></th>${vh('Note 1. Semester')}${vh('Note 2. Semester')}${vh('ausgeteilt')}${vh('zurückbekommen')}</tr></thead>`;
+      tbl = list.length ? `<div class="kmnwrap"><table class="kmnt">${thead}<tbody>${rows}</tbody></table></div>${resItems(G).length ? '' : '<p class="muted sm" style="margin:8px 0 0">Klicke auf den Namen einer Spalte (zum Beispiel „Check-Ups“). Dort trägst du die Punkte ein, die Prozente erscheinen dann hier.</p>'}` : '<p class="muted" style="margin:0">Noch keine Schüler. Im Stundenplan „Von WebUntis übernehmen“ und „Alle Klassen holen“ nutzen.</p>';
       gear = `<button class="btn sm${U.kmColEdit ? ' good' : ''}" data-act="kmcoledit" title="Spalten und Notenschlüssel anpassen">Spalten anpassen</button>`;
       if (U.kmColEdit) colPanel = `<div class="kmcolp"><div class="muted sm" style="margin-bottom:8px">Die Spalten gelten für alle Geschichte-Klassen. Die Reihenfolge änderst du, indem du eine Spaltenüberschrift in der Tabelle verschiebst.</div>${colsDef().map((k) => `<div class="kmcolr"><input class="kminp" data-ch="kmcolname" data-col="${k.id}" value="${esc(k.name)}" maxlength="28" aria-label="Spaltenname"><label class="kmchk" style="margin:0"><input type="checkbox" data-ch="kmcolvis" data-col="${k.id}" data-key="${c.key}" ${hiddenOf(c.key).includes(k.id) ? '' : 'checked'}> in dieser Klasse anzeigen</label><button class="btn sm bad" data-act="kmcoldel" data-col="${k.id}">Löschen</button></div>`).join('')}<div class="kmcolr"><input class="kminp" id="kmcolnew" placeholder="Neue Spalte, z. B. Referat" maxlength="28" autocomplete="off"><button class="btn sm good" data-act="kmcoladd">+ Spalte hinzufügen</button></div>
         <div class="kmcolr" style="margin-top:12px;align-items:flex-end"><b class="sm">Notenschlüssel (ab Prozent)</b>${['Sehr gut', 'Gut', 'Befriedigend', 'Genügend'].map((n, i) => `<label class="f" style="width:96px">${n}<input data-ch="kmlimit" data-i="${i}" inputmode="numeric" value="${limits()[i]}"></label>`).join('')}<span class="muted sm">darunter: Nicht genügend. Vorläufige Werte, bitte an deinen Schlüssel anpassen.</span></div></div>`;
@@ -201,7 +222,9 @@ const KM = (() => {
     kmnop: () => {},
     kmew: (e) => { const G = groups().find((g) => g.slug === e.dataset.slug); if (!G) return; const ew = Object.assign({}, resDoc(G).ew || {}), cur = Object.assign({}, ew[e.dataset.id] || {}), k = e.dataset.k; if (cur[k]) { delete cur[k]; toast('Eintrag zurückgenommen'); } else { cur[k] = TODAY; toast(k === 'out' ? 'Frühwarnung als ausgeteilt vermerkt' : 'Rückmeldung vermerkt'); } ew[e.dataset.id] = cur; patchRes(G, { ew }); },
     kmsok: () => { const old = document.querySelector('.kmmodal'); if (old) old.remove(); const el = document.createElement('div'); el.className = 'kmmodal'; el.innerHTML = `<div class="kmmbox" role="dialog"><div class="kmmh"><h2>Frühwarnung in Sokrates verfassen</h2></div><p class="muted sm" style="margin:0 0 8px">Schreibe hier deine Schritte auf, damit es beim nächsten Mal schnell geht. Der Text bleibt gespeichert und ist auf allen Geräten sichtbar.</p><textarea id="kmsoktx" class="kminp" rows="9" style="width:100%" placeholder="1. In Sokrates anmelden\n2. …">${esc(cfg().sokrates || '')}</textarea><div class="row" style="margin-top:12px"><button class="btn good" data-m="sok">Speichern</button><button class="btn" data-m="close">Schließen</button></div></div>`; document.body.appendChild(el); el.addEventListener('mousedown', (ev) => { if (ev.target === el) el.remove(); }); el.addEventListener('click', (ev) => { const b = ev.target.closest('[data-m]'); if (!b) return; if (b.dataset.m === 'sok') { saveCfg({ sokrates: el.querySelector('#kmsoktx').value }); toast('Gespeichert'); } el.remove(); }); const t = el.querySelector('#kmsoktx'); if (t) t.focus(); },
-    kmcol: (e) => { modal = { type: 'list', slug: e.dataset.slug, col: e.dataset.col }; showModal(); },
+    kmcol: (e) => setView(route(e.dataset.key, 'g', e.dataset.col)),
+    kmeadd: (e) => { const G = groups().find((g) => g.slug === e.dataset.slug), col = colsDef().find((k) => k.id === e.dataset.col); if (!G || !col) return; const items = resItems(G), n = items.filter((x) => x.col === col.id).length + 1, id = uid('r'); saveRes(G, items.concat([{ id, col: col.id, title: col.name + ' ' + n, date: TODAY, max: 10, pts: {} }])); render(); setTimeout(() => { const i = document.querySelector('.kmet[data-eid="' + id + '"]'); if (i) { i.focus(); i.select(); } }, 40); },
+    kmedel: (e) => { const G = groups().find((g) => g.slug === e.dataset.slug); if (!G || !confirm('Diesen Eintrag samt allen Punkten löschen?')) return; saveRes(G, resItems(G).filter((x) => x.id !== e.dataset.eid)); render(); },
     kmnew: (e) => { modal = { type: 'form', slug: e.dataset.slug, col: e.dataset.col, entry: null }; showModal(); },
     kmcoledit: () => { U.kmColEdit = !U.kmColEdit; render(); },
     kmcoladd: () => { const i = document.getElementById('kmcolnew'), n = i ? i.value.trim() : ''; if (!n) return toast('Bitte einen Namen für die Spalte eingeben'); if (i) { i.value = ''; i.blur(); } saveCols(colsDef().concat([{ id: 'c' + Date.now().toString(36), name: n }])); toast('Spalte „' + n + '“ hinzugefügt'); },
@@ -212,6 +235,10 @@ const KM = (() => {
   });
   Object.assign(C, {
     kmkvn: (e) => { const m = Object.assign({}, cfg().kvn || {}); m[e.dataset.key] = e.value.trim(); U.kmKvEdit = null; if (e.blur) e.blur(); saveCfg({ kvn: m }); render(); },
+    kmetitle: (e) => entryOp(e, (it) => { it.title = e.value.trim() || it.title; e.value = it.title; return it; }),
+    kmedate: (e) => entryOp(e, (it) => { it.date = e.value || it.date; return it; }),
+    kmemax: (e) => entryOp(e, (it) => { const n = num(e.value); if (!(n > 0)) { toast('Bitte eine Höchstpunktzahl größer 0 eintragen'); e.value = fmt(it.max); return it; } it.max = n; e.value = fmt(n); return it; }),
+    kmept: (e) => entryOp(e, (it) => { const v = e.value.trim(), pts = Object.assign({}, it.pts || {}); if (v === '') delete pts[e.dataset.sid]; else { const n = num(v); if (n == null || n < 0) { toast('Bitte nur Zahlen ab 0 eintragen'); e.value = pts[e.dataset.sid] !== undefined ? fmt(pts[e.dataset.sid]) : ''; return it; } pts[e.dataset.sid] = n; } it.pts = pts; return it; }),
     kmsem: (e) => { const G = groups().find((g) => g.slug === e.dataset.slug); if (!G) return; let v = e.value.trim(); if (v && !/^[1-5]$/.test(v)) { toast('Bitte eine Note von 1 bis 5 eintragen'); v = ''; e.value = ''; } const sem = Object.assign({}, resDoc(G).sem || {}), cur = Object.assign({}, sem[e.dataset.id] || {}); if (v) cur[e.dataset.s] = v; else delete cur[e.dataset.s]; sem[e.dataset.id] = cur; patchRes(G, { sem }); },
     kmlimit: (e) => { const L = limits().slice(), n = parseInt(e.value, 10); if (!(n >= 0 && n <= 100)) { toast('Bitte einen Prozentwert von 0 bis 100 eintragen'); return render(); } L[+e.dataset.i] = n; if (e.blur) e.blur(); put('settings', { id: 'kmgrade', limits: L }); },
     kmcolname: (e) => { if (e.blur) e.blur(); const n = e.value.trim(); if (!n) { toast('Der Name darf nicht leer sein'); return render(); } saveCols(colsDef().map((k) => (k.id === e.dataset.col ? Object.assign({}, k, { name: n }) : k))); },
@@ -261,6 +288,7 @@ const KM = (() => {
     });
     const first = el.querySelector('#kmf-t, .kmmbox button'); if (first) first.focus();
   }
+  function entryOp(e, fn) { const G = groups().find((g) => g.slug === e.dataset.slug); if (!G) return; const orig = window.scheduleRender; window.scheduleRender = () => {}; try { saveRes(G, resItems(G).map((it) => (it.id === e.dataset.eid ? fn(Object.assign({}, it)) : it))); } finally { window.scheduleRender = orig; } sheetRefresh(); }
   const moveCol = (from, to) => { const arr = colsDef().slice(), a = arr.findIndex((k) => k.id === from), b = arr.findIndex((k) => k.id === to); if (a < 0 || b < 0 || a === b) return; arr.splice(b, 0, arr.splice(a, 1)[0]); saveCols(arr); };
   /* Drag and Drop der Spaltenüberschriften */
   let dragCol = null;
@@ -278,7 +306,7 @@ const KM = (() => {
   document.addEventListener('dragleave', (ev) => { const c = chipOf(ev); if (c) c.classList.remove('over'); });
   document.addEventListener('drop', (ev) => { const c = chipOf(ev); if (c && drag && c.getAttribute('draggable') === 'true') { ev.preventDefault(); const f = drag; drag = null; move(f, c.dataset.key); } });
   document.addEventListener('dragend', () => { drag = null; document.querySelectorAll('.kmchip.drag,.kmchip.over,.kmdiv.drag,.kmdiv.over').forEach((x) => x.classList.remove('drag', 'over')); });
-  document.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.target && ev.target.id === 'kmkvin') { ev.target.blur(); return; } if (ev.key === 'Escape' && U.kmKvEdit) { U.kmKvEdit = null; render(); return; } if (ev.key === 'Enter' && ev.target && ev.target.classList && ev.target.classList.contains('kmgo')) A.kmstu(ev.target); });
+  document.addEventListener('keydown', (ev) => { const t0 = ev.target; if (ev.key === 'Enter' && t0 && t0.classList && t0.classList.contains('kmept') === false && t0.closest && t0.closest('.kmin') && t0.dataset && t0.dataset.ch === 'kmept') { ev.preventDefault(); const all = [...document.querySelectorAll('.kmin input[data-eid="' + t0.dataset.eid + '"][data-sid]')], i = all.indexOf(t0); if (all[i + 1]) { all[i + 1].focus(); all[i + 1].select(); } return; } if (ev.key === 'Enter' && ev.target && ev.target.id === 'kmkvin') { ev.target.blur(); return; } if (ev.key === 'Escape' && U.kmKvEdit) { U.kmKvEdit = null; render(); return; } if (ev.key === 'Enter' && ev.target && ev.target.classList && ev.target.classList.contains('kmgo')) A.kmstu(ev.target); });
 
   /* ---------- Stil ---------- */
   const st = document.createElement('style');
@@ -345,10 +373,23 @@ html{overflow-y:scroll;scrollbar-gutter:stable}
 tr.kmbad td{background:var(--bad-soft)!important}tr.kmwarn td{background:var(--warn-soft)!important}tr.kmbad td.kmc,tr.kmwarn td.kmc{background:inherit}
 .kmsm input{width:34px;text-align:center;border:1px solid var(--line);border-radius:6px;padding:2px;background:var(--surface);color:var(--ink)}
 .kmck{min-width:70px}.kmbox{display:inline-grid;place-items:center;width:20px;height:20px;border:1.5px solid var(--muted);border-radius:4px;cursor:pointer;background:var(--surface);font-weight:800;color:var(--good);vertical-align:middle}.kmck.on .kmbox{border-color:var(--good)}.kmck small{display:block;font-size:10px;color:var(--muted)}
+
+.kmcat{width:44px;min-width:44px;height:132px;padding:6px 2px!important;background:var(--c,#a8aab0)!important;vertical-align:bottom}.kmcat .kmcolh{display:flex;justify-content:center;height:100%;padding:2px 0;cursor:grab}.kmcat .kmcolh:hover{background:rgba(255,255,255,.3)}
+.kmvt{writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;font:800 12px var(--font-body);max-height:118px;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.kmlb{background:var(--surface2)!important;text-align:center;font:700 12px var(--font-body)}
+.kmin th.kmeh{min-width:128px;vertical-align:top;background:var(--surface2);padding:6px;position:relative}.kmin .kmet,.kmin .kmed{width:100%;display:block;margin-bottom:4px;font:600 13px var(--font-body);border:1px solid var(--line);border-radius:6px;padding:3px 6px;background:var(--surface);color:var(--ink)}.kmin .kmem2{font:500 12px var(--font-body);color:var(--muted);display:flex;align-items:center;gap:4px;justify-content:center}.kmin .kmem{width:52px;text-align:center;border:1px solid var(--line);border-radius:6px;padding:2px;background:var(--surface);color:var(--ink)}
+.kmedel{position:absolute;top:2px;right:2px;width:20px;height:20px;border:0;border-radius:50%;background:transparent;color:var(--bad);font:700 16px/1 var(--font-body);cursor:pointer;z-index:1}.kmedel:hover{background:var(--bad-soft)}
+.kmin{border-collapse:separate;border-spacing:0;font-size:13px;width:max-content;min-width:100%}.kmin th,.kmin td{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:4px 6px;text-align:center;white-space:nowrap}.kmin td{background:var(--surface)}.kmin thead th{position:sticky;top:0;z-index:3}
+.kmin td.kmno{position:sticky;left:0;z-index:2;color:var(--muted);text-align:right;width:30px}.kmin td.kmn{position:sticky;left:30px;z-index:2;text-align:left;min-width:220px}.kmin th.kmsub{position:sticky;left:0;z-index:5}
+.kmpt input{width:70px;text-align:center;border:1px solid transparent;border-radius:6px;padding:4px 2px;background:transparent;color:var(--ink);font:inherit}.kmpt input:hover{border-color:var(--line)}.kmpt input:focus{border-color:var(--accent);background:var(--surface);outline:none}
+.kmin tr.kmavg td{background:var(--surface2);font-weight:700;color:var(--muted)}.kmin tr.kmavg td:first-child{text-align:right}
+.kmin .kmpc2.ak{color:var(--good);font-weight:700}.kmin .kmpc2.pa{color:var(--warn);font-weight:700}.kmin .kmpc2.ab{color:var(--bad);font-weight:700}
 @media(max-width:700px){.kmbody{grid-template-columns:1fr}.kmside{position:sticky;top:0;z-index:5;flex-direction:row;overflow-x:auto;align-items:center;padding:6px}.kmsidet{border:0;margin:0;padding:0 8px;white-space:nowrap}.kmicon{flex:1;min-width:64px}}
 `;
   document.head.appendChild(st);
 
+  /* Eingabeseite nach jedem Zeichnen berechnen */
+  new MutationObserver(() => { const t = document.querySelector('.kmin'); if (t && !t.dataset.done) { t.dataset.done = '1'; sheetRefresh(); } }).observe(document.getElementById('main'), { childList: true, subtree: true });
   return { view, studentPage, sorted, classes };
 })();
 render();
