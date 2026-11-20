@@ -35,11 +35,11 @@ const MAT = (() => {
   const ytFields = (i) => ({ url: i.url, desc: i.description || '', vtitle: i.title || '', channel: i.channel || '', channelUrl: i.channelUrl || '', seconds: i.seconds == null ? null : i.seconds });
 
   /* ---------- Automatische Tags (Epoche, Themen, Schlagwörter) ohne KI ---------- */
-  const EPOCHS = ['Vor- / Frühgeschichte', 'Antike', 'Mittelalter', 'Neuzeit', 'Zeitgeschichte'];
-  const LEGACY = { 'Urgeschichte': 'Vor- / Frühgeschichte', 'Frühe Neuzeit': 'Neuzeit', '19. Jahrhundert': 'Neuzeit' };
+  const EPOCHS = ['Vor- und Frühgeschichte', 'Antike', 'Mittelalter', 'Neuzeit', 'Zeitgeschichte'];
+  const LEGACY = { 'Vor- / Frühgeschichte': 'Vor- und Frühgeschichte', 'Urgeschichte': 'Vor- und Frühgeschichte', 'Frühe Neuzeit': 'Neuzeit', '19. Jahrhundert': 'Neuzeit' };
   const leg = (arr) => [...new Set((arr || []).map((x) => LEGACY[x] || x))];
   const TAGS = [
-    ['Vor- / Frühgeschichte', 'Vor- / Frühgeschichte', ['urgeschicht', 'steinzeit', 'neandertal', 'jäger und sammler', 'höhlenmalerei', 'faustkeil', 'bronzezeit', 'eisenzeit', 'ötzi', 'neolithisch']],
+    ['Vor- und Frühgeschichte', 'Vor- und Frühgeschichte', ['urgeschicht', 'steinzeit', 'neandertal', 'jäger und sammler', 'höhlenmalerei', 'faustkeil', 'bronzezeit', 'eisenzeit', 'ötzi', 'neolithisch']],
     ['Antike', 'Antike', ['antike', 'antiken', 'altertum']],
     ['Griechenland', 'Antike', ['griech', 'athen', 'sparta', 'polis', 'olymp', 'perikles', 'sokrates', 'platon', 'aristoteles', 'alexander der große', 'hellenis', 'marathon', 'akropolis']],
     ['Rom', 'Antike', ['röm', 'caesar', 'augustus', 'gladiator', 'legion', 'senat', 'konsul', 'limes', 'kolosseum', 'pompeji', 'hannibal', 'karthago', 'imperium romanum', 'kaiserzeit', 'punische']],
@@ -84,7 +84,7 @@ const MAT = (() => {
     ['Frauen', null, ['frauen', 'frauenwahlrecht', 'emanzipation', 'suffragette']],
     ['Sport und Olympia', null, ['olympische spiele', 'olympia', 'leichtathletik', 'turnen', 'sportart', 'fußball', 'athlet', 'training']],
   ];
-  const EPCOL = { 'Vor- / Frühgeschichte': '#7b4510', 'Antike': '#f0c030', 'Mittelalter': '#35761f', 'Neuzeit': '#164e5c', 'Zeitgeschichte': '#6aa6df' };
+  const EPCOL = { 'Vor- und Frühgeschichte': '#7b4510', 'Antike': '#f0c030', 'Mittelalter': '#35761f', 'Neuzeit': '#164e5c', 'Zeitgeschichte': '#6aa6df' };
   const epS = (e) => (EPCOL[e] ? ` style="--ec:${EPCOL[e]}"` : '');
   const wordHits = (low, kw) => { let n = 0, i = low.indexOf(kw); while (i >= 0 && n < 40) { if (i === 0 || !/[a-zäöüß]/.test(low[i - 1])) n++; i = low.indexOf(kw, i + kw.length); } return n; };
   function autoTags(title, extra, text) {
