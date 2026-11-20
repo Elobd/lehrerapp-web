@@ -3,7 +3,7 @@
 const MAT = (() => {
   const ROOT = 'Material', QDIR = ROOT + '/Quellen', ODIR = ROOT + '/Ergebnisse', TPL = ROOT + '/Vorlage/arbeitsblatt.docx';
   const note = (k, t) => { M().note = t ? { k, t } : null; };
-  const M = () => (U.mat = U.mat || { tab: 'quellen', sel: [], q: '', res: null, busy: '', files: null, open: null });
+  const M = () => (U.mat = U.mat || { sel: [], q: '', res: null, busy: '', files: null, open: null, drafts: [] });
   const TYPES = { buch: 'Buch', pdf: 'PDF', video: 'Video / Link', sonst: 'Sonstiges' };
   const T = {}; // Textcache je Quelle: { id: {pages:[{p,t}]} }
   const url = (p, extra) => '/api/file?path=' + encodeURIComponent(p) + (extra || '');
@@ -92,32 +92,31 @@ const MAT = (() => {
     return { epoche: epochs.filter((e) => ep[e] >= Math.max(3, top * 0.5)).slice(0, 2), tags: tags.sort((a, b) => b[1] - a[1]).map((x) => x[0]).filter((x) => !EPOCHS.includes(x)).slice(0, 8), keys: keyWords((title + ' ' + (extra || '') + ' ' + text), 14).filter((k) => !tags.some((t) => norm(t[0]).startsWith(norm(k).slice(0, 6))) && !EPOCHS.includes(k) && !/^(video|antikes|antike)$/i.test(k)).slice(0, 8) };
   }
   const tagsOf = (s) => { const hid = s.hid || [], man = s.man || [], auto = s.auto || { tags: [], keys: [], epoche: [] }; return { epoche: [...new Set(auto.epoche.filter((x) => !hid.includes(x)).concat(man.filter((x) => EPOCHS.includes(x))))], tags: [...new Set(auto.tags.filter((x) => !hid.includes(x)).concat(man.filter((x) => !EPOCHS.includes(x))))], keys: (auto.keys || []).filter((x) => !hid.includes(x)) }; };
-  async function retag(id) {
-    const s = srcOf(id); if (!s) return; const t = await textOf(id);
+  async function retag(id, force) {
+    const s = srcOf(id); if (!s) return; if (s.lock && !force) return; const t = await textOf(id);
     put('settings', Object.assign({}, srcOf(id), { auto: autoTags(s.title + ' ' + (s.vtitle || ''), (s.desc || '') + ' ' + (s.notes || ''), t.pages.map((p) => p.t).join(' ')) }));
     if (!isYt(s.url)) autoThumb(id, false);
   }
 
   /* ---------- Vorschaubilder: PDF-Seite 1, EPUB-Titelbild, Screenshot, sonst Wikimedia Commons (freie Lizenzen) ---------- */
   const setThumb = (id, th) => { const s = srcOf(id); if (s) put('settings', Object.assign({}, s, { thumb: th })); };
-  async function pdfThumb(id, doc) {
+  async function pdfThumbBlob(doc) {
     try {
       const pg = await doc.getPage(1), v1 = pg.getViewport({ scale: 1 }), vp = pg.getViewport({ scale: 420 / v1.width }), cv = document.createElement('canvas');
       cv.width = Math.round(vp.width); cv.height = Math.round(vp.height); const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height);
       await pg.render({ canvasContext: cx, viewport: vp }).promise;
-      const blob = await new Promise((ok) => cv.toBlob(ok, 'image/jpeg', 0.82)); if (!blob) return;
-      await fput(QDIR + '/' + id + '-thumb.jpg', blob); setThumb(id, { file: QDIR + '/' + id + '-thumb.jpg', src: 'PDF, Seite 1' });
-    } catch (e) { /* Vorschau ist optional */ }
+      return await new Promise((ok) => cv.toBlob(ok, 'image/jpeg', 0.82));
+    } catch (e) { return null; }
   }
-  async function epubThumb(id, z, opf, base) {
+  async function epubCover(z, opf, base) {
     try {
       let href = null; const ci = opf.querySelector('manifest > item[properties~="cover-image"]'); if (ci) href = ci.getAttribute('href');
       if (!href) { const mc = opf.querySelector('metadata > meta[name="cover"]'); if (mc) { const it = opf.querySelector('manifest > item[id="' + mc.getAttribute('content') + '"]'); if (it) href = it.getAttribute('href'); } }
       if (!href) { const it = [...opf.querySelectorAll('manifest > item')].find((x) => /image\//.test(x.getAttribute('media-type') || '') && /cover|titel/i.test(x.getAttribute('href') || '')); if (it) href = it.getAttribute('href'); }
-      if (!href) return; const f = z.file(decodeURIComponent(base + href)); if (!f) return;
-      const ext = (href.match(/\.(jpe?g|png|gif|webp)$/i) || [0, 'jpg'])[1].toLowerCase().replace('jpeg', 'jpg'), blob = await f.async('blob');
-      await fput(QDIR + '/' + id + '-thumb.' + ext, blob); setThumb(id, { file: QDIR + '/' + id + '-thumb.' + ext, src: 'EPUB-Titelbild' });
-    } catch (e) { /* optional */ }
+      if (!href) return null; const f = z.file(decodeURIComponent(base + href)); if (!f) return null;
+      const ext = (href.match(/\.(jpe?g|png|gif|webp)$/i) || [0, 'jpg'])[1].toLowerCase().replace('jpeg', 'jpg');
+      return { blob: await f.async('blob'), ext };
+    } catch (e) { return null; }
   }
   const OKLIC = /^(CC BY|CC0|CC-BY|Public domain|PD|Gemeinfrei|Attribution)/i;
   async function commonsFind(q, skip) {
@@ -163,7 +162,7 @@ const MAT = (() => {
       if (U.view === 'material') render();
     }, 4000);
   }
-  const mb = (n) => (n >= 1e9 ? (n / 1e9).toFixed(1) + ' GB' : Math.max(1, Math.round(n / 1e6)) + ' MB');
+  const mb = (n) => (n >= 1e9 ? (n / 1e9).toFixed(1) + ' GB' : n >= 1e6 ? Math.round(n / 1e5) / 10 + ' MB' : Math.max(1, Math.round(n / 1e3)) + ' KB');
 
   /* ---------- Quellen ---------- */
   const sources = () => Object.values(S.settings).filter((d) => d && /^mat_/.test(d.id || '')).sort((a, b) => (b.added || 0) - (a.added || 0));
@@ -180,78 +179,6 @@ const MAT = (() => {
     t.pages.sort((a, b) => a.p - b.p);
     await saveText(id);
   }
-  const nextPage = async (id) => { const t = await textOf(id); return (t.pages.reduce((m, x) => Math.max(m, x.p), 0) || 0) + 1; };
-
-  async function importPdf(id, file) {
-    const m = M(); m.busy = 'PDF wird gelesen …'; render();
-    try {
-      const s = srcOf(id), name = id + '-' + slugify(file.name.replace(/\.pdf$/i, '')) + '.pdf';
-      await fput(QDIR + '/' + name, file);
-      const lib = await loadPdfJs(), doc = await lib.getDocument({ data: await file.arrayBuffer() }).promise;
-      const pages = []; let empty = 0;
-      for (let i = 1; i <= doc.numPages; i++) {
-        const pg = await doc.getPage(i), c = await pg.getTextContent(), txt = c.items.map((x) => x.str).join(' ').replace(/\s+/g, ' ').trim();
-        if (txt.length < 20) empty++;
-        pages.push({ p: i, t: txt });
-        if (i % 10 === 0) { m.busy = 'PDF wird gelesen … Seite ' + i + ' von ' + doc.numPages; render(); }
-      }
-      await addPages(id, pages);
-      put('settings', Object.assign({}, srcOf(id) || s, { file: QDIR + '/' + name, pages: pages.length }));
-      await pdfThumb(id, doc);
-      const msg = 'PDF gespeichert: ' + pages.length + ' Seiten' + (empty ? ', davon ' + empty + ' ohne Text (vermutlich gescannt). Für diese Seiten „Screenshot(s) wählen“ nutzen.' : '');
-      toast(msg); note(empty === pages.length ? 'err' : 'ok', empty === pages.length ? 'Das PDF enthält keinen lesbaren Text (Scan). Bitte Seiten als Screenshot einfügen. ' + msg : msg);
-    } catch (e) { toast('PDF-Fehler: ' + (e.message || e)); note('err', 'PDF konnte nicht verarbeitet werden: ' + (e.message || e) + (/Failed to fetch|NetworkError/i.test(String(e.message || e)) ? ' (Verbindung zur NAS unterbrochen, vermutlich ist die Datei zu groß oder die neue server.js fehlt)' : '')); }
-    m.busy = ''; render();
-  }
-  async function importEpub(id, file) {
-    const m = M(); m.busy = 'EPUB wird gelesen …'; render();
-    try {
-      const Z = await loadZip(), z = await Z.loadAsync(await file.arrayBuffer()), P = new DOMParser();
-      const read = async (n) => { const f = z.file(n); return f ? f.async('string') : null; };
-      const cont = await read('META-INF/container.xml'); if (!cont) throw new Error('Das ist keine gültige EPUB-Datei');
-      const opfPath = (P.parseFromString(cont, 'text/xml').querySelector('rootfile') || {}).getAttribute?.('full-path'); if (!opfPath) throw new Error('EPUB ohne Inhaltsverzeichnis');
-      const opf = P.parseFromString(await read(opfPath), 'text/xml'), base = opfPath.includes('/') ? opfPath.replace(/[^/]*$/, '') : '';
-      const man = {}; opf.querySelectorAll('manifest > item').forEach((it) => { man[it.getAttribute('id')] = it.getAttribute('href'); });
-      const order = [...opf.querySelectorAll('spine > itemref')].map((x) => man[x.getAttribute('idref')]).filter(Boolean);
-      const pages = []; let n = 0;
-      for (const href of order) {
-        const path = decodeURIComponent((base + href).replace(/#.*$/, '')).replace(/[^/]+\/\.\.\//g, ''), html = await read(path); if (!html) continue;
-        const doc = P.parseFromString(html, 'text/html'); doc.querySelectorAll('script,style,nav,head').forEach((x) => x.remove());
-        doc.querySelectorAll('p,div,li,h1,h2,h3,h4,h5,h6,br,tr,blockquote').forEach((x) => x.appendChild(doc.createTextNode(' ')));
-        const title = ((doc.querySelector('h1,h2,h3') || {}).textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Abschnitt ' + (pages.length + 1);
-        const txt = (doc.body ? doc.body.textContent : '').replace(/\s+/g, ' ').trim(); if (txt.length < 30) continue;
-        let rest = txt, part = 0;
-        while (rest.length) { let cut = rest.length > 2500 ? rest.lastIndexOf('. ', 2500) : rest.length; if (cut < 800) cut = Math.min(rest.length, 2500); else if (cut < rest.length) cut += 1; part++; pages.push({ p: ++n, t: rest.slice(0, cut).trim(), h: title + (txt.length > 2500 ? ' (Teil ' + part + ')' : '') }); rest = rest.slice(cut).trim(); }
-        if (n % 20 === 0) { m.busy = 'EPUB wird gelesen … ' + n + ' Abschnitte'; render(); }
-      }
-      if (!pages.length) throw new Error('Kein Text gefunden. Die Datei ist vermutlich kopiergeschützt (DRM).');
-      const name = id + '-' + slugify(file.name.replace(/\.epub$/i, '')) + '.epub';
-      await fput(QDIR + '/' + name, file);
-      await addPages(id, pages);
-      put('settings', Object.assign({}, srcOf(id), { epub: QDIR + '/' + name, pages: pages.length }));
-      await epubThumb(id, z, opf, base);
-      toast('EPUB gespeichert: ' + pages.length + ' Abschnitte'); note('ok', 'EPUB gespeichert: ' + pages.length + ' Abschnitte');
-    } catch (e) { toast('EPUB-Fehler: ' + (e.message || e)); note('err', 'EPUB konnte nicht verarbeitet werden: ' + (e.message || e)); }
-    m.busy = ''; render();
-  }
-  async function ocrImages(id, files) {
-    const m = M(); let p = +document.getElementById('matpg-' + id)?.value || await nextPage(id);
-    try {
-      m.busy = 'Texterkennung wird geladen …'; render();
-      const Tess = await loadOcr(), done = [];
-      for (const f of files) {
-        m.busy = 'Texterkennung Seite ' + p + ' …'; render();
-        const r = await Tess.recognize(f, 'deu');
-        const txt = (r.data.text || '').replace(/-\n/g, '').replace(/\s*\n\s*/g, ' ').replace(/\s+/g, ' ').trim();
-        done.push({ p, t: txt }); p++;
-        try { await fput(QDIR + '/' + id + '-s' + (p - 1) + '.png', f); if (!(srcOf(id) || {}).thumb) setThumb(id, { file: QDIR + '/' + id + '-s' + (p - 1) + '.png', src: 'Screenshot' }); } catch (e) { /* Bild optional */ }
-      }
-      await addPages(id, done);
-      toast(done.length + ' Seite(n) erkannt und gespeichert. Prüfe bitte den Text in der Quelle.'); note('ok', done.length + ' Seite(n) per Texterkennung gespeichert. Prüfe bitte den Text.');
-    } catch (e) { toast('Texterkennung: ' + (e.message || e)); note('err', 'Texterkennung fehlgeschlagen: ' + (e.message || e)); }
-    m.busy = ''; render();
-  }
-
   /* ---------- Suche ---------- */
   const norm = (s) => String(s || '').toLowerCase();
   async function search() {
@@ -441,76 +368,173 @@ const MAT = (() => {
     return b;
   }
 
-  /* ---------- Alles-in-einem-Feld: Format erkennen und Quelle anlegen ---------- */
+  /* ---------- Alles-in-einem-Feld: erkennen, Angaben prüfen, dann „Anlegen“ ---------- */
   const newSrc = (title, type, extra) => { const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5); put('settings', Object.assign({ id: 'mat_' + id, title, type, url: '', added: Date.now(), pages: 0 }, extra || {})); return id; };
   const base = (n) => n.replace(/\.[^.]+$/, '');
+  const extOf = (n) => ((String(n).match(/\.([^.]+)$/) || [])[1] || '').toLowerCase();
+  const KLABEL = { pdf: 'PDF', epub: 'EPUB', yt: 'YouTube-Video', video: 'Video-Datei', bild: 'Screenshots', text: 'Text / Word', link: 'Internetadresse', datei: 'Datei' };
+  const VIDEXT = ['mp4', 'm4v', 'mov', 'webm', 'mkv', 'avi'], IMGEXT = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'];
+  let dseq = 0;
   async function docxText(file) {
     const Z = await loadZip(), z = await Z.loadAsync(await file.arrayBuffer()), f = z.file('word/document.xml'); if (!f) throw new Error('keine gültige Word-Datei');
     const x = await f.async('string');
     return x.replace(/<\/w:p>/g, ' ').replace(/<w:tab\/>/g, ' ').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/\s+/g, ' ').trim();
   }
-  async function addLink(u) {
-    const m = M();
-    if (isYt(u)) {
-      m.busy = 'YouTube-Infos werden geholt …'; render(); let extra = {}, t = '';
-      try { const i = await ytFetch(u); extra = ytFields(i); t = i.title || ''; } catch (e) { toast('YouTube-Infos nicht abrufbar: ' + (e.message || e)); }
-      const id = newSrc(t || u, 'video', Object.assign({ url: u }, extra)); await retag(id); startDownload(id); return id;
-    }
-    let t = u; try { const x = new URL(u); t = x.hostname.replace(/^www\./, '') + (x.pathname.length > 1 ? x.pathname.slice(0, 40) : ''); } catch (e) { /* */ }
-    const id = newSrc(t, 'sonst', { url: u }); await retag(id); return id;
+  const mkDraft = (kind, name, extra) => Object.assign({ id: 'd' + (++dseq), kind, name: name || '', status: 'reading', f: { title: base(name || '') }, meta: [], pages: [], ep: [], tg: [], keys: [], thumbUrl: '', err: '' }, extra || {});
+  const textOfDraft = (d) => d.pages.map((p) => p.t).join(' ');
+  function propose(d) { const a = autoTags(d.f.title + ' ' + (d.f.author || '') + ' ' + (d.f.channel || ''), d.desc || '', textOfDraft(d)); d.ep = a.epoche; d.tg = a.tags; d.keys = a.keys; }
+  const videoMeta = (file) => new Promise((ok) => {
+    const v = document.createElement('video'), u = URL.createObjectURL(file); v.preload = 'metadata'; v.muted = true; v.src = u;
+    const fin = (r) => { URL.revokeObjectURL(u); ok(r); };
+    v.onerror = () => fin({ seconds: null, thumb: null });
+    v.onloadedmetadata = () => { const sec = isFinite(v.duration) ? Math.round(v.duration) : null; v.currentTime = Math.min(1, (v.duration || 2) / 2); v.onseeked = () => { try { const cv = document.createElement('canvas'); cv.width = 420; cv.height = Math.round(420 * (v.videoHeight || 9) / (v.videoWidth || 16)); cv.getContext('2d').drawImage(v, 0, 0, cv.width, cv.height); cv.toBlob((b) => fin({ seconds: sec, thumb: b }), 'image/jpeg', 0.8); } catch (e) { fin({ seconds: sec, thumb: null }); } }; };
+    setTimeout(() => fin({ seconds: null, thumb: null }), 15000);
+  });
+  async function readPdf(d, f) {
+    const lib = await loadPdfJs(), doc = await lib.getDocument({ data: await f.arrayBuffer() }).promise; let info = {};
+    try { info = (await doc.getMetadata()).info || {}; } catch (e) { /* */ }
+    let empty = 0;
+    for (let i = 1; i <= doc.numPages; i++) { const pg = await doc.getPage(i), c = await pg.getTextContent(), txt = c.items.map((x) => x.str).join(' ').replace(/\s+/g, ' ').trim(); if (txt.length < 20) empty++; d.pages.push({ p: i, t: txt }); if (i % 10 === 0) { d.prog = i + ' von ' + doc.numPages + ' Seiten'; render(); } }
+    const t = (info.Title || '').trim(); d.f.title = t && !/^(untitled|microsoft word|document)/i.test(t) ? t : base(f.name); d.f.author = (info.Author || '').trim();
+    d.meta = [['Seiten', String(doc.numPages)], ['Dateigröße', mb(f.size)], ['Datei', f.name]];
+    if (empty === doc.numPages) d.warn = 'Das PDF enthält keinen lesbaren Text (vermutlich ein Scan). Es wird abgelegt, ist aber nicht durchsuchbar.'; else if (empty) d.warn = empty + ' Seite(n) ohne Text (vermutlich gescannt).';
+    d.thumbBlob = await pdfThumbBlob(doc);
   }
-  /* Rückfrage bei unbekanntem Format */
-  function ask(title, msg, defVal, buttons) {
-    return new Promise((ok) => {
-      const o = document.createElement('div'); o.className = 'matask';
-      o.innerHTML = `<div class="matbox" role="dialog" aria-modal="true"><h3 style="margin:0 0 6px">${esc(title)}</h3><div class="muted sm" style="margin-bottom:10px">${esc(msg)}</div><label class="f">Titel der Quelle<input id="matask-t" value="${esc(defVal)}" autocomplete="off"></label><div class="row" style="gap:8px;margin-top:14px;flex-wrap:wrap">${buttons.map((b) => `<button class="btn ${b.primary ? 'good' : ''}" data-k="${b.k}">${esc(b.label)}</button>`).join('')}</div></div>`;
-      o.addEventListener('click', (e) => { const b = e.target.closest('button[data-k]'); if (!b) return; const v = o.querySelector('#matask-t').value.trim(); o.remove(); ok({ k: b.dataset.k, v: v || defVal }); });
-      document.body.appendChild(o); o.querySelector('button').focus();
-    });
-  }
-  async function unknownFile(f) {
-    const n = f.name || 'Datei';
-    const a = await ask('Format nicht erkannt: ' + n, 'Was soll ich mit dieser Datei tun?', base(n), [
-      { k: 'file', label: 'Als Datei ablegen (nicht durchsuchbar)', primary: true }, { k: 'text', label: 'Als Text lesen (durchsuchbar)' }, { k: 'skip', label: 'Überspringen' }]);
-    if (a.k === 'skip') return null;
-    const id = newSrc(a.v, 'sonst');
-    if (a.k === 'text') {
-      const raw = (await f.text()).replace(/\u0000/g, '').replace(/\s+/g, ' ').trim();
-      if (raw.length < 20) { toast('Kein lesbarer Text gefunden. Die Datei wurde stattdessen abgelegt.'); a.k = 'file'; } else await addPages(id, [{ p: 1, t: raw }]);
+  async function readEpub(d, f) {
+    const Z = await loadZip(), z = await Z.loadAsync(await f.arrayBuffer()), P = new DOMParser();
+    const read = async (n) => { const x = z.file(n); return x ? x.async('string') : null; };
+    const cont = await read('META-INF/container.xml'); if (!cont) throw new Error('Das ist keine gültige EPUB-Datei');
+    const opfPath = (P.parseFromString(cont, 'text/xml').querySelector('rootfile') || {}).getAttribute?.('full-path'); if (!opfPath) throw new Error('EPUB ohne Inhaltsverzeichnis');
+    const opf = P.parseFromString(await read(opfPath), 'text/xml'), bs = opfPath.includes('/') ? opfPath.replace(/[^/]*$/, '') : '';
+    const dc = (n) => { const e = opf.getElementsByTagNameNS('*', n)[0]; return e ? e.textContent.replace(/\s+/g, ' ').trim() : ''; };
+    d.f.title = dc('title') || base(f.name); d.f.author = [...opf.getElementsByTagNameNS('*', 'creator')].map((x) => x.textContent.trim()).filter(Boolean).join(', '); d.f.publisher = dc('publisher'); d.f.lang = dc('language'); d.f.year = (dc('date').match(/\d{4}/) || [''])[0];
+    const man = {}; opf.querySelectorAll('manifest > item').forEach((it) => { man[it.getAttribute('id')] = it.getAttribute('href'); });
+    const order = [...opf.querySelectorAll('spine > itemref')].map((x) => man[x.getAttribute('idref')]).filter(Boolean); let n = 0;
+    for (const href of order) {
+      const path = decodeURIComponent((bs + href).replace(/#.*$/, '')).replace(/[^/]+\/\.\.\//g, ''), html = await read(path); if (!html) continue;
+      const doc = P.parseFromString(html, 'text/html'); doc.querySelectorAll('script,style,nav,head').forEach((x) => x.remove());
+      doc.querySelectorAll('p,div,li,h1,h2,h3,h4,h5,h6,br,tr,blockquote').forEach((x) => x.appendChild(doc.createTextNode(' ')));
+      const title = ((doc.querySelector('h1,h2,h3') || {}).textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Abschnitt ' + (d.pages.length + 1);
+      const txt = (doc.body ? doc.body.textContent : '').replace(/\s+/g, ' ').trim(); if (txt.length < 30) continue;
+      let rest = txt, part = 0;
+      while (rest.length) { let cut = rest.length > 2500 ? rest.lastIndexOf('. ', 2500) : rest.length; if (cut < 800) cut = Math.min(rest.length, 2500); else if (cut < rest.length) cut += 1; part++; d.pages.push({ p: ++n, t: rest.slice(0, cut).trim(), h: title + (txt.length > 2500 ? ' (Teil ' + part + ')' : '') }); rest = rest.slice(cut).trim(); }
     }
-    if (a.k === 'file') { const name = id + '-' + slugify(n); await fput(QDIR + '/' + name, f); put('settings', Object.assign({}, srcOf(id), { file: QDIR + '/' + name })); }
-    return id;
+    if (!d.pages.length) throw new Error('Kein Text gefunden. Die Datei ist vermutlich kopiergeschützt (DRM).');
+    d.meta = [['Abschnitte', String(d.pages.length)], ['Dateigröße', mb(f.size)], ['Datei', f.name]];
+    d.cover = await epubCover(z, opf, bs);
+  }
+  async function readDraft(d) {
+    const f = d.file;
+    try {
+      if (d.kind === 'pdf') await readPdf(d, f);
+      else if (d.kind === 'epub') await readEpub(d, f);
+      else if (d.kind === 'video') { const v = await videoMeta(f); d.seconds = v.seconds; d.thumbBlob = v.thumb; d.meta = [['Dauer', v.seconds != null ? dur(v.seconds) : 'unbekannt'], ['Dateigröße', mb(f.size)], ['Datei', f.name]]; }
+      else if (d.kind === 'bild') {
+        const Tess = await loadOcr(); d.thumbBlob = d.files[0];
+        for (let i = 0; i < d.files.length; i++) { d.prog = 'Texterkennung Bild ' + (i + 1) + ' von ' + d.files.length; render(); const r = await Tess.recognize(d.files[i], 'deu'); d.pages.push({ p: i + 1, t: (r.data.text || '').replace(/-\n/g, '').replace(/\s*\n\s*/g, ' ').replace(/\s+/g, ' ').trim() }); }
+        d.meta = [['Bilder', String(d.files.length)], ['Zeichen', String(textOfDraft(d).length)]];
+      } else if (d.kind === 'text') {
+        const ext = extOf(f.name); let raw = ext === 'docx' ? await docxText(f) : await f.text(); if (/^html?$/.test(ext)) raw = new DOMParser().parseFromString(raw, 'text/html').body.textContent;
+        d.pages.push({ p: 1, t: raw.replace(/\u0000/g, '').replace(/\s+/g, ' ').trim() }); d.meta = [['Wörter', String(d.pages[0].t.split(' ').length)], ['Dateigröße', mb(f.size)], ['Datei', f.name]];
+      } else if (d.kind === 'datei') { d.mode = 'file'; d.meta = [['Dateigröße', mb(f.size)], ['Datei', f.name]]; d.warn = 'Dieses Format kenne ich nicht. Es wird als Datei abgelegt (nicht durchsuchbar), oder du wählst „Als Text lesen“.'; }
+      else if (d.kind === 'yt') {
+        const i = await ytFetch(d.u); Object.assign(d.f, { title: i.title || d.u, channel: i.channel || '', channelUrl: i.channelUrl || '', url: i.url }); d.desc = i.description || ''; d.seconds = i.seconds; d.dl = true; d.vid = ytVid(i.url);
+        d.meta = [['Dauer', i.seconds != null ? dur(i.seconds) : 'unbekannt']];
+      } else if (d.kind === 'link') { let t = d.u; try { const x = new URL(d.u); t = x.hostname.replace(/^www\./, '') + (x.pathname.length > 1 ? x.pathname.slice(0, 40) : ''); } catch (e) { /* */ } d.f.title = t; d.f.url = d.u; }
+      if (d.thumbBlob && !d.thumbUrl) d.thumbUrl = URL.createObjectURL(d.thumbBlob); if (d.cover && !d.thumbUrl) d.thumbUrl = URL.createObjectURL(d.cover.blob);
+      propose(d); d.status = 'ready';
+    } catch (e) { d.status = 'error'; d.err = (e.message || String(e)) + (d.kind === 'yt' && /server\.js/.test(String(e.message)) ? '' : ''); }
   }
   async function intake(files, text) {
-    const m = M(), made = [], imgs = []; note();
-    try {
-      for (const f of files || []) {
-        const n = f.name || '', ext = (n.match(/\.([^.]+)$/) || [])[1] ? n.match(/\.([^.]+)$/)[1].toLowerCase() : '';
-        if (ext === 'pdf' || f.type === 'application/pdf') { const id = newSrc(base(n), 'pdf'); made.push(id); await importPdf(id, f); }
-        else if (ext === 'epub') { const id = newSrc(base(n), 'buch'); made.push(id); await importEpub(id, f); }
-        else if (/^image\//.test(f.type) || ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'].includes(ext)) imgs.push(f);
-        else if (ext === 'docx') { m.busy = 'Word-Datei wird gelesen …'; render(); const id = newSrc(base(n), 'sonst'); made.push(id); await addPages(id, [{ p: 1, t: await docxText(f) }]); }
-        else if (['txt', 'md', 'csv', 'html', 'htm'].includes(ext) || /^text\//.test(f.type)) { const id = newSrc(base(n), 'sonst'); made.push(id); const raw = await f.text(); await addPages(id, [{ p: 1, t: (/html?$/.test(ext) ? new DOMParser().parseFromString(raw, 'text/html').body.textContent : raw).replace(/\s+/g, ' ').trim() }]); }
-        else { const id = await unknownFile(f); if (id) made.push(id); }
-      }
-      if (imgs.length) { const id = (m.open && srcOf(m.open)) ? m.open : newSrc('Screenshots ' + today(), 'sonst'); made.push(id); await ocrImages(id, imgs); }
-      const t = String(text || '').trim();
-      if (t) {
-        const urls = t.split(/\s+/).filter((x) => /^https?:\/\/\S+$/i.test(x));
-        if (urls.length && urls.length === t.split(/\s+/).length) { for (const u of urls) made.push(await addLink(u)); }
-        else { const id = newSrc(t.replace(/\s+/g, ' ').slice(0, 50) + (t.length > 50 ? ' …' : ''), 'sonst'); made.push(id); await addPages(id, [{ p: 1, t: t.replace(/\s+/g, ' ') }]); }
-      }
-    } catch (e) { toast('Fehler: ' + (e.message || e)); note('err', 'Fehler: ' + (e.message || e)); }
-    m.busy = ''; if (made.length) { m.open = made[made.length - 1]; if (!m.note || m.note.k !== 'err') toast(made.length + (made.length === 1 ? ' Quelle angelegt' : ' Quellen angelegt')); }
+    const m = M(); note(); const imgs = [];
+    const push = (d) => { m.drafts.push(d); return d; };
+    const todo = [];
+    for (const f of files || []) {
+      const ext = extOf(f.name || ''), t = f.type || '';
+      if (ext === 'pdf' || t === 'application/pdf') todo.push(push(mkDraft('pdf', f.name, { file: f })));
+      else if (ext === 'epub') todo.push(push(mkDraft('epub', f.name, { file: f })));
+      else if (VIDEXT.includes(ext) || /^video\//.test(t)) todo.push(push(mkDraft('video', f.name, { file: f })));
+      else if (IMGEXT.includes(ext) || /^image\//.test(t)) imgs.push(f);
+      else if (['docx', 'txt', 'md', 'csv', 'html', 'htm'].includes(ext) || /^text\//.test(t)) todo.push(push(mkDraft('text', f.name, { file: f })));
+      else todo.push(push(mkDraft('datei', f.name, { file: f })));
+    }
+    if (imgs.length) { const d = mkDraft('bild', 'Screenshots ' + today(), { file: imgs[0], files: imgs }); d.f.title = 'Screenshots ' + today(); todo.push(push(d)); }
+    const tx = String(text || '').trim();
+    if (tx) {
+      const parts = tx.split(/\s+/), urls = parts.filter((x) => /^https?:\/\/\S+$/i.test(x));
+      if (urls.length && urls.length === parts.length) urls.forEach((u) => todo.push(push(mkDraft(isYt(u) ? 'yt' : 'link', '', { u }))));
+      else { const d = mkDraft('text', '', { file: null }); d.pages.push({ p: 1, t: tx.replace(/\s+/g, ' ') }); d.f.title = tx.replace(/\s+/g, ' ').slice(0, 50) + (tx.length > 50 ? ' …' : ''); d.meta = [['Wörter', String(parts.length)]]; propose(d); d.status = 'ready'; push(d); }
+    }
     render();
+    for (const d of todo) { await readDraft(d); render(); }
+  }
+  async function commit(d) {
+    const m = M(); d.status = 'saving'; d.err = ''; render();
+    try {
+      const f = d.f, tagFix = { epoche: d.ep, tags: d.tg, keys: d.keys };
+      const type = d.kind === 'pdf' ? 'pdf' : d.kind === 'epub' ? 'buch' : d.kind === 'yt' || d.kind === 'video' ? 'video' : 'sonst';
+      const extra = { lock: true, auto: tagFix, author: f.author || '', publisher: f.publisher || '', lang: f.lang || '', year: f.year || '', fileName: d.name || '', size: d.file ? d.file.size : 0 };
+      let id;
+      if (d.kind === 'yt') { id = newSrc(f.title, 'video', Object.assign(extra, { url: f.url, vtitle: f.title, channel: f.channel, channelUrl: f.channelUrl, seconds: d.seconds == null ? null : d.seconds, desc: d.desc || '' })); }
+      else if (d.kind === 'link') id = newSrc(f.title, 'sonst', Object.assign(extra, { url: f.url }));
+      else id = newSrc(f.title || d.name, type, extra);
+      const setS = (o) => put('settings', Object.assign({}, srcOf(id), o));
+      const saveSt = async () => { T[id] = { pages: d.pages }; await fput(QDIR + '/' + id + '.json', new Blob([JSON.stringify(T[id])], { type: 'application/json' })); setS({ pages: d.pages.length }); };
+      if (d.kind === 'pdf') { const nm = QDIR + '/' + id + '-' + slugify(base(d.name)) + '.pdf'; await fput(nm, d.file); setS({ file: nm }); await saveSt(); }
+      else if (d.kind === 'epub') { const nm = QDIR + '/' + id + '-' + slugify(base(d.name)) + '.epub'; await fput(nm, d.file); setS({ epub: nm }); await saveSt(); }
+      else if (d.kind === 'video') { const nm = 'Material/Videos/' + id + '.' + (extOf(d.name) || 'mp4'); await fput(nm, d.file); setS({ seconds: d.seconds == null ? null : d.seconds, dl: { state: 'done', file: nm, size: d.file.size } }); }
+      else if (d.kind === 'bild') { for (let i = 0; i < d.files.length; i++) await fput(QDIR + '/' + id + '-s' + (i + 1) + '.png', d.files[i]); await saveSt(); }
+      else if (d.kind === 'text') { await saveSt(); }
+      else if (d.kind === 'datei') {
+        const nm = QDIR + '/' + id + '-' + slugify(d.name); await fput(nm, d.file); setS({ file: nm });
+        if (d.mode === 'text') { const raw = (await d.file.text()).replace(/\u0000/g, '').replace(/\s+/g, ' ').trim(); if (raw.length >= 20) { d.pages = [{ p: 1, t: raw }]; await saveSt(); } }
+      }
+      if (d.kind === 'yt') await saveSt();
+      if (d.thumbBlob) { const nm = QDIR + '/' + id + '-thumb.jpg'; await fput(nm, d.thumbBlob); setS({ thumb: { file: nm, src: d.kind === 'pdf' ? 'PDF, Seite 1' : d.kind === 'bild' ? 'Screenshot' : 'Video' } }); }
+      else if (d.cover) { const nm = QDIR + '/' + id + '-thumb.' + d.cover.ext; await fput(nm, d.cover.blob); setS({ thumb: { file: nm, src: 'EPUB-Titelbild' } }); }
+      if (d.kind === 'yt' && d.dl) startDownload(id);
+      if (!d.thumbBlob && !d.cover && d.kind !== 'yt') autoThumb(id, false);
+      if (d.thumbUrl && d.thumbUrl.startsWith('blob:')) URL.revokeObjectURL(d.thumbUrl);
+      m.drafts = m.drafts.filter((x) => x.id !== d.id); m.open = id; toast('Angelegt und auf der NAS gespeichert');
+    } catch (e) { d.status = 'ready'; d.err = e.message || String(e); note('err', 'Anlegen fehlgeschlagen: ' + d.err); }
+    render();
+  }
+  const fld = (d, key, label, ph) => `<label class="matfld"><span>${label}</span><input id="dr-${d.id}-${key}" data-ch="mdf" data-d="${d.id}" data-k="${key}" value="${esc(d.f[key] || '')}" placeholder="${esc(ph || '')}" autocomplete="off"></label>`;
+  const ro = (label, val, link) => `<div class="matfld ro"><span>${label}</span><div>${link ? `<a href="${esc(link)}" target="_blank" rel="noopener">${esc(val)}</a>` : esc(val)}</div></div>`;
+  function draftCard(d) {
+    const k = d.kind, did = d.id;
+    if (d.status === 'reading') return `<section class="card matdraft"><div class="row" style="align-items:center;gap:10px"><span class="mattag ep">${KLABEL[k]}</span><b>${esc(d.name || d.u || 'Text')}</b><span class="muted sm">⏳ wird gelesen${d.prog ? ' … ' + esc(d.prog) : ' …'}</span><span style="flex:1"></span><button class="btn sm" data-act="mddel" data-d="${did}">Abbrechen</button></div></section>`;
+    if (d.status === 'error') return `<section class="card matdraft"><div class="row" style="align-items:center;gap:10px"><span class="mattag ep">${KLABEL[k]}</span><b>${esc(d.name || d.u || '')}</b><span style="flex:1"></span><button class="btn sm" data-act="mddel" data-d="${did}">Entfernen</button></div><div class="matnote err" style="margin:10px 0 0"><span>Konnte nicht gelesen werden: ${esc(d.err)}</span></div></section>`;
+    const ths = d.vid ? `https://i.ytimg.com/vi/${d.vid}/hqdefault.jpg` : d.thumbUrl;
+    const fields = [fld(d, 'title', 'Titel')];
+    if (k === 'pdf') fields.push(fld(d, 'author', 'Autor'));
+    if (k === 'epub') fields.push(fld(d, 'author', 'Autor'), fld(d, 'publisher', 'Verlag'), fld(d, 'lang', 'Sprache'), fld(d, 'year', 'Jahr'));
+    if (k === 'yt') fields.push(ro('Kanal', d.f.channel || '–', d.f.channelUrl), ro('Video-Link', d.f.url, d.f.url));
+    if (k === 'link') fields.push(ro('Adresse', d.f.url, d.f.url));
+    d.meta.forEach(([a, b]) => fields.push(ro(a, b)));
+    const sel = (list, cur, act) => list.map((x) => `<button class="mattag sel${cur.includes(x) ? ' on' : ''}" data-act="${act}" data-d="${did}" data-v="${esc(x)}">${esc(x)}</button>`).join('');
+    const allTg = TAGS.map((t) => t[0]).filter((x) => !EPOCHS.includes(x)), rest = allTg.filter((x) => !d.tg.includes(x)), custom = d.tg.filter((x) => !allTg.includes(x));
+    return `<section class="card matdraft"><div class="row" style="align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap"><span class="mattag ep">${KLABEL[k]}</span><span class="muted sm">${esc(d.name || '')}</span><span style="flex:1"></span>${d.status === 'saving' ? '<span class="muted sm">⏳ wird auf die NAS geladen …</span>' : `<button class="btn good" data-act="mdgo" data-d="${did}">Anlegen</button><button class="btn" data-act="mddel" data-d="${did}">Verwerfen</button>`}</div>
+      <div class="matdgrid"><div class="matdpic">${ths ? `<img src="${esc(ths)}" alt="" referrerpolicy="no-referrer">` : `<div class="matph t-${k === 'pdf' ? 'pdf' : k === 'epub' ? 'buch' : 'sonst'}"><span>${KLABEL[k]}</span></div>`}</div><div class="matflds">${fields.join('')}</div></div>
+      ${d.warn ? `<div class="matnote ok" style="background:var(--warn-soft);color:var(--warn);margin:10px 0 0"><span>${esc(d.warn)}</span></div>` : ''}
+      ${k === 'datei' ? `<div class="row" style="gap:6px;margin-top:10px;align-items:center"><span class="muted sm">Behandeln als:</span><button class="mattag sel${d.mode === 'file' ? ' on' : ''}" data-act="mdmode" data-d="${did}" data-v="file">Datei ablegen</button><button class="mattag sel${d.mode === 'text' ? ' on' : ''}" data-act="mdmode" data-d="${did}" data-v="text">Als Text lesen</button></div>` : ''}
+      ${k === 'yt' ? `<label class="matchk"><input type="checkbox" data-ch="mddl" data-d="${did}" ${d.dl ? 'checked' : ''}> Video zusätzlich auf die NAS herunterladen</label>` : ''}
+      <div class="matdrow"><span class="muted sm">Epoche</span><div>${sel(EPOCHS, d.ep, 'mdep')}</div></div>
+      <div class="matdrow"><span class="muted sm">Themen</span><div>${sel(d.tg.concat(rest.slice(0, 0)), d.tg, 'mdtg')}${sel(rest.slice(0, 14), d.tg, 'mdtg')}
+        <details style="display:inline-block"><summary class="mattag" style="cursor:pointer;list-style:none">Weitere Themen ▾</summary><div style="margin-top:6px">${sel(rest.slice(14), d.tg, 'mdtg')}</div></details>
+        <input class="kminp" id="dr-${did}-new" data-ch="mdnew" data-d="${did}" placeholder="+ eigener Tag" style="width:130px;display:inline-block;vertical-align:middle"></div></div>
+      ${d.err ? `<div class="matnote err" style="margin:10px 0 0"><span>${esc(d.err)}</span></div>` : ''}</section>`;
   }
 
   /* ---------- Ansicht ---------- */
   function view() {
     if (sources().some((x) => x.dl && (x.dl.state === 'running' || x.dl.state === 'queued'))) poll();
-    const m = M(), tabs = [['quellen', 'Quellen'], ['suche', 'Suchen und Erstellen'], ['ordner', 'Ordner']];
-    const nav = `<div class="row" style="gap:6px;margin-bottom:14px;flex-wrap:wrap">${tabs.map(([k, n]) => `<button class="btn ${m.tab === k ? 'good' : ''}" data-act="mattab" data-t="${k}">${n}${k === 'suche' && m.sel.length ? ' (' + m.sel.length + ')' : ''}</button>`).join('')}${m.busy ? `<span class="muted sm" style="align-self:center">⏳ ${esc(m.busy)}</span>` : ''}</div>${m.note ? `<div class="matnote ${m.note.k}" role="status"><span>${esc(m.note.t)}${/server\.js|Unbekannte API|Verbindung/.test(m.note.t) ? ' <a href="/diagnose.html" style="color:inherit;text-decoration:underline">Diagnose öffnen</a>' : ''}</span><button data-act="matnote0" aria-label="Schließen">×</button></div>` : ''}`;
-    return `<div class="km"><div class="kmh"><h1>Material</h1><div class="muted">Quellen ablegen, Themen suchen, Arbeitsmaterial erstellen. Alles liegt auf deiner NAS.</div></div>${nav}${m.tab === 'quellen' ? quellen() : m.tab === 'suche' ? suche() : ordner()}</div>`;
+    const m = M(), banner = `${m.busy ? `<div class="muted sm" style="margin-bottom:8px">⏳ ${esc(m.busy)}</div>` : ''}${m.note ? `<div class="matnote ${m.note.k}" role="status"><span>${esc(m.note.t)}${/server\.js|Unbekannte API|Verbindung/.test(m.note.t) ? ' <a href="/diagnose.html" style="color:inherit;text-decoration:underline">Diagnose öffnen</a>' : ''}</span><button data-act="matnote0" aria-label="Schließen">×</button></div>` : ''}`;
+    return `<div class="km"><div class="kmh"><h1>Material</h1><div class="muted">Ziehe eine Quelle hinein, prüfe die Angaben und lege sie mit „Anlegen“ auf der NAS ab.</div></div>${banner}${quellen()}</div>`;
+  }
+  function metaLine(s) {
+    const a = [['Autor', s.author], ['Verlag', s.publisher], ['Sprache', s.lang], ['Jahr', s.year], ['Datei', s.fileName], ['Größe', s.size ? mb(s.size) : ''], ['Seiten', s.type === 'pdf' && s.pages ? s.pages : '']].filter((x) => x[1]);
+    return a.length ? `<div class="sm" style="margin-top:8px">${a.map(([k, v]) => `<span class="muted">${k}:</span> ${esc(v)}`).join(' &nbsp;·&nbsp; ')}</div>` : '';
   }
   function videoBlock(s, id) {
     if (!isYt(s.url)) return '';
@@ -549,12 +573,12 @@ const MAT = (() => {
   }
   function quellen() {
     const m = M(), list = sources();
-    const form = `<section class="card matdz" id="matdz" tabindex="0" role="button" aria-label="Dateien oder Links hineinziehen"><div class="matdzi">⬇</div><div><b>Alles hierher ziehen</b><div class="muted sm">PDF, EPUB, Word, Textdatei, Screenshot, YouTube-Link, Internetadresse oder Text. Das Format wird automatisch erkannt und die Quelle angelegt. Du kannst auch hier klicken und mit Strg+V einfügen.</div></div><input type="file" id="matdzf" multiple hidden></section>`;
+    const form = `<section class="card matdz" id="matdz" tabindex="0" role="button" aria-label="Dateien oder Links hineinziehen"><div class="matdzi">⬇</div><div><b>Alles hierher ziehen</b><div class="muted sm">PDF, EPUB, Video, YouTube-Link, Word, Textdatei, Screenshot oder Internetadresse. Das Format wird erkannt, darunter erscheinen die Angaben zum Prüfen. Du kannst auch hier klicken oder mit Strg+V einfügen.</div></div><input type="file" id="matdzf" multiple hidden></section>`;
     const card = (s) => {
       const id = s.id.replace(/^mat_/, '');
       return `<section class="card" id="matdetail" style="margin-top:12px"><div class="row" style="align-items:center;gap:8px;flex-wrap:wrap"><h2 style="margin:0">${esc(s.title)}</h2><span class="pill">${esc(TYPES[s.type] || '')}</span><span class="muted sm">${s.pages || 0} Seiten/Abschnitte</span><span style="flex:1"></span>${s.url ? `<a class="btn sm" href="${esc(s.url)}" target="_blank" rel="noopener">${isYt(s.url) ? 'Video auf YouTube' : 'Link öffnen'}</a>` : ''}${s.channelUrl ? `<a class="btn sm" href="${esc(s.channelUrl)}" target="_blank" rel="noopener">Kanal</a>` : ''}${isYt(s.url) ? `<button class="btn sm" data-act="matyt" data-id="${id}" title="Titel, Dauer und Kanal neu lesen">Infos neu</button>` : ''}${s.file ? `<a class="btn sm" href="${url(s.file, /\.pdf$/i.test(s.file) ? '&inline=1' : '')}" target="_blank">${/\.pdf$/i.test(s.file) ? 'PDF ansehen' : 'Datei öffnen'}</a>` : ''}<button class="btn sm bad" data-act="matdel" data-id="${id}">Löschen</button></div>
       ${s.vtitle || s.channel || s.seconds != null ? `<div class="sm" style="margin-top:8px"><span class="muted">Video:</span> <b>${esc(s.vtitle || s.title)}</b>${s.seconds != null ? ` · <span class="muted">Dauer:</span> ${esc(dur(s.seconds))}` : ''}${s.channel ? ` · <span class="muted">Kanal:</span> ${s.channelUrl ? `<a href="${esc(s.channelUrl)}" target="_blank" rel="noopener">${esc(s.channel)}</a>` : esc(s.channel)}` : ''}</div>` : ''}
-      ${videoBlock(s, id)}${thumbBlock(s, id)}${tagBlock(s, id)}
+      ${metaLine(s)}${videoBlock(s, id)}${thumbBlock(s, id)}${tagBlock(s, id)}
 
       <div class="sm" style="margin-top:8px"><span class="muted">Notiz:</span> <input class="kminp" data-ch="matnote" data-id="${id}" value="${esc(s.notes || '')}" placeholder="Notiz zur Quelle" style="width:min(520px,100%)"></div></section>`;
     };
@@ -565,7 +589,8 @@ const MAT = (() => {
     };
     const open = list.find((s) => s.id.replace(/^mat_/, '') === m.open);
     const shown = list.filter(matches);
-    return form + (list.length ? `${filterBar(list)}<div class="matgrid">${shown.map(tile).join('') || '<p class="muted">Keine Quelle passt zum Filter.</p>'}</div>${open ? card(open) : '<p class="muted sm" style="margin-top:10px">Klick auf eine Kachel öffnet PDF, Video oder Text in einem Fenster. Mit dem Stift-Symbol an der Kachel bearbeitest du die Quelle (Tags, Dateien, Notiz, Löschen).</p>'}` : '<p class="muted" style="margin-top:12px">Noch keine Quellen. Lege oben eine an und lade ein PDF hoch oder füge Screenshots ein.</p>');
+    const drafts = m.drafts.length ? `<div class="matdrafts"><div class="row" style="align-items:center;gap:10px;margin:14px 0 4px"><h2 style="margin:0">Zum Anlegen bereit (${m.drafts.length})</h2><span style="flex:1"></span>${m.drafts.filter((x) => x.status === 'ready').length > 1 ? '<button class="btn good" data-act="mdall">Alle anlegen</button>' : ''}</div>${m.drafts.map(draftCard).join('')}</div>` : '';
+    return form + drafts + (list.length ? `<h2 style="margin:22px 0 0">Bibliothek (${list.length})</h2>${filterBar(list)}<div class="matgrid">${shown.map(tile).join('') || '<p class="muted">Keine Quelle passt zum Filter.</p>'}</div>${open ? card(open) : '<p class="muted sm" style="margin-top:10px">Klick auf eine Kachel öffnet PDF, Video oder Text in einem Fenster. Mit dem Stift-Symbol an der Kachel bearbeitest du die Quelle (Tags, Notiz, Löschen). Arbeitsblätter erstellst du in der Stundenplanung unter „Material suchen und auswählen“.</p>'}` : (m.drafts.length ? '' : '<p class="muted" style="margin-top:12px">Noch keine Quellen. Ziehe oben ein PDF, ein Video oder einen YouTube-Link hinein.</p>'));
   }
   function suche() {
     const m = M();
@@ -599,7 +624,13 @@ const MAT = (() => {
       m.busy = ''; render();
     },
     matdl: (e) => startDownload(e.dataset.id),
-    matretag: async (e) => { await retag(e.dataset.id); toast('Tags neu berechnet'); render(); },
+    mdgo: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d); if (d && d.status === 'ready') commit(d); },
+    mdall: async () => { for (const d of M().drafts.filter((x) => x.status === 'ready')) await commit(d); },
+    mddel: (e) => { const m = M(); m.drafts = m.drafts.filter((x) => x.id !== e.dataset.d); render(); },
+    mdep: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d); if (!d) return; const v = e.dataset.v; d.ep = d.ep.includes(v) ? d.ep.filter((x) => x !== v) : d.ep.concat(v); render(); },
+    mdtg: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d); if (!d) return; const v = e.dataset.v; d.tg = d.tg.includes(v) ? d.tg.filter((x) => x !== v) : d.tg.concat(v); render(); },
+    mdmode: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d); if (d) { d.mode = e.dataset.v; render(); } },
+    matretag: async (e) => { await retag(e.dataset.id, true); toast('Tags neu berechnet'); render(); },
     matrm: (e) => { const s = srcOf(e.dataset.id); if (!s) return; const t = e.dataset.t, man = (s.man || []).filter((x) => x !== t), hid = (s.hid || []).slice(); if ((s.man || []).includes(t)) { /* manuell entfernt */ } else if (!hid.includes(t)) hid.push(t); put('settings', Object.assign({}, s, { man, hid })); render(); },
     matfa: (e) => { const f = filterOf(); f.a = f.a === e.dataset.v ? '' : e.dataset.v; render(); },
     matfe: (e) => { const f = filterOf(); f.e = f.e === e.dataset.v ? '' : e.dataset.v; render(); },
@@ -607,14 +638,13 @@ const MAT = (() => {
     matfx: () => { M().f = newF(); setIn('matfq', ''); render(); },
     matpop: (e) => popup(e.dataset.id),
     matopen: (e) => { const m = M(), id = e.dataset.id; m.open = m.open === id ? null : id; render(); if (m.open) setTimeout(() => { const c = document.getElementById('matdetail'); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 50); },
-    mattab: (e) => { M().tab = e.dataset.t; if (e.dataset.t === 'ordner') M().files = null; render(); },
+    matshowf: () => { const m = M(); m.showFiles = !m.showFiles; if (m.showFiles) m.files = null; render(); },
     matyt: async (e) => {
       const s = srcOf(e.dataset.id); if (!s || !s.url) return; const m = M(); m.busy = 'YouTube-Infos werden geholt …'; render();
       try { put('settings', Object.assign({}, s, ytFields(await ytFetch(s.url)))); await retag(e.dataset.id); toast('Infos aktualisiert'); } catch (x) { toast('Nicht abrufbar: ' + (x.message || x)); }
       m.busy = ''; render();
     },
     matdel: async (e) => { const s = srcOf(e.dataset.id); if (!s || !confirm('Quelle „' + s.title + '“ mit allen Texten löschen?')) return; await fdel(QDIR + '/' + e.dataset.id + '.json'); if (s.file) await fdel(s.file); if (s.epub) await fdel(s.epub); delete T[e.dataset.id]; del('settings', 'mat_' + e.dataset.id); M().open = null; render(); },
-    mattext: async (e) => { const id = e.dataset.id, ta = document.getElementById('matx-' + id), txt = (ta.value || '').replace(/\s+/g, ' ').trim(); if (!txt) return; await addPages(id, [{ p: await nextPage(id), t: txt }]); ta.value = ''; toast('Text gespeichert'); render(); },
     matsearch: () => { const m = M(); m.q = document.getElementById('matq').value; const q = m.q.trim(); if (q) saveHist([q].concat(hist().filter((x) => x.toLowerCase() !== q.toLowerCase()))); search(); },
     mathq: (e) => { const m = M(); m.q = e.dataset.q; setIn('matq', m.q); saveHist([m.q].concat(hist().filter((x) => x !== m.q))); search(); },
     mathqx: (e) => { saveHist(hist().filter((x) => x !== e.dataset.q)); render(); },
@@ -632,9 +662,9 @@ const MAT = (() => {
     matfdel: async (e) => { if (!confirm('Datei löschen?')) return; await fdel(e.dataset.p); M().files = null; render(); },
   });
   Object.assign(C, {
-    matpdf: (e) => { const f = e.files[0]; if (f) importPdf(e.dataset.id, f); e.value = ''; },
-    matepub: (e) => { const f = e.files[0]; if (f) importEpub(e.dataset.id, f); e.value = ''; },
-    matimg: (e) => { const fs = [...e.files]; if (fs.length) ocrImages(e.dataset.id, fs); e.value = ''; },
+    mdf: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d); if (d) d.f[e.dataset.k] = e.value; },
+    mddl: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d); if (d) d.dl = e.checked; },
+    mdnew: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d), v = e.value.trim(); if (!d || !v) return; if (!d.tg.includes(v)) d.tg.push(v); e.value = ''; render(); },
     matatag: (e) => { const v = e.value.trim(); if (!v) return; const s = srcOf(e.dataset.id); if (!s) return; put('settings', Object.assign({}, s, { man: [...new Set((s.man || []).concat(v)) ], hid: (s.hid || []).filter((x) => x !== v) })); e.value = ''; render(); },
     matfq: (e) => { filterOf().q = e.value; render(); },
     matnote: (e) => { const s = srcOf(e.dataset.id); if (s) put('settings', Object.assign({}, s, { notes: e.value })); },
@@ -663,7 +693,7 @@ const MAT = (() => {
     o.addEventListener('click', (e) => { if (e.target === o || e.target.closest('[data-x]')) close(); });
     document.addEventListener('keydown', esc1); document.body.appendChild(o);
   }
-  const inView = () => U.view === 'material' && M().tab === 'quellen';
+  const inView = () => U.view === 'material';
   const zone = (e) => e.target && e.target.closest && e.target.closest('#matdz');
   document.addEventListener('click', (e) => { if (zone(e) && !(e.target.tagName === 'INPUT')) { const f = document.getElementById('matdzf'); if (f) f.click(); } });
   document.addEventListener('change', (e) => { if (e.target && e.target.id === 'matdzf') { const f = [...e.target.files]; e.target.value = ''; intake(f, ''); } });
@@ -690,6 +720,10 @@ const MAT = (() => {
 .mattag.hq{padding:0 2px 0 4px}.mattag.hq button:first-child{padding:2px 6px 2px 4px;font:600 12px var(--font-body)}.mattag.hq button{color:inherit}
 .matbig{max-width:1100px;width:96vw;height:88vh;display:flex;flex-direction:column}.matview{flex:1;min-height:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
 .matcc{position:absolute;left:6px;top:6px;background:rgba(255,255,255,.9);color:#222;border-radius:5px;padding:0 5px;font:700 10px var(--font-body)}
+.matdraft{margin-top:12px}.matdgrid{display:grid;grid-template-columns:190px minmax(0,1fr);gap:16px;align-items:start}.matdpic{aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:var(--surface2)}.matdpic img{width:100%;height:100%;object-fit:cover;display:block}
+.matflds{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}.matfld{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--muted)}.matfld:first-child{grid-column:1/-1}.matfld input{font:600 14px var(--font-body);padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}.matfld.ro div{font:600 14px var(--font-body);color:var(--ink);padding:6px 8px;background:var(--surface2);border-radius:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.matdrow{display:grid;grid-template-columns:70px 1fr;gap:10px;align-items:start;margin-top:10px}.matchk{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:14px}
+@media(max-width:640px){.matdgrid{grid-template-columns:1fr}}
 .matgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;margin-top:14px}
 .mattile{position:relative;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px;color:var(--ink);font:inherit}.matmain{display:flex;flex-direction:column;gap:5px;text-align:left;background:none;border:0;padding:0;cursor:pointer;color:inherit;font:inherit;width:100%}.matedit{position:absolute;right:12px;top:12px;display:inline-flex;align-items:center;gap:2px;border:0;border-radius:8px;padding:5px 7px;background:rgba(0,0,0,.65);color:#fff;cursor:pointer;z-index:2}.matedit:hover,.matedit[aria-expanded=true]{background:var(--brand,var(--accent));color:var(--brand-ink,#fff)}
 .mattile:hover{box-shadow:0 4px 14px rgba(0,0,0,.12)}.mattile.on{border-color:var(--brand,var(--accent));box-shadow:0 0 0 2px var(--brand,var(--accent))}
@@ -698,6 +732,7 @@ const MAT = (() => {
 .matdur{position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.78);color:#fff;border-radius:5px;padding:1px 6px;font:700 12px var(--font-body)}
 .matti{font:700 14px/1.25 var(--font-body);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.matsub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}`;
   document.head.appendChild(st);
-  const picker = () => `<div class="kmh" style="margin:24px 0 10px"><h1 style="font-size:22px">Material suchen und auswählen</h1><div class="muted sm">Durchsucht alle Quellen (PDF, EPUB, Videos, Texte). Aus der Auswahl kannst du Material erstellen.</div></div>${suche()}`;
+  const pickerFiles = () => { const m = M(); return `<section class="card" style="margin-top:12px"><div class="row" style="align-items:center;gap:10px"><h2 style="margin:0">Erstellte Dateien und Word-Vorlage</h2><span style="flex:1"></span><button class="btn sm" data-act="matshowf">${m.showFiles ? 'Ausblenden' : 'Anzeigen'}</button></div>${m.showFiles ? ordner() : '<div class="muted sm" style="margin-top:6px">Hier liegen die fertigen Arbeitsblätter (Word und PDF) und deine Vorlage.</div>'}</section>`; };
+  const picker = () => `<div class="kmh" style="margin:24px 0 10px"><h1 style="font-size:22px">Material suchen und auswählen</h1><div class="muted sm">Durchsucht alle Quellen (PDF, EPUB, Videos, Texte). Aus der Auswahl kannst du Material erstellen.</div></div>${suche()}${pickerFiles()}`;
   return { view, picker };
 })();
