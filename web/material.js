@@ -35,9 +35,11 @@ const MAT = (() => {
   const ytFields = (i) => ({ url: i.url, desc: i.description || '', vtitle: i.title || '', channel: i.channel || '', channelUrl: i.channelUrl || '', seconds: i.seconds == null ? null : i.seconds });
 
   /* ---------- Automatische Tags (Epoche, Themen, Schlagwörter) ohne KI ---------- */
-  const EPOCHS = ['Urgeschichte', 'Antike', 'Mittelalter', 'Frühe Neuzeit', '19. Jahrhundert', 'Zeitgeschichte'];
+  const EPOCHS = ['Vor- / Frühgeschichte', 'Antike', 'Mittelalter', 'Neuzeit', 'Zeitgeschichte'];
+  const LEGACY = { 'Urgeschichte': 'Vor- / Frühgeschichte', 'Frühe Neuzeit': 'Neuzeit', '19. Jahrhundert': 'Neuzeit' };
+  const leg = (arr) => [...new Set((arr || []).map((x) => LEGACY[x] || x))];
   const TAGS = [
-    ['Urgeschichte', 'Urgeschichte', ['urgeschicht', 'steinzeit', 'neandertal', 'jäger und sammler', 'höhlenmalerei', 'faustkeil', 'bronzezeit', 'eisenzeit', 'ötzi', 'neolithisch']],
+    ['Vor- / Frühgeschichte', 'Vor- / Frühgeschichte', ['urgeschicht', 'steinzeit', 'neandertal', 'jäger und sammler', 'höhlenmalerei', 'faustkeil', 'bronzezeit', 'eisenzeit', 'ötzi', 'neolithisch']],
     ['Antike', 'Antike', ['antike', 'antiken', 'altertum']],
     ['Griechenland', 'Antike', ['griech', 'athen', 'sparta', 'polis', 'olymp', 'perikles', 'sokrates', 'platon', 'aristoteles', 'alexander der große', 'hellenis', 'marathon', 'akropolis']],
     ['Rom', 'Antike', ['röm', 'caesar', 'augustus', 'gladiator', 'legion', 'senat', 'konsul', 'limes', 'kolosseum', 'pompeji', 'hannibal', 'karthago', 'imperium romanum', 'kaiserzeit', 'punische']],
@@ -52,19 +54,20 @@ const MAT = (() => {
     ['Stadt im Mittelalter', 'Mittelalter', ['stadtrecht', 'zunft', 'zünfte', 'hanse', 'marktrecht', 'bürger', 'handwerker']],
     ['Kirche und Kloster', 'Mittelalter', ['kloster', 'mönch', 'papst', 'investitur', 'inquisition', 'dom ']],
     ['Pest', 'Mittelalter', ['pest', 'schwarzer tod', 'seuche']],
-    ['Renaissance', 'Frühe Neuzeit', ['renaissance', 'humanismus', 'leonardo', 'michelangelo', 'gutenberg', 'buchdruck']],
-    ['Entdeckungen', 'Frühe Neuzeit', ['kolumbus', 'entdeckungsreise', 'conquista', 'kolonie', 'magellan', 'azteken', 'inka', 'vasco da gama']],
-    ['Reformation', 'Frühe Neuzeit', ['reformation', 'luther', 'protestant', 'gegenreformation', 'ablass', 'bauernkrieg']],
-    ['Habsburger', 'Frühe Neuzeit', ['habsburg', 'maria theresia', 'joseph ii', 'kaiser franz', 'türkenbelagerung', 'prinz eugen', 'kaisertum österreich']],
-    ['Absolutismus', 'Frühe Neuzeit', ['absolutis', 'ludwig xiv', 'sonnenkönig', 'versailles', 'barock', 'merkantilis']],
-    ['Dreißigjähriger Krieg', 'Frühe Neuzeit', ['dreißigjährig', 'wallenstein', 'westfälischer frieden']],
-    ['Aufklärung', 'Frühe Neuzeit', ['aufklär', 'voltaire', 'rousseau', 'montesquieu', 'kant', 'menschenrechte']],
-    ['Hexenverfolgung', 'Frühe Neuzeit', ['hexe', 'hexenverfolg', 'hexenprozess']],
-    ['Französische Revolution', '19. Jahrhundert', ['französische revolution', 'bastille', 'robespierre', 'jakobiner', 'marie antoinette', 'guillotine', 'sansculotte']],
-    ['Napoleon', '19. Jahrhundert', ['napoleon', 'wiener kongress', 'metternich', 'restauration']],
-    ['Revolution 1848', '19. Jahrhundert', ['1848', 'märzrevolution', 'paulskirche', 'franz joseph', 'biedermeier']],
-    ['Industrielle Revolution', '19. Jahrhundert', ['industrialisier', 'industrielle revolution', 'dampfmaschine', 'fabrik', 'arbeiterbewegung', 'proletar', 'eisenbahn']],
-    ['Imperialismus', '19. Jahrhundert', ['imperialis', 'kolonialismus', 'kolonialmacht', 'berliner konferenz', 'bismarck']],
+    ['Neuzeit', 'Neuzeit', ['neuzeit', 'frühe neuzeit', 'neuzeitlich']],
+    ['Renaissance', 'Neuzeit', ['renaissance', 'humanismus', 'leonardo', 'michelangelo', 'gutenberg', 'buchdruck']],
+    ['Entdeckungen', 'Neuzeit', ['kolumbus', 'entdeckungsreise', 'conquista', 'kolonie', 'magellan', 'azteken', 'inka', 'vasco da gama']],
+    ['Reformation', 'Neuzeit', ['reformation', 'luther', 'protestant', 'gegenreformation', 'ablass', 'bauernkrieg']],
+    ['Habsburger', 'Neuzeit', ['habsburg', 'maria theresia', 'joseph ii', 'kaiser franz', 'türkenbelagerung', 'prinz eugen', 'kaisertum österreich']],
+    ['Absolutismus', 'Neuzeit', ['absolutis', 'ludwig xiv', 'sonnenkönig', 'versailles', 'barock', 'merkantilis']],
+    ['Dreißigjähriger Krieg', 'Neuzeit', ['dreißigjährig', 'wallenstein', 'westfälischer frieden']],
+    ['Aufklärung', 'Neuzeit', ['aufklär', 'voltaire', 'rousseau', 'montesquieu', 'kant', 'menschenrechte']],
+    ['Hexenverfolgung', 'Neuzeit', ['hexe', 'hexenverfolg', 'hexenprozess']],
+    ['Französische Revolution', 'Neuzeit', ['französische revolution', 'bastille', 'robespierre', 'jakobiner', 'marie antoinette', 'guillotine', 'sansculotte']],
+    ['Napoleon', 'Neuzeit', ['napoleon', 'wiener kongress', 'metternich', 'restauration']],
+    ['Revolution 1848', 'Neuzeit', ['1848', 'märzrevolution', 'paulskirche', 'franz joseph', 'biedermeier']],
+    ['Industrielle Revolution', 'Neuzeit', ['industrialisier', 'industrielle revolution', 'dampfmaschine', 'fabrik', 'arbeiterbewegung', 'proletar', 'eisenbahn']],
+    ['Imperialismus', 'Neuzeit', ['imperialis', 'kolonialismus', 'kolonialmacht', 'berliner konferenz', 'bismarck']],
     ['Erster Weltkrieg', 'Zeitgeschichte', ['erster weltkrieg', 'weltkrieg 1', 'sarajevo', 'schützengraben', 'attentat', '1914', 'giftgas', 'verdun']],
     ['Zwischenkriegszeit', 'Zeitgeschichte', ['zwischenkriegszeit', 'erste republik', 'weimarer', 'weltwirtschaftskrise', 'ständestaat', 'dollfuß', 'inflation']],
     ['Nationalsozialismus', 'Zeitgeschichte', ['nationalsozial', 'nazi', 'hitler', 'ns-', 'anschluss', 'gestapo', 'drittes reich', 'ns-regime']],
@@ -81,7 +84,7 @@ const MAT = (() => {
     ['Frauen', null, ['frauen', 'frauenwahlrecht', 'emanzipation', 'suffragette']],
     ['Sport und Olympia', null, ['olympische spiele', 'olympia', 'leichtathletik', 'turnen', 'sportart', 'fußball', 'athlet', 'training']],
   ];
-  const EPCOL = { 'Urgeschichte': '#9a6b3f', 'Antike': '#d09a12', 'Mittelalter': '#3f9a35', 'Frühe Neuzeit': '#14a3b8', '19. Jahrhundert': '#3b72c4', 'Zeitgeschichte': '#cc4337' };
+  const EPCOL = { 'Vor- / Frühgeschichte': '#7b4510', 'Antike': '#f0c030', 'Mittelalter': '#35761f', 'Neuzeit': '#164e5c', 'Zeitgeschichte': '#6aa6df' };
   const epS = (e) => (EPCOL[e] ? ` style="--ec:${EPCOL[e]}"` : '');
   const wordHits = (low, kw) => { let n = 0, i = low.indexOf(kw); while (i >= 0 && n < 40) { if (i === 0 || !/[a-zäöüß]/.test(low[i - 1])) n++; i = low.indexOf(kw, i + kw.length); } return n; };
   function autoTags(title, extra, text) {
@@ -93,7 +96,7 @@ const MAT = (() => {
     const epochs = EPOCHS.filter((e) => ep[e]).sort((a, b) => ep[b] - ep[a]); const top = epochs.length ? ep[epochs[0]] : 0;
     return { epoche: epochs.filter((e) => ep[e] >= Math.max(3, top * 0.5)).slice(0, 2), tags: tags.sort((a, b) => b[1] - a[1]).map((x) => x[0]).filter((x) => !EPOCHS.includes(x)).slice(0, 8), keys: keyWords((title + ' ' + (extra || '') + ' ' + text), 14).filter((k) => !tags.some((t) => norm(t[0]).startsWith(norm(k).slice(0, 6))) && !EPOCHS.includes(k) && !/^(video|antikes|antike)$/i.test(k)).slice(0, 8) };
   }
-  const tagsOf = (s) => { const hid = s.hid || [], man = s.man || [], auto = s.auto || { tags: [], keys: [], epoche: [] }; return { epoche: [...new Set(auto.epoche.filter((x) => !hid.includes(x)).concat(man.filter((x) => EPOCHS.includes(x))))], tags: [...new Set(auto.tags.filter((x) => !hid.includes(x)).concat(man.filter((x) => !EPOCHS.includes(x))))], keys: (auto.keys || []).filter((x) => !hid.includes(x)) }; };
+  const tagsOf = (s) => { const hid = leg(s.hid), man = leg(s.man), auto = s.auto ? Object.assign({}, s.auto, { epoche: leg(s.auto.epoche) }) : { tags: [], keys: [], epoche: [] }; return { epoche: [...new Set(auto.epoche.filter((x) => !hid.includes(x)).concat(man.filter((x) => EPOCHS.includes(x))))], tags: [...new Set(auto.tags.filter((x) => !hid.includes(x)).concat(man.filter((x) => !EPOCHS.includes(x))))], keys: (auto.keys || []).filter((x) => !hid.includes(x)) }; };
   async function retag(id, force) {
     const s = srcOf(id); if (!s) return; if (s.lock && !force) return; const t = await textOf(id);
     put('settings', Object.assign({}, srcOf(id), { auto: autoTags(s.title + ' ' + (s.vtitle || ''), (s.desc || '') + ' ' + (s.notes || ''), t.pages.map((p) => p.t).join(' ')) }));
@@ -542,8 +545,8 @@ const MAT = (() => {
     const m = M(), list = sources(), f = filterOf();
     const banner = `${m.busy ? `<div class="muted sm" style="margin-bottom:8px">⏳ ${esc(m.busy)}</div>` : ''}${m.note ? `<div class="matnote ${m.note.k}" role="status"><span>${esc(m.note.t)}${/server\.js|Unbekannte API|Verbindung/.test(m.note.t) ? ' <a href="/diagnose.html" style="color:inherit;text-decoration:underline">Diagnose öffnen</a>' : ''}</span><button data-act="matnote0" aria-label="Schließen">×</button></div>` : ''}`;
     const cnt = (e) => list.filter((x) => tagsOf(x).epoche.includes(e)).length;
-    const chip = (label, val, n, col) => `<span class="kmchipw"><button class="kmchip${f.e === val ? ' on' : ''}${n === 0 && val ? ' zero' : ''}" data-act="matfe" data-v="${esc(val)}">${col ? `<i class="matdot" style="background:${col}"></i>` : ''}${esc(label)}<small>${n}</small></button></span>`;
-    const bar = `<div class="kmcls"><div class="kmchips">${chip('Alle Epochen', '', list.length)}<span class="kmdiv" style="cursor:default"></span>${EPOCHS.map((e) => chip(e, e, cnt(e), EPCOL[e])).join('')}</div></div>`;
+    const band = `<div class="mattl${f.e ? ' has' : ''}">${EPOCHS.map((e, i) => `<button class="${f.e === e ? 'on' : ''}" style="--ec:${EPCOL[e]}" data-act="matfe" data-v="${esc(e)}" title="${esc(e)}: ${cnt(e)} Quelle(n)">${esc(e)}<small>${cnt(e)}</small></button>`).join('')}</div>`;
+    const bar = `<div class="kmcls"><span class="kmchipw"><button class="kmchip${!f.e ? ' on' : ''}" data-act="matfe" data-v="">Alle<small>${list.length}</small></button></span>${band}</div>`;
     const kinds = KINDS.filter(([k]) => list.some((x) => kindOf(x) === k));
     const side = `<nav class="kmside" aria-label="Art"><div class="kmsidet">Art</div><button class="kmicon${!f.a ? ' on' : ''}" data-act="matfa" data-v="">${ico('all')}<small>Alle ${list.length}</small></button>${kinds.map(([k, n]) => `<button class="kmicon${f.a === k ? ' on' : ''}" data-act="matfa" data-v="${k}">${ico(k)}<small>${esc(n.split(' ')[0])} ${list.filter((x) => kindOf(x) === k).length}</small></button>`).join('')}</nav>`;
     const artName = (KINDS.find(([k]) => k === f.a) || [0, 'Alle Quellen'])[1];
@@ -788,6 +791,7 @@ const MAT = (() => {
 .matdgrid{display:grid;grid-template-columns:200px minmax(0,1fr);gap:18px;align-items:start}.matdgrid.nopic{grid-template-columns:1fr}.matdpic{aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:var(--surface2)}.matdpic img{width:100%;height:100%;object-fit:cover;display:block}
 .matfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}.matnote.warn{background:var(--warn-soft);color:var(--warn);margin:10px 0}
 .matmore{display:inline}.matmore summary{list-style:none;cursor:pointer;display:inline-flex}.matmore[open] summary{background:var(--accent-soft)}.matmore>div{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.mattl{display:flex;flex:1;min-width:0}.mattl button{flex:1;min-width:0;border:0;color:#fff;font:600 14px var(--font-body);padding:11px 18px 11px 30px;margin-left:-12px;cursor:pointer;background:var(--ec);clip-path:polygon(0 0,calc(100% - 15px) 0,100% 50%,calc(100% - 15px) 100%,0 100%,15px 50%);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:opacity .15s}.mattl button:first-child{margin-left:0;padding-left:20px;clip-path:polygon(0 0,calc(100% - 15px) 0,100% 50%,calc(100% - 15px) 100%,0 100%);border-radius:8px 0 0 8px}.mattl button:last-child{clip-path:polygon(0 0,100% 0,100% 100%,0 100%,15px 50%);border-radius:0 8px 8px 0}.mattl button small{opacity:.8;margin-left:6px;font-size:12px}.mattl.has button:not(.on){opacity:.45}.mattl button:hover{opacity:1}.mattl button.on{box-shadow:inset 0 -3px 0 rgba(255,255,255,.7)}
 .matdot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}.kmchip.zero{opacity:.55}.kmchip small{margin-left:4px}
 .matth2{display:block;width:64px;height:36px;border-radius:6px;overflow:hidden;background:var(--surface2);position:relative}.matth2 img{width:100%;height:100%;object-fit:cover;display:block}.matth2 .matph{font-size:11px}.matth2 .matcc{display:none}
 .matc{font-size:13px;color:var(--ink)}.matc.chips2{display:flex;gap:3px;flex-wrap:wrap}.matc.chips2 .mattag{margin:0;font-size:11px;padding:1px 7px}.matnas2{background:var(--good);color:#fff;border-radius:4px;padding:0 5px;font-size:10px}
