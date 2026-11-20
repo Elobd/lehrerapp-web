@@ -501,37 +501,54 @@ const MAT = (() => {
     } catch (e) { d.status = 'ready'; d.err = e.message || String(e); note('err', 'Anlegen fehlgeschlagen: ' + d.err); }
     render();
   }
-  const fld = (d, key, label, ph) => `<label class="matfld"><span>${label}</span><input id="dr-${d.id}-${key}" data-ch="mdf" data-d="${d.id}" data-k="${key}" value="${esc(d.f[key] || '')}" placeholder="${esc(ph || '')}" autocomplete="off"></label>`;
-  const ro = (label, val, link) => `<div class="matfld ro"><span>${label}</span><div>${link ? `<a href="${esc(link)}" target="_blank" rel="noopener">${esc(val)}</a>` : esc(val)}</div></div>`;
+  const fld = (d, key, label, ph) => `<div class="kmkvr"><span class="kmk">${label}</span><span class="kmv"><input class="matin" id="dr-${d.id}-${key}" data-ch="mdf" data-d="${d.id}" data-k="${key}" value="${esc(d.f[key] || '')}" placeholder="${esc(ph || '')}" autocomplete="off"></span></div>`;
+  const ro = (label, val, link) => `<div class="kmkvr"><span class="kmk">${label}</span><span class="kmv">${link ? `<a href="${esc(link)}" target="_blank" rel="noopener">${esc(val)}</a>` : esc(val)}</span></div>`;
+  const epChips = (list, cur, act, did) => list.map((x) => `<button class="mattag ep sel${cur.includes(x) ? ' on' : ''}"${epS(x)} data-act="${act}" data-d="${did}" data-v="${esc(x)}">${esc(x)}</button>`).join('');
+  const tgChips = (list, cur, act, did) => list.map((x) => `<button class="mattag sel${cur.includes(x) ? ' on' : ''}" data-act="${act}" data-d="${did}" data-v="${esc(x)}">${esc(x)}</button>`).join('');
   function draftCard(d) {
-    const k = d.kind, did = d.id;
-    if (d.status === 'reading') return `<section class="card matdraft" tabindex="-1" data-d="${did}"><div class="row" style="align-items:center;gap:10px"><span class="mattag ep">${KLABEL[k]}</span><b>${esc(d.name || d.u || 'Text')}</b><span class="muted sm">⏳ wird gelesen${d.prog ? ' … ' + esc(d.prog) : ' …'}</span><span style="flex:1"></span><button class="btn sm" data-act="mddel" data-d="${did}">Abbrechen</button></div></section>`;
-    if (d.status === 'error') return `<section class="card matdraft" tabindex="-1" data-d="${did}"><div class="row" style="align-items:center;gap:10px"><span class="mattag ep">${KLABEL[k]}</span><b>${esc(d.name || d.u || '')}</b><span style="flex:1"></span><button class="btn sm" data-act="mddel" data-d="${did}">Entfernen</button></div><div class="matnote err" style="margin:10px 0 0"><span>Konnte nicht gelesen werden: ${esc(d.err)}</span></div></section>`;
+    const k = d.kind, did = d.id, head = `<h2>${KLABEL[k]}${d.name ? ' · ' + esc(d.name) : ''}</h2>`;
+    if (d.status === 'reading') return `<section class="card matdraft" tabindex="-1" data-d="${did}">${head}<div class="row" style="align-items:center;gap:10px"><span class="muted">⏳ wird gelesen${d.prog ? ' … ' + esc(d.prog) : ' …'}</span><span style="flex:1"></span><button class="btn sm" data-act="mddel" data-d="${did}">Abbrechen</button></div></section>`;
+    if (d.status === 'error') return `<section class="card matdraft" tabindex="-1" data-d="${did}">${head}<div class="matnote err" style="margin:0 0 10px"><span>Konnte nicht gelesen werden: ${esc(d.err)}</span></div><button class="btn sm" data-act="mddel" data-d="${did}">Entfernen</button></section>`;
     const ths = d.vid ? `https://i.ytimg.com/vi/${d.vid}/hqdefault.jpg` : d.thumbUrl;
-    const fields = [fld(d, 'title', 'Titel')];
-    if (k === 'pdf') fields.push(fld(d, 'author', 'Autor'));
-    if (k === 'epub') fields.push(fld(d, 'author', 'Autor'), fld(d, 'publisher', 'Verlag'), fld(d, 'lang', 'Sprache'), fld(d, 'year', 'Jahr'));
-    if (k === 'yt') fields.push(ro('Kanal', d.f.channel || '–', d.f.channelUrl), ro('Video-Link', d.f.url, d.f.url));
-    if (k === 'link') fields.push(ro('Adresse', d.f.url, d.f.url));
-    d.meta.forEach(([a, b]) => fields.push(ro(a, b)));
-    const sel = (list, cur, act) => list.map((x) => `<button class="mattag ${act === 'mdep' ? 'ep ' : ''}sel${cur.includes(x) ? ' on' : ''}"${act === 'mdep' ? epS(x) : ''} data-act="${act}" data-d="${did}" data-v="${esc(x)}">${esc(x)}</button>`).join('');
-    const allTg = TAGS.map((t) => t[0]).filter((x) => !EPOCHS.includes(x)), rest = allTg.filter((x) => !d.tg.includes(x)), custom = d.tg.filter((x) => !allTg.includes(x));
-    return `<section class="card matdraft" tabindex="-1" data-d="${did}"><div class="matdgrid"><div class="matdpic">${ths ? `<img src="${esc(ths)}" alt="" referrerpolicy="no-referrer">` : `<div class="matph t-${k === 'pdf' ? 'pdf' : k === 'epub' ? 'buch' : 'sonst'}"><span>${KLABEL[k]}</span></div>`}</div><div style="min-width:0"><div class="row" style="align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap"><span class="mattag ep">${KLABEL[k]}</span><span class="muted sm">${esc(d.name || '')}</span><span style="flex:1"></span>${d.status === 'saving' ? '<span class="muted sm">⏳ wird auf die NAS geladen …</span>' : `<button class="btn good" data-act="mdgo" data-d="${did}">Anlegen</button><button class="btn" data-act="mddel" data-d="${did}">Verwerfen</button>`}</div><div class="matflds">${fields.join('')}</div></div></div>
-      ${d.warn ? `<div class="matnote ok" style="background:var(--warn-soft);color:var(--warn);margin:10px 0 0"><span>${esc(d.warn)}</span></div>` : ''}
-      ${k === 'datei' ? `<div class="row" style="gap:6px;margin-top:10px;align-items:center"><span class="muted sm">Behandeln als:</span><button class="mattag sel${d.mode === 'file' ? ' on' : ''}" data-act="mdmode" data-d="${did}" data-v="file">Datei ablegen</button><button class="mattag sel${d.mode === 'text' ? ' on' : ''}" data-act="mdmode" data-d="${did}" data-v="text">Als Text lesen</button></div>` : ''}
-      ${k === 'yt' ? `<label class="matchk"><input type="checkbox" data-ch="mddl" data-d="${did}" ${d.dl ? 'checked' : ''}> Video zusätzlich auf die NAS herunterladen</label>` : ''}
-      <div class="matdrow"><span class="muted sm">Epoche</span><div>${sel(EPOCHS, d.ep, 'mdep')}</div></div>
-      <div class="matdrow"><span class="muted sm">Themen</span><div>${sel(d.tg.concat(rest.slice(0, 0)), d.tg, 'mdtg')}${sel(rest.slice(0, 14), d.tg, 'mdtg')}
-        <details style="display:inline-block"><summary class="mattag" style="cursor:pointer;list-style:none">Weitere Themen ▾</summary><div style="margin-top:6px">${sel(rest.slice(14), d.tg, 'mdtg')}</div></details>
-        <input class="kminp" id="dr-${did}-new" data-ch="mdnew" data-d="${did}" placeholder="+ eigener Tag" style="width:130px;display:inline-block;vertical-align:middle"></div></div>
-      ${d.err ? `<div class="matnote err" style="margin:10px 0 0"><span>${esc(d.err)}</span></div>` : ''}</section>`;
+    const rows = [fld(d, 'title', 'Titel')];
+    if (k === 'pdf') rows.push(fld(d, 'author', 'Autor'));
+    if (k === 'epub') rows.push(fld(d, 'author', 'Autor'), fld(d, 'publisher', 'Verlag'), fld(d, 'lang', 'Sprache'), fld(d, 'year', 'Jahr'));
+    if (k === 'yt') rows.push(ro('Kanal', d.f.channel || '–', d.f.channelUrl), ro('Video', d.f.url, d.f.url));
+    if (k === 'link') rows.push(ro('Adresse', d.f.url, d.f.url));
+    d.meta.forEach(([a, b]) => { if (a !== 'Datei') rows.push(ro(a, b)); });
+    const allTg = TAGS.map((t) => t[0]).filter((x) => !EPOCHS.includes(x)), rest = allTg.filter((x) => !d.tg.includes(x));
+    const hasPic = !!ths;
+    return `<section class="card matdraft" tabindex="-1" data-d="${did}">${head}
+      <div class="matdgrid${hasPic ? '' : ' nopic'}">${hasPic ? `<div class="matdpic"><img src="${esc(ths)}" alt="" referrerpolicy="no-referrer"></div>` : ''}<div>${rows.join('')}${k === 'yt' ? `<label class="matchk"><input type="checkbox" data-ch="mddl" data-d="${did}" ${d.dl ? 'checked' : ''}> Video zusätzlich auf die NAS herunterladen</label>` : ''}</div></div>
+      ${d.warn ? `<div class="matnote warn"><span>${esc(d.warn)}</span></div>` : ''}
+      ${k === 'datei' ? `<div class="kmkvr"><span class="kmk">Behandeln als</span><span class="kmv"><button class="mattag sel${d.mode === 'file' ? ' on' : ''}" data-act="mdmode" data-d="${did}" data-v="file">Datei ablegen</button><button class="mattag sel${d.mode === 'text' ? ' on' : ''}" data-act="mdmode" data-d="${did}" data-v="text">Als Text lesen</button></span></div>` : ''}
+      <div class="kmkvr"><span class="kmk">Epoche</span><span class="kmv chips">${epChips(EPOCHS, d.ep, 'mdep', did)}</span></div>
+      <div class="kmkvr"><span class="kmk">Themen</span><span class="kmv chips">${tgChips(d.tg, d.tg, 'mdtg', did)}${tgChips(rest.slice(0, 6), d.tg, 'mdtg', did)}<details class="matmore"><summary class="mattag">Weitere ▾</summary><div>${tgChips(rest.slice(6), d.tg, 'mdtg', did)}</div></details><input class="matin" id="dr-${did}-new" data-ch="mdnew" data-d="${did}" placeholder="+ eigener Tag" style="width:130px"></span></div>
+      ${d.err ? `<div class="matnote err"><span>${esc(d.err)}</span></div>` : ''}
+      <div class="matfoot">${d.status === 'saving' ? '<span class="muted">⏳ wird auf die NAS geladen …</span>' : `<button class="btn" data-act="mddel" data-d="${did}">Verwerfen</button><button class="btn good" data-act="mdgo" data-d="${did}">Anlegen</button>`}</div></section>`;
   }
-
-  /* ---------- Ansicht ---------- */
+  const ICO = {
+    all: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+    video: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z"/>',
+    pdf: '<path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>',
+    epub: '<path d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2z"/><path d="M4 19a2 2 0 012-2h13"/>',
+    text: '<path d="M4 6h16M4 10h16M4 14h10M4 18h8"/>',
+    bild: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/>',
+    link: '<path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/>',
+  };
+  const ico = (k) => `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICO[k]}</svg>`;
   function view() {
     if (sources().some((x) => x.dl && (x.dl.state === 'running' || x.dl.state === 'queued'))) poll();
-    const m = M(), banner = `${m.busy ? `<div class="muted sm" style="margin-bottom:8px">⏳ ${esc(m.busy)}</div>` : ''}${m.note ? `<div class="matnote ${m.note.k}" role="status"><span>${esc(m.note.t)}${/server\.js|Unbekannte API|Verbindung/.test(m.note.t) ? ' <a href="/diagnose.html" style="color:inherit;text-decoration:underline">Diagnose öffnen</a>' : ''}</span><button data-act="matnote0" aria-label="Schließen">×</button></div>` : ''}`;
-    return `<div class="km"><div class="kmh"><h1>Material</h1><div class="muted">Ziehe eine Quelle hinein, prüfe die Angaben und lege sie mit „Anlegen“ auf der NAS ab.</div></div>${banner}${quellen()}</div>`;
+    const m = M(), list = sources(), f = filterOf();
+    const banner = `${m.busy ? `<div class="muted sm" style="margin-bottom:8px">⏳ ${esc(m.busy)}</div>` : ''}${m.note ? `<div class="matnote ${m.note.k}" role="status"><span>${esc(m.note.t)}${/server\.js|Unbekannte API|Verbindung/.test(m.note.t) ? ' <a href="/diagnose.html" style="color:inherit;text-decoration:underline">Diagnose öffnen</a>' : ''}</span><button data-act="matnote0" aria-label="Schließen">×</button></div>` : ''}`;
+    const cnt = (e) => list.filter((x) => tagsOf(x).epoche.includes(e)).length;
+    const chip = (label, val, n, col) => `<span class="kmchipw"><button class="kmchip${f.e === val ? ' on' : ''}${n === 0 && val ? ' zero' : ''}" data-act="matfe" data-v="${esc(val)}">${col ? `<i class="matdot" style="background:${col}"></i>` : ''}${esc(label)}<small>${n}</small></button></span>`;
+    const bar = `<div class="kmcls"><div class="kmchips">${chip('Alle Epochen', '', list.length)}<span class="kmdiv" style="cursor:default"></span>${EPOCHS.map((e) => chip(e, e, cnt(e), EPCOL[e])).join('')}</div></div>`;
+    const kinds = KINDS.filter(([k]) => list.some((x) => kindOf(x) === k));
+    const side = `<nav class="kmside" aria-label="Art"><div class="kmsidet">Art</div><button class="kmicon${!f.a ? ' on' : ''}" data-act="matfa" data-v="">${ico('all')}<small>Alle ${list.length}</small></button>${kinds.map(([k, n]) => `<button class="kmicon${f.a === k ? ' on' : ''}" data-act="matfa" data-v="${k}">${ico(k)}<small>${esc(n.split(' ')[0])} ${list.filter((x) => kindOf(x) === k).length}</small></button>`).join('')}</nav>`;
+    const artName = (KINDS.find(([k]) => k === f.a) || [0, 'Alle Quellen'])[1];
+    const head = `<div class="kmh"><h1>Material<span class="kmsep kmh1">I</span><span class="muted" style="font-weight:500">${esc(f.e || 'Alle Epochen')}${f.a ? ' · ' + esc(artName) : ''}</span></h1></div>`;
+    return `<div class="km">${bar}${head}${banner}<div class="kmbody">${side}<section class="kmmain">${quellen()}</section></div></div>`;
   }
   function metaLine(s) {
     const a = [['Autor', s.author], ['Verlag', s.publisher], ['Sprache', s.lang], ['Jahr', s.year], ['Datei', s.fileName], ['Größe', s.size ? mb(s.size) : ''], ['Seiten', s.type === 'pdf' && s.pages ? s.pages : '']].filter((x) => x[1]);
@@ -572,26 +589,55 @@ const MAT = (() => {
       ${eps.length ? `<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px"><span class="muted sm">Epoche:</span>${eps.map((e) => `<button class="mattag ep sel${f.e === e ? ' on' : ''}"${epS(e)} data-act="matfe" data-v="${esc(e)}">${esc(e)}</button>`).join('')}</div>` : ''}
       ${tg.length ? `<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px"><span class="muted sm">Tags:</span>${tg.map((x) => `<button class="mattag tg sel${f.t.includes(x) ? ' on' : ''}" data-act="matft" data-v="${esc(x)}">${esc(x)}<small> ${cnt[x]}</small></button>`).join('')}</div>` : ''}</div>`;
   }
+  function thumbOf(s, big) {
+    const vid = ytVid(s.url), th = s.thumb, k = kindOf(s);
+    if (vid) return `<img src="https://i.ytimg.com/vi/${vid}/hqdefault.jpg" alt="" loading="lazy" referrerpolicy="no-referrer">`;
+    if (th && (th.file || th.url)) return `<img src="${th.file ? url(th.file, '&inline=1') : esc(th.url)}" alt="" loading="lazy" referrerpolicy="no-referrer">${th.lic ? '<b class="matcc">CC</b>' : ''}`;
+    return `<div class="matph t-${esc(s.type || 'sonst')}"><span>${big ? esc(TYPES[s.type] || 'Quelle') : esc(((KINDS.find(([x]) => x === k) || [0, ''])[1] || '').split(' ')[0].slice(0, 5))}</span></div>`;
+  }
+  const epTags = (s) => tagsOf(s).epoche.map((e) => `<span class="mattag ep on"${epS(e)}>${esc(e)}</span>`).join('') || '<span class="muted sm">–</span>';
+  const umfang = (s) => (s.seconds != null ? dur(s.seconds).replace(/ (Min|Std)$/, '') + (/Std/.test(dur(s.seconds)) ? ' Std' : ' Min') : s.pages ? s.pages + (kindOf(s) === 'pdf' ? (s.pages === 1 ? ' Seite' : ' Seiten') : ' Abschn.') : '–');
+  function editCard(s) {
+    const id = s.id.replace(/^mat_/, ''), t = tagsOf(s), allTg = TAGS.map((x) => x[0]).filter((x) => !EPOCHS.includes(x)), restT = allTg.filter((x) => !t.tags.includes(x));
+    const tog = (list, cur, ep) => list.map((x) => `<button class="mattag ${ep ? 'ep ' : ''}sel${cur.includes(x) ? ' on' : ''}"${ep ? epS(x) : ''} data-act="mattoggle" data-id="${id}" data-t="${esc(x)}">${esc(x)}</button>`).join('');
+    const row = (k, v) => `<div class="kmkvr"><span class="kmk">${k}</span><span class="kmv">${v}</span></div>`;
+    const ang = [['Autor', s.author], ['Verlag', s.publisher], ['Sprache', s.lang], ['Jahr', s.year], ['Datei', s.fileName], ['Größe', s.size ? mb(s.size) : ''], ['Seiten', s.type === 'pdf' && s.pages ? s.pages : '']].filter((x) => x[1]).map(([k, v]) => row(k, esc(v))).join('');
+    const yt = isYt(s.url) ? row('Kanal', s.channelUrl ? `<a href="${esc(s.channelUrl)}" target="_blank" rel="noopener">${esc(s.channel || '')}</a>` : esc(s.channel || '–')) + row('Video', `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.url)}</a>`) + row('Dauer', s.seconds != null ? esc(dur(s.seconds)) : '–') : s.url ? row('Adresse', `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.url)}</a>`) : '';
+    return `<section class="card" id="matdetail" style="margin-top:14px"><div class="row" style="align-items:center;gap:8px"><h2 style="margin:0">Bearbeiten</h2><span style="flex:1"></span><button class="btn sm" data-act="matopen" data-id="${id}">Schließen</button></div>
+      ${row('Titel', `<input class="matin" data-ch="matttl" data-id="${id}" value="${esc(s.vtitle || s.title)}">`)}${yt}${ang}
+      ${s.file ? row('Datei', `<a href="${url(s.file, /\.pdf$/i.test(s.file) ? '&inline=1' : '')}" target="_blank">${/\.pdf$/i.test(s.file) ? 'PDF ansehen' : 'Datei öffnen'}</a>`) : ''}
+      ${isYt(s.url) ? `<div class="kmkvr"><span class="kmk">Video-Datei</span><span class="kmv">${videoBlock(s, id).replace('margin-top:10px', 'margin-top:0')}</span></div>` : ''}
+      ${!isYt(s.url) ? `<div class="kmkvr"><span class="kmk">Vorschaubild</span><span class="kmv">${thumbBlock(s, id).replace('<span class="muted">Vorschaubild:</span>', '').replace('margin-top:10px', 'margin-top:0')}</span></div>` : ''}
+      <div class="kmkvr"><span class="kmk">Epoche</span><span class="kmv chips">${tog(EPOCHS, t.epoche, true)}</span></div>
+      <div class="kmkvr"><span class="kmk">Themen</span><span class="kmv chips">${tog(t.tags, t.tags)}${tog(restT.slice(0, 6), t.tags)}<details class="matmore"><summary class="mattag">Weitere ▾</summary><div>${tog(restT.slice(6), t.tags)}</div></details><input class="matin" data-ch="matatag" data-id="${id}" placeholder="+ eigener Tag" style="width:130px"></span></div>
+      ${t.keys.length ? row('Schlagwörter', t.keys.map((x) => `<span class="mattag ky">${esc(x)}<button data-act="matrm" data-id="${id}" data-t="${esc(x)}" aria-label="Entfernen">×</button></span>`).join('')) : ''}
+      ${row('Notiz', `<input class="matin" data-ch="matnote" data-id="${id}" value="${esc(s.notes || '')}" placeholder="Notiz zur Quelle">`)}
+      <div class="matfoot"><button class="btn sm" data-act="matretag" data-id="${id}" title="Epoche, Themen und Schlagwörter aus Titel und Text neu bestimmen">Tags neu berechnen</button><button class="btn sm bad" data-act="matdel" data-id="${id}">Löschen</button></div></section>`;
+  }
   function quellen() {
-    const m = M(), list = sources();
-    const form = `<section class="card matdz" id="matdz" tabindex="0" role="button" aria-label="Dateien oder Links hineinziehen"><div class="matdzi">⬇</div><div><b>Alles hierher ziehen</b><div class="muted sm">PDF, EPUB, Video, YouTube-Link, Word, Textdatei, Screenshot oder Internetadresse. Das Format wird erkannt, darunter erscheinen die Angaben zum Prüfen. Du kannst auch hier klicken oder mit Strg+V einfügen.</div></div><input type="file" id="matdzf" multiple hidden></section>`;
-    const card = (s) => {
-      const id = s.id.replace(/^mat_/, '');
-      return `<section class="card" id="matdetail" style="margin-top:12px"><div class="row" style="align-items:center;gap:8px;flex-wrap:wrap"><h2 style="margin:0">${esc(s.title)}</h2><span class="pill">${esc(TYPES[s.type] || '')}</span><span class="muted sm">${s.pages || 0} Seiten/Abschnitte</span><span style="flex:1"></span>${s.url ? `<a class="btn sm" href="${esc(s.url)}" target="_blank" rel="noopener">${isYt(s.url) ? 'Video auf YouTube' : 'Link öffnen'}</a>` : ''}${s.channelUrl ? `<a class="btn sm" href="${esc(s.channelUrl)}" target="_blank" rel="noopener">Kanal</a>` : ''}${isYt(s.url) ? `<button class="btn sm" data-act="matyt" data-id="${id}" title="Titel, Dauer und Kanal neu lesen">Infos neu</button>` : ''}${s.file ? `<a class="btn sm" href="${url(s.file, /\.pdf$/i.test(s.file) ? '&inline=1' : '')}" target="_blank">${/\.pdf$/i.test(s.file) ? 'PDF ansehen' : 'Datei öffnen'}</a>` : ''}<button class="btn sm bad" data-act="matdel" data-id="${id}">Löschen</button></div>
-      ${s.vtitle || s.channel || s.seconds != null ? `<div class="sm" style="margin-top:8px"><span class="muted">Video:</span> <b>${esc(s.vtitle || s.title)}</b>${s.seconds != null ? ` · <span class="muted">Dauer:</span> ${esc(dur(s.seconds))}` : ''}${s.channel ? ` · <span class="muted">Kanal:</span> ${s.channelUrl ? `<a href="${esc(s.channelUrl)}" target="_blank" rel="noopener">${esc(s.channel)}</a>` : esc(s.channel)}` : ''}</div>` : ''}
-      ${metaLine(s)}${videoBlock(s, id)}${thumbBlock(s, id)}${tagBlock(s, id)}
-
-      <div class="sm" style="margin-top:8px"><span class="muted">Notiz:</span> <input class="kminp" data-ch="matnote" data-id="${id}" value="${esc(s.notes || '')}" placeholder="Notiz zur Quelle" style="width:min(520px,100%)"></div></section>`;
-    };
-    const tile = (s) => {
-      const id = s.id.replace(/^mat_/, ''), vid = ytVid(s.url), on = m.open === id;
-      const th = s.thumb, pic = vid ? `<img src="https://i.ytimg.com/vi/${vid}/hqdefault.jpg" alt="" loading="lazy" referrerpolicy="no-referrer">` : th && (th.file || th.url) ? `<img src="${th.file ? url(th.file, '&inline=1') : esc(th.url)}" alt="" loading="lazy" referrerpolicy="no-referrer"${th.lic ? ` title="Bild: ${esc(th.by || '')} (${esc(th.lic)}), Wikimedia Commons"` : ''}>${th.lic ? '<b class="matcc">CC</b>' : ''}` : `<div class="matph t-${esc(s.type || 'sonst')}"><span>${esc((TYPES[s.type] || 'Quelle'))}</span></div>`;
-      return `<div class="mattile${on ? ' on' : ''}${tagsOf(s).epoche[0] ? ' hasep' : ''}"${epS(tagsOf(s).epoche[0])}><button class="matmain" data-act="matpop" data-id="${id}" title="Öffnen: ${esc(s.title)}"><span class="matth">${pic}${s.dl && s.dl.state === 'done' ? '<b class="matnas" title="Video liegt auf der NAS">NAS</b>' : ''}${s.seconds != null ? `<b class="matdur">${esc(dur(s.seconds).replace(/ (Min|Std)$/, ''))}</b>` : ''}</span><span class="matti">${esc(s.vtitle || s.title)}</span><span class="matsub">${tagsOf(s).epoche[0] ? `${tagsOf(s).epoche.map((e) => `<b class="matepdot"${epS(e)}>${esc(e)}</b>`).join(', ')} · ` : ''}${esc(s.channel || TYPES[s.type] || '')}${s.pages ? ' · ' + s.pages + (s.type === 'video' ? ' Textabschn.' : ' S.') : ''}</span></button><button class="matedit" data-act="matopen" data-id="${id}" aria-expanded="${on}" aria-label="Bearbeiten" title="Bearbeiten (Tags, Dateien, Notiz, Löschen)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div>`;
-    };
-    const open = list.find((s) => s.id.replace(/^mat_/, '') === m.open);
-    const shown = list.filter(matches);
-    const drafts = m.drafts.length ? `<div class="matdrafts"><div class="row" style="align-items:center;gap:10px;margin:14px 0 4px"><h2 style="margin:0">Zum Anlegen bereit (${m.drafts.length})</h2><span style="flex:1"></span>${m.drafts.filter((x) => x.status === 'ready').length > 1 ? '<button class="btn good" data-act="mdall">Alle anlegen</button>' : ''}</div>${m.drafts.map(draftCard).join('')}</div>` : '';
-    return form + drafts + (list.length ? `<h2 style="margin:22px 0 0">Bibliothek (${list.length})</h2>${filterBar(list)}<div class="matgrid">${shown.map(tile).join('') || '<p class="muted">Keine Quelle passt zum Filter.</p>'}</div>${open ? card(open) : '<p class="muted sm" style="margin-top:10px">Klick auf eine Kachel öffnet PDF, Video oder Text in einem Fenster. Mit dem Stift-Symbol an der Kachel bearbeitest du die Quelle (Tags, Notiz, Löschen). Arbeitsblätter erstellst du in der Stundenplanung unter „Material suchen und auswählen“.</p>'}` : (m.drafts.length ? '' : '<p class="muted" style="margin-top:12px">Noch keine Quellen. Ziehe oben ein PDF, ein Video oder einen YouTube-Link hinein.</p>'));
+    const m = M(), list = sources(), f = filterOf(), shown = list.filter(matches), act = f.q || f.e || f.a || f.t.length;
+    const zone = `<section class="card"><h2>Neue Quelle</h2><div class="matdz" id="matdz" tabindex="0" role="button" aria-label="Dateien oder Links hineinziehen"><div class="matdzi">⬇</div><div><b>Alles hierher ziehen</b><div class="muted sm">PDF, EPUB, Video, YouTube-Link, Word, Textdatei, Screenshot oder Internetadresse. Darunter erscheinen die Angaben zum Prüfen. Klicken oder Strg+V geht auch.</div></div><input type="file" id="matdzf" multiple hidden></div></section>`;
+    const ready = m.drafts.filter((x) => x.status === 'ready').length;
+    const drafts = m.drafts.length ? `${ready > 1 ? `<div class="row" style="justify-content:flex-end;margin:12px 0 0"><button class="btn good" data-act="mdall">Alle ${ready} anlegen</button></div>` : ''}${m.drafts.map(draftCard).join('')}` : '';
+    const cnt = {}; list.forEach((x) => { const t = tagsOf(x); t.tags.forEach((y) => { cnt[y] = (cnt[y] || 0) + 1; }); });
+    const tg = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a] || a.localeCompare(b, 'de')), top = tg.slice(0, 12), more = tg.slice(12);
+    const tgb = (x) => `<button class="mattag tg sel${f.t.includes(x) ? ' on' : ''}" data-act="matft" data-v="${esc(x)}">${esc(x)}<small> ${cnt[x]}</small></button>`;
+    const view = m.view || 'liste';
+    const rows = shown.map((s, i) => {
+      const id = s.id.replace(/^mat_/, ''), on = m.open === id;
+      return `<div class="kmrow kmgo${on ? ' matsel' : ''}" data-act="matpop" data-id="${id}" tabindex="0" role="link"><span class="kmno">${i + 1}</span><span class="matth2">${thumbOf(s)}</span><span class="kmnm"><b>${esc(s.vtitle || s.title)}</b><small class="muted"> ${esc(s.channel || s.author || '')}</small></span><span class="matc">${esc((KINDS.find(([k]) => k === kindOf(s)) || [0, ''])[1])}${s.dl && s.dl.state === 'done' ? ' <b class="matnas2">NAS</b>' : ''}</span><span class="matc chips2">${epTags(s)}</span><span class="matc">${esc(umfang(s))}</span><button class="matedit2" data-act="matopen" data-id="${id}" aria-expanded="${on}" aria-label="Bearbeiten" title="Bearbeiten"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button></div>`;
+    }).join('');
+    const tile = (s) => { const id = s.id.replace(/^mat_/, ''), on = m.open === id, e0 = tagsOf(s).epoche[0]; return `<div class="mattile${on ? ' on' : ''}${e0 ? ' hasep' : ''}"${epS(e0)}><button class="matmain" data-act="matpop" data-id="${id}" title="Öffnen: ${esc(s.title)}"><span class="matth">${thumbOf(s, true)}${s.dl && s.dl.state === 'done' ? '<b class="matnas" title="Video liegt auf der NAS">NAS</b>' : ''}${s.seconds != null ? `<b class="matdur">${esc(dur(s.seconds).replace(/ (Min|Std)$/, ''))}</b>` : ''}</span><span class="matti">${esc(s.vtitle || s.title)}</span><span class="matsub">${epTags(s)}</span></button><button class="matedit" data-act="matopen" data-id="${id}" aria-expanded="${on}" aria-label="Bearbeiten" title="Bearbeiten"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button></div>`; };
+    const body = !list.length ? '<p class="muted" style="margin:0">Noch keine Quellen. Ziehe oben ein PDF, ein Video oder einen YouTube-Link hinein.</p>'
+      : !shown.length ? '<p class="muted" style="margin:0">Keine Quelle passt zum Filter.</p>'
+      : view === 'kacheln' ? `<div class="matgrid">${shown.map(tile).join('')}</div>`
+      : `<div class="kmtable" style="--kmgrid:34px 76px minmax(200px,2.2fr) 90px minmax(150px,1.4fr) 90px 40px;--kmmin:680px"><div class="kmrow kmth"><span>Nr</span><span></span><span>Titel</span><span>Art</span><span>Epoche</span><span>Umfang</span><span></span></div>${rows}</div>`;
+    const lib = list.length ? `<section class="card" style="margin-top:14px"><div class="row" style="align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap"><h2 style="margin:0">Bibliothek (${shown.length}${shown.length !== list.length ? ' von ' + list.length : ''})</h2><span style="flex:1"></span><span class="matseg"><button class="${view === 'liste' ? 'on' : ''}" data-act="matview" data-v="liste">Liste</button><button class="${view === 'kacheln' ? 'on' : ''}" data-act="matview" data-v="kacheln">Kacheln</button></span></div>
+      <div class="row" style="gap:8px;align-items:center;margin-bottom:8px"><span class="matinw" style="flex:1"><input class="kminp" id="matfq" data-ch="matfq" value="${esc(f.q)}" placeholder="Filtern: Titel, Kanal, Autor, Tag …" style="width:100%">${clearBtn('matfclr', !!f.q)}</span>${act ? '<button class="btn sm" data-act="matfx">Zurücksetzen</button>' : ''}</div>
+      ${tg.length ? `<div class="chips" style="margin-bottom:12px"><span class="muted sm">Themen:</span>${top.map(tgb).join('')}${more.length ? `<details class="matmore"><summary class="mattag">Weitere ▾</summary><div>${more.map(tgb).join('')}</div></details>` : ''}</div>` : ''}
+      ${body}</section>` : '';
+    const open = list.find((x) => x.id.replace(/^mat_/, '') === m.open);
+    return zone + drafts + lib + (open ? editCard(open) : '');
   }
   function suche() {
     const m = M();
@@ -625,6 +671,8 @@ const MAT = (() => {
       m.busy = ''; render();
     },
     matdl: (e) => startDownload(e.dataset.id),
+    matview: (e) => { M().view = e.dataset.v; render(); },
+    mattoggle: (e) => { const id = e.dataset.id, s = srcOf(id); if (!s) return; const t = e.dataset.t, tt = tagsOf(s), has = tt.epoche.includes(t) || tt.tags.includes(t); let man = (s.man || []).slice(), hid = (s.hid || []).slice(); if (has) { if (man.includes(t)) man = man.filter((x) => x !== t); else if (!hid.includes(t)) hid.push(t); } else { if (!man.includes(t)) man.push(t); hid = hid.filter((x) => x !== t); } put('settings', Object.assign({}, s, { man, hid })); render(); },
     mdgo: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d); if (d && d.status === 'ready') commit(d); },
     mdall: async () => { for (const d of M().drafts.filter((x) => x.status === 'ready')) await commit(d); },
     mddel: (e) => { const m = M(); m.drafts = m.drafts.filter((x) => x.id !== e.dataset.d); render(); },
@@ -668,6 +716,7 @@ const MAT = (() => {
     mdnew: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d), v = e.value.trim(); if (!d || !v) return; if (!d.tg.includes(v)) d.tg.push(v); e.value = ''; render(); },
     matatag: (e) => { const v = e.value.trim(); if (!v) return; const s = srcOf(e.dataset.id); if (!s) return; put('settings', Object.assign({}, s, { man: [...new Set((s.man || []).concat(v)) ], hid: (s.hid || []).filter((x) => x !== v) })); e.value = ''; render(); },
     matfq: (e) => { filterOf().q = e.value; render(); },
+    matttl: (e) => { const s = srcOf(e.dataset.id); if (!s) return; const v = e.value.trim(); if (v) put('settings', Object.assign({}, s, s.vtitle ? { vtitle: v, title: v } : { title: v })); render(); },
     matnote: (e) => { const s = srcOf(e.dataset.id); if (s) put('settings', Object.assign({}, s, { notes: e.value })); },
     matsel: (e) => { const x = M().sel[+e.dataset.i]; if (x) x.t = e.value; },
     matqs: (e) => { M().q = e.value; },
@@ -679,7 +728,7 @@ const MAT = (() => {
     if (e.key !== 'Delete' || U.view !== 'material' || document.querySelector('.matask')) return;
     const ae = document.activeElement; if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return;
     const dr = ae && ae.closest && ae.closest('.matdraft'); if (dr) { e.preventDefault(); A.mddel({ dataset: { d: dr.dataset.d } }); return; }
-    const tile = ae && ae.closest && ae.closest('.mattile'), mm = tile && tile.querySelector('.matmain'), id = (mm && mm.dataset.id) || M().open;
+    const tile = ae && ae.closest && ae.closest('.mattile'), row = ae && ae.closest && ae.closest('.kmrow[data-id]'), mm = tile && tile.querySelector('.matmain'), id = (mm && mm.dataset.id) || (row && row.dataset.id) || M().open;
     if (id && srcOf(id)) { e.preventDefault(); A.matdel({ dataset: { id } }); }
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target && e.target.id === 'matq') { e.preventDefault(); A.matsearch(); } });
@@ -734,6 +783,16 @@ const MAT = (() => {
 .matflds{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}.matfld{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--muted)}.matfld:first-child{grid-column:1/-1}.matfld input{font:600 14px var(--font-body);padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}.matfld.ro div{font:600 14px var(--font-body);color:var(--ink);padding:6px 8px;background:var(--surface2);border-radius:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .matdrow{display:grid;grid-template-columns:70px 1fr;gap:10px;align-items:start;margin-top:10px}.matchk{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:14px}
 @media(max-width:640px){.matdgrid{grid-template-columns:1fr}}
+.matin{font:600 14px var(--font-body);padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);width:min(420px,100%)}.kmkvr .kmv.chips,.chips{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.matdz{display:flex;gap:16px;align-items:center;border:2px dashed var(--line);border-radius:12px;cursor:pointer;padding:18px 22px}.matdz:hover,.matdz.over,.matdz:focus{border-color:var(--brand,var(--accent));background:var(--accent-soft);outline:none}.matdzi{font-size:30px;line-height:1;color:var(--muted)}
+.matdgrid{display:grid;grid-template-columns:200px minmax(0,1fr);gap:18px;align-items:start}.matdgrid.nopic{grid-template-columns:1fr}.matdpic{aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:var(--surface2)}.matdpic img{width:100%;height:100%;object-fit:cover;display:block}
+.matfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}.matnote.warn{background:var(--warn-soft);color:var(--warn);margin:10px 0}
+.matmore{display:inline}.matmore summary{list-style:none;cursor:pointer;display:inline-flex}.matmore[open] summary{background:var(--accent-soft)}.matmore>div{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.matdot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}.kmchip.zero{opacity:.55}.kmchip small{margin-left:4px}
+.matth2{display:block;width:64px;height:36px;border-radius:6px;overflow:hidden;background:var(--surface2);position:relative}.matth2 img{width:100%;height:100%;object-fit:cover;display:block}.matth2 .matph{font-size:11px}.matth2 .matcc{display:none}
+.matc{font-size:13px;color:var(--ink)}.matc.chips2{display:flex;gap:3px;flex-wrap:wrap}.matc.chips2 .mattag{margin:0;font-size:11px;padding:1px 7px}.matnas2{background:var(--good);color:#fff;border-radius:4px;padding:0 5px;font-size:10px}
+.matedit2{border:0;background:transparent;color:var(--muted);cursor:pointer;border-radius:8px;padding:6px}.matedit2:hover,.matedit2[aria-expanded=true]{background:var(--accent-soft);color:var(--accent)}.kmrow.matsel{background:var(--accent-soft)}
+.matseg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}.matseg button{border:0;background:var(--surface);color:var(--ink);padding:5px 12px;font:600 13px var(--font-body);cursor:pointer}.matseg button.on{background:var(--brand,var(--accent));color:var(--brand-ink,var(--accent-ink))}
 .matgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;margin-top:14px}
 .mattile{position:relative;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px;color:var(--ink);font:inherit}.matmain{display:flex;flex-direction:column;gap:5px;text-align:left;background:none;border:0;padding:0;cursor:pointer;color:inherit;font:inherit;width:100%}.matedit{position:absolute;right:12px;top:12px;display:inline-flex;align-items:center;gap:2px;border:0;border-radius:8px;padding:5px 7px;background:rgba(0,0,0,.65);color:#fff;cursor:pointer;z-index:2}.matedit:hover,.matedit[aria-expanded=true]{background:var(--brand,var(--accent));color:var(--brand-ink,#fff)}
 .mattile:hover{box-shadow:0 4px 14px rgba(0,0,0,.12)}.mattile.on{border-color:var(--brand,var(--accent));box-shadow:0 0 0 2px var(--brand,var(--accent))}
