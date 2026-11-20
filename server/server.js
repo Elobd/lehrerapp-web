@@ -33,6 +33,39 @@ function listFiles(rel) {
   walk(root, '');
   return out.sort((a, b) => b.mtime - a.mtime);
 }
+/* YouTube-Infos (Titel, Dauer, Kanal) für Material-Quellen. Es wird nur die Video-Adresse an YouTube gesendet. */
+function ytId(u) {
+  let x; try { x = new URL(String(u).trim()); } catch { return null; }
+  const h = x.hostname.replace(/^(www\.|m\.|music\.)/, '');
+  if (h === 'youtu.be') return /^[\w-]{11}$/.test(x.pathname.slice(1, 12)) ? x.pathname.slice(1, 12) : null;
+  if (h !== 'youtube.com' && h !== 'youtube-nocookie.com') return null;
+  const v = x.searchParams.get('v') || (x.pathname.match(/^\/(?:shorts|embed|live)\/([\w-]{11})/) || [])[1];
+  return v && /^[\w-]{11}$/.test(v) ? v : null;
+}
+const jsUnesc = (t) => String(t || '').replace(/\\u0026/g, '&').replace(/\\"/g, '"').replace(/\\\\/g, '\\').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+function parseWatchPage(html) {
+  const out = {};
+  const len = html.match(/"lengthSeconds":"(\d+)"/); if (len) out.seconds = +len[1];
+  else { const d = html.match(/itemprop="duration" content="PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?"/); if (d) out.seconds = (+d[1] || 0) * 3600 + (+d[2] || 0) * 60 + (+d[3] || 0); }
+  const ch = html.match(/"ownerChannelName":"((?:[^"\\]|\\.)*)"/); if (ch) out.channel = jsUnesc(ch[1]);
+  const id = html.match(/"channelId":"(UC[\w-]{22})"/); if (id) out.channelUrl = 'https://www.youtube.com/channel/' + id[1];
+  const t = html.match(/<meta property="og:title" content="([^"]*)"/); if (t) out.title = jsUnesc(t[1]);
+  return out;
+}
+async function ytInfo(rawUrl) {
+  const id = ytId(rawUrl); if (!id) return null;
+  const url = 'https://www.youtube.com/watch?v=' + id, info = { id, url };
+  const hdr = { 'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36', 'accept-language': 'de-AT,de;q=0.9', cookie: 'CONSENT=YES+1; SOCS=CAI' };
+  try {
+    const r = await fetch('https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent(url), { headers: hdr, signal: AbortSignal.timeout(8000) });
+    if (r.ok) { const j = await r.json(); info.title = j.title; info.channel = j.author_name; info.channelUrl = j.author_url; }
+  } catch { /* weiter mit der Seite */ }
+  try {
+    const r = await fetch(url, { headers: hdr, signal: AbortSignal.timeout(10000) });
+    if (r.ok) { const p = parseWatchPage(await r.text()); for (const k of ['seconds', 'title', 'channel', 'channelUrl']) if (info[k] == null && p[k] != null) info[k] = p[k]; }
+  } catch { /* nur Teilergebnis */ }
+  return info;
+}
 function bodyBuf(req, max) {
   return new Promise((ok, no) => { const ch = []; let n = 0; req.on('data', (c) => { n += c.length; if (n > max) { no(new Error('Datei zu groß')); req.destroy(); } else ch.push(c); }); req.on('end', () => ok(Buffer.concat(ch))); req.on('error', no); });
 }
@@ -164,6 +197,12 @@ const server = http.createServer(async (req, res) => {
         return json(res, 200, { imported: n });
       }
 
+      if (p === '/api/yt' && req.method === 'GET') {
+        const info = await ytInfo(url.searchParams.get('url') || '');
+        if (!info) return json(res, 400, { error: 'Das ist kein YouTube-Link.' });
+        if (!info.title && info.seconds == null && !info.channel) return json(res, 502, { error: 'YouTube hat keine Daten geliefert.' });
+        return json(res, 200, info);
+      }
       /* Dateiablage (Material): data/files/<Ordner>/<Datei> */
       if (p === '/api/files' && req.method === 'GET') return json(res, 200, { files: listFiles(safeRel(url.searchParams.get('dir') || '')) });
       if (p === '/api/file') {

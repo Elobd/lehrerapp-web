@@ -21,6 +21,17 @@ const MAT = (() => {
   const loadZip = () => loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js', 'JSZip');
   const loadOcr = () => loadScript('https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.0.5/tesseract.min.js', 'Tesseract');
 
+  /* ---------- YouTube-Infos ---------- */
+  const isYt = (u) => /^(https?:\/\/)?((www|m|music)\.)?(youtube\.com|youtu\.be|youtube-nocookie\.com)\//i.test(String(u || '').trim());
+  const dur = (sec) => { sec = +sec; if (!(sec >= 0)) return ''; const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60; return (h ? h + ':' + pad2(m) : m) + ':' + pad2(s) + (h ? ' Std' : ' Min'); };
+  async function ytFetch(u) {
+    const r = await fetch('/api/yt?url=' + encodeURIComponent(u), { credentials: 'same-origin' });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || (r.status === 404 ? 'Die neue server.js fehlt auf der NAS' : 'Abruf fehlgeschlagen'));
+    return j;
+  }
+  const ytFields = (i) => ({ url: i.url, vtitle: i.title || '', channel: i.channel || '', channelUrl: i.channelUrl || '', seconds: i.seconds == null ? null : i.seconds });
+
   /* ---------- Quellen ---------- */
   const sources = () => Object.values(S.settings).filter((d) => d && /^mat_/.test(d.id || '')).sort((a, b) => (b.added || 0) - (a.added || 0));
   const srcOf = (id) => S.settings['mat_' + id];
@@ -272,10 +283,11 @@ const MAT = (() => {
   }
   function quellen() {
     const m = M(), list = sources();
-    const form = `<section class="card"><h2>Neue Quelle</h2><div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end"><label class="f" style="min-width:220px;flex:1">Titel<input id="matn-t" placeholder="z. B. Zeitreise 2 oder Video Römische Republik" autocomplete="off"></label><label class="f">Art<select id="matn-k">${Object.entries(TYPES).map(([k, n]) => `<option value="${k}">${n}</option>`).join('')}</select></label><label class="f" style="min-width:220px;flex:1">Link (bei Video)<input id="matn-u" placeholder="https://www.youtube.com/watch?v=…" autocomplete="off"></label><button class="btn good" data-act="matnew">Anlegen</button></div></section>`;
+    const form = `<section class="card"><h2>Neue Quelle</h2><div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end"><label class="f" style="min-width:220px;flex:1">Titel (bei YouTube leer lassen)<input id="matn-t" placeholder="z. B. Zeitreise 2" autocomplete="off"></label><label class="f">Art<select id="matn-k">${Object.entries(TYPES).map(([k, n]) => `<option value="${k}">${n}</option>`).join('')}</select></label><label class="f" style="min-width:220px;flex:1">Link (YouTube: Titel, Dauer, Kanal werden gelesen)<input id="matn-u" placeholder="https://www.youtube.com/watch?v=…" autocomplete="off"></label><button class="btn good" data-act="matnew">Anlegen</button></div></section>`;
     const cards = list.map((s) => {
       const id = s.id.replace(/^mat_/, '');
-      return `<section class="card" style="margin-top:12px"><div class="row" style="align-items:center;gap:8px;flex-wrap:wrap"><h2 style="margin:0">${esc(s.title)}</h2><span class="pill">${esc(TYPES[s.type] || '')}</span><span class="muted sm">${s.pages || 0} Seiten/Abschnitte</span><span style="flex:1"></span>${s.url ? `<a class="btn sm" href="${esc(s.url)}" target="_blank" rel="noopener">Link öffnen</a>` : ''}${s.file ? `<a class="btn sm" href="${url(s.file, '&inline=1')}" target="_blank">PDF ansehen</a>` : ''}<button class="btn sm bad" data-act="matdel" data-id="${id}">Löschen</button></div>
+      return `<section class="card" style="margin-top:12px"><div class="row" style="align-items:center;gap:8px;flex-wrap:wrap"><h2 style="margin:0">${esc(s.title)}</h2><span class="pill">${esc(TYPES[s.type] || '')}</span><span class="muted sm">${s.pages || 0} Seiten/Abschnitte</span><span style="flex:1"></span>${s.url ? `<a class="btn sm" href="${esc(s.url)}" target="_blank" rel="noopener">${isYt(s.url) ? 'Video auf YouTube' : 'Link öffnen'}</a>` : ''}${s.channelUrl ? `<a class="btn sm" href="${esc(s.channelUrl)}" target="_blank" rel="noopener">Kanal</a>` : ''}${isYt(s.url) ? `<button class="btn sm" data-act="matyt" data-id="${id}" title="Titel, Dauer und Kanal neu lesen">Infos neu</button>` : ''}${s.file ? `<a class="btn sm" href="${url(s.file, '&inline=1')}" target="_blank">PDF ansehen</a>` : ''}<button class="btn sm bad" data-act="matdel" data-id="${id}">Löschen</button></div>
+      ${s.vtitle || s.channel || s.seconds != null ? `<div class="sm" style="margin-top:8px"><span class="muted">Video:</span> <b>${esc(s.vtitle || s.title)}</b>${s.seconds != null ? ` · <span class="muted">Dauer:</span> ${esc(dur(s.seconds))}` : ''}${s.channel ? ` · <span class="muted">Kanal:</span> ${s.channelUrl ? `<a href="${esc(s.channelUrl)}" target="_blank" rel="noopener">${esc(s.channel)}</a>` : esc(s.channel)}` : ''}</div>` : ''}
       <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap;align-items:flex-end">
         <label class="btn sm">PDF hochladen<input type="file" accept="application/pdf" hidden data-ch="matpdf" data-id="${id}"></label>
         <label class="f" style="width:84px">Ab Seite<input id="matpg-${id}" type="number" min="1" placeholder="auto"></label>
@@ -309,10 +321,22 @@ const MAT = (() => {
   /* ---------- Aktionen ---------- */
   Object.assign(A, {
     mattab: (e) => { M().tab = e.dataset.t; if (e.dataset.t === 'ordner') M().files = null; render(); },
-    matnew: () => {
-      const t = (document.getElementById('matn-t').value || '').trim(); if (!t) return toast('Bitte einen Titel eingeben');
-      const id = Date.now().toString(36); put('settings', { id: 'mat_' + id, title: t, type: document.getElementById('matn-k').value, url: (document.getElementById('matn-u').value || '').trim(), added: Date.now(), pages: 0 });
+    matnew: async () => {
+      let t = (document.getElementById('matn-t').value || '').trim(), u = (document.getElementById('matn-u').value || '').trim(), k = document.getElementById('matn-k').value, extra = {};
+      if (isYt(u)) {
+        k = 'video'; const m = M(); m.busy = 'YouTube-Infos werden geholt …'; render();
+        try { const i = await ytFetch(u); extra = ytFields(i); if (!t) t = i.title || ''; } catch (e) { toast('YouTube-Infos nicht abrufbar: ' + (e.message || e)); }
+        m.busy = '';
+      }
+      if (!t) return toast(u ? 'Titel konnte nicht gelesen werden, bitte einen Titel eingeben' : 'Bitte einen Titel eingeben');
+      const id = Date.now().toString(36); put('settings', Object.assign({ id: 'mat_' + id, title: t, type: k, url: u, added: Date.now(), pages: 0 }, extra));
+      toast(extra.vtitle ? 'Quelle angelegt: ' + (extra.channel ? extra.channel + ', ' : '') + dur(extra.seconds) : 'Quelle angelegt');
       render();
+    },
+    matyt: async (e) => {
+      const s = srcOf(e.dataset.id); if (!s || !s.url) return; const m = M(); m.busy = 'YouTube-Infos werden geholt …'; render();
+      try { put('settings', Object.assign({}, s, ytFields(await ytFetch(s.url)))); toast('Infos aktualisiert'); } catch (x) { toast('Nicht abrufbar: ' + (x.message || x)); }
+      m.busy = ''; render();
     },
     matdel: async (e) => { const s = srcOf(e.dataset.id); if (!s || !confirm('Quelle „' + s.title + '“ mit allen Texten löschen?')) return; await fdel(QDIR + '/' + e.dataset.id + '.json'); if (s.file) await fdel(s.file); delete T[e.dataset.id]; del('settings', 'mat_' + e.dataset.id); render(); },
     mattext: async (e) => { const id = e.dataset.id, ta = document.getElementById('matx-' + id), txt = (ta.value || '').replace(/\s+/g, ' ').trim(); if (!txt) return; await addPages(id, [{ p: await nextPage(id), t: txt }]); ta.value = ''; toast('Text gespeichert'); render(); },
