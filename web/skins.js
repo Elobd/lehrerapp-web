@@ -60,3 +60,4 @@ html:root[data-skin] .kmrow.kmgo:hover{background:var(--accent-soft)}
   };
   document.addEventListener('click', (e) => { if (menu && !menu.contains(e.target)) close(); });
 })();
+/* test */
