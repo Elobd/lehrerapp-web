@@ -2,6 +2,7 @@
    Themensuche, Arbeitsblatt / Lückentext / Kreuzworträtsel als Word + PDF, Ablage auf der NAS (data/files/Material). */
 const MAT = (() => {
   const ROOT = 'Material', QDIR = ROOT + '/Quellen', ODIR = ROOT + '/Ergebnisse', TPL = ROOT + '/Vorlage/arbeitsblatt.docx';
+  const note = (k, t) => { M().note = t ? { k, t } : null; };
   const M = () => (U.mat = U.mat || { tab: 'quellen', sel: [], q: '', res: null, busy: '', files: null, open: null });
   const TYPES = { buch: 'Buch', pdf: 'PDF', video: 'Video / Link', sonst: 'Sonstiges' };
   const T = {}; // Textcache je Quelle: { id: {pages:[{p,t}]} }
@@ -159,8 +160,9 @@ const MAT = (() => {
       }
       await addPages(id, pages);
       put('settings', Object.assign({}, srcOf(id) || s, { file: QDIR + '/' + name, pages: pages.length }));
-      toast('PDF gespeichert: ' + pages.length + ' Seiten' + (empty ? ', ' + empty + ' ohne Text (vermutlich gescannt, dafür „Seite per Screenshot“ nutzen)' : ''));
-    } catch (e) { toast('PDF-Fehler: ' + (e.message || e)); }
+      const msg = 'PDF gespeichert: ' + pages.length + ' Seiten' + (empty ? ', davon ' + empty + ' ohne Text (vermutlich gescannt). Für diese Seiten „Screenshot(s) wählen“ nutzen.' : '');
+      toast(msg); note(empty === pages.length ? 'err' : 'ok', empty === pages.length ? 'Das PDF enthält keinen lesbaren Text (Scan). Bitte Seiten als Screenshot einfügen. ' + msg : msg);
+    } catch (e) { toast('PDF-Fehler: ' + (e.message || e)); note('err', 'PDF konnte nicht verarbeitet werden: ' + (e.message || e) + (/Failed to fetch|NetworkError/i.test(String(e.message || e)) ? ' (Verbindung zur NAS unterbrochen, vermutlich ist die Datei zu groß oder die neue server.js fehlt)' : '')); }
     m.busy = ''; render();
   }
   async function importEpub(id, file) {
@@ -189,8 +191,8 @@ const MAT = (() => {
       await fput(QDIR + '/' + name, file);
       await addPages(id, pages);
       put('settings', Object.assign({}, srcOf(id), { epub: QDIR + '/' + name, pages: pages.length }));
-      toast('EPUB gespeichert: ' + pages.length + ' Abschnitte');
-    } catch (e) { toast('EPUB-Fehler: ' + (e.message || e)); }
+      toast('EPUB gespeichert: ' + pages.length + ' Abschnitte'); note('ok', 'EPUB gespeichert: ' + pages.length + ' Abschnitte');
+    } catch (e) { toast('EPUB-Fehler: ' + (e.message || e)); note('err', 'EPUB konnte nicht verarbeitet werden: ' + (e.message || e)); }
     m.busy = ''; render();
   }
   async function ocrImages(id, files) {
@@ -206,8 +208,8 @@ const MAT = (() => {
         try { await fput(QDIR + '/' + id + '-s' + (p - 1) + '.png', f); } catch (e) { /* Bild optional */ }
       }
       await addPages(id, done);
-      toast(done.length + ' Seite(n) erkannt und gespeichert. Prüfe bitte den Text in der Quelle.');
-    } catch (e) { toast('Texterkennung: ' + (e.message || e)); }
+      toast(done.length + ' Seite(n) erkannt und gespeichert. Prüfe bitte den Text in der Quelle.'); note('ok', done.length + ' Seite(n) per Texterkennung gespeichert. Prüfe bitte den Text.');
+    } catch (e) { toast('Texterkennung: ' + (e.message || e)); note('err', 'Texterkennung fehlgeschlagen: ' + (e.message || e)); }
     m.busy = ''; render();
   }
 
@@ -441,7 +443,7 @@ const MAT = (() => {
     return id;
   }
   async function intake(files, text) {
-    const m = M(), made = [], imgs = [];
+    const m = M(), made = [], imgs = []; note();
     try {
       for (const f of files || []) {
         const n = f.name || '', ext = (n.match(/\.([^.]+)$/) || [])[1] ? n.match(/\.([^.]+)$/)[1].toLowerCase() : '';
@@ -459,8 +461,8 @@ const MAT = (() => {
         if (urls.length && urls.length === t.split(/\s+/).length) { for (const u of urls) made.push(await addLink(u)); }
         else { const id = newSrc(t.replace(/\s+/g, ' ').slice(0, 50) + (t.length > 50 ? ' …' : ''), 'sonst'); made.push(id); await addPages(id, [{ p: 1, t: t.replace(/\s+/g, ' ') }]); }
       }
-    } catch (e) { toast('Fehler: ' + (e.message || e)); }
-    m.busy = ''; if (made.length) { m.open = made[made.length - 1]; toast(made.length + (made.length === 1 ? ' Quelle angelegt' : ' Quellen angelegt')); }
+    } catch (e) { toast('Fehler: ' + (e.message || e)); note('err', 'Fehler: ' + (e.message || e)); }
+    m.busy = ''; if (made.length) { m.open = made[made.length - 1]; if (!m.note || m.note.k !== 'err') toast(made.length + (made.length === 1 ? ' Quelle angelegt' : ' Quellen angelegt')); }
     render();
   }
 
@@ -468,7 +470,7 @@ const MAT = (() => {
   function view() {
     if (sources().some((x) => x.dl && (x.dl.state === 'running' || x.dl.state === 'queued'))) poll();
     const m = M(), tabs = [['quellen', 'Quellen'], ['suche', 'Suchen und Erstellen'], ['ordner', 'Ordner']];
-    const nav = `<div class="row" style="gap:6px;margin-bottom:14px;flex-wrap:wrap">${tabs.map(([k, n]) => `<button class="btn ${m.tab === k ? 'good' : ''}" data-act="mattab" data-t="${k}">${n}${k === 'suche' && m.sel.length ? ' (' + m.sel.length + ')' : ''}</button>`).join('')}${m.busy ? `<span class="muted sm" style="align-self:center">⏳ ${esc(m.busy)}</span>` : ''}</div>`;
+    const nav = `<div class="row" style="gap:6px;margin-bottom:14px;flex-wrap:wrap">${tabs.map(([k, n]) => `<button class="btn ${m.tab === k ? 'good' : ''}" data-act="mattab" data-t="${k}">${n}${k === 'suche' && m.sel.length ? ' (' + m.sel.length + ')' : ''}</button>`).join('')}${m.busy ? `<span class="muted sm" style="align-self:center">⏳ ${esc(m.busy)}</span>` : ''}</div>${m.note ? `<div class="matnote ${m.note.k}" role="status"><span>${esc(m.note.t)}</span><button data-act="matnote0" aria-label="Schließen">×</button></div>` : ''}`;
     return `<div class="km"><div class="kmh"><h1>Material</h1><div class="muted">Quellen ablegen, Themen suchen, Arbeitsmaterial erstellen. Alles liegt auf deiner NAS.</div></div>${nav}${m.tab === 'quellen' ? quellen() : m.tab === 'suche' ? suche() : ordner()}</div>`;
   }
   function videoBlock(s, id) {
@@ -544,6 +546,7 @@ const MAT = (() => {
   Object.assign(A, {
     matall: async (e) => { const id = e.dataset.id, s = srcOf(id), t = await textOf(id); if (!t.pages.length) return toast('Diese Quelle hat noch keinen Text'); M().sel.push({ ref: (s.vtitle || s.title) + ' (ganze Quelle)', t: t.pages.map((p) => p.t).join('\n').slice(0, 15000) }); toast('Übernommen'); render(); },
     matai: (e) => toast(e.dataset.k + ': Dafür brauche ich den KI-Schlüssel. Das schalten wir in der nächsten Stufe frei, die Auswahl bleibt erhalten.'),
+    matnote0: () => { note(); render(); },
     matdl: (e) => startDownload(e.dataset.id),
     matretag: async (e) => { await retag(e.dataset.id); toast('Tags neu berechnet'); render(); },
     matrm: (e) => { const s = srcOf(e.dataset.id); if (!s) return; const t = e.dataset.t, man = (s.man || []).filter((x) => x !== t), hid = (s.hid || []).slice(); if ((s.man || []).includes(t)) { /* manuell entfernt */ } else if (!hid.includes(t)) hid.push(t); put('settings', Object.assign({}, s, { man, hid })); render(); },
@@ -605,6 +608,7 @@ const MAT = (() => {
 .mattag{display:inline-flex;align-items:center;gap:3px;border-radius:999px;padding:2px 9px;font:600 12px var(--font-body);margin:0 4px 4px 0;border:1px solid var(--line);background:var(--surface2);color:var(--ink)}.mattag button{border:0;background:transparent;color:inherit;cursor:pointer;font:700 14px/1 var(--font-body);padding:0 0 0 2px}
 .mattag.ep{background:#f6e7c8;border-color:#e0c48a;color:#5b3d00}.mattag.ky{background:transparent;border-style:dashed}.mattag.sel{cursor:pointer}.mattag.sel.on{background:var(--brand,var(--accent));border-color:var(--brand,var(--accent));color:var(--brand-ink,var(--accent-ink))}.mattag small{opacity:.7}
 .matfilter{margin-top:14px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}.matnas{position:absolute;left:6px;top:6px;background:var(--good);color:#fff;border-radius:5px;padding:1px 6px;font:700 11px var(--font-body)}
+.matnote{display:flex;gap:10px;align-items:flex-start;border-radius:10px;padding:10px 14px;margin:-4px 0 12px;font:600 14px var(--font-body)}.matnote.err{background:var(--bad-soft);color:var(--bad)}.matnote.ok{background:var(--good-soft);color:var(--good)}.matnote span{flex:1}.matnote button{border:0;background:transparent;color:inherit;font:700 18px/1 var(--font-body);cursor:pointer}
 .matgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;margin-top:14px}
 .mattile{display:flex;flex-direction:column;gap:5px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px;cursor:pointer;color:var(--ink);font:inherit}
 .mattile:hover{box-shadow:0 4px 14px rgba(0,0,0,.12)}.mattile.on{border-color:var(--brand,var(--accent));box-shadow:0 0 0 2px var(--brand,var(--accent))}

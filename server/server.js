@@ -22,7 +22,7 @@ if (!PASSWORD || PASSWORD === 'HIER-PASSWORT-EINTRAGEN') { console.error('APP_PA
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const FILES_DIR = path.join(DATA_DIR, 'files');
-const MAX_FILE = 80 * 1024 * 1024;
+const MAX_FILE = 1024 * 1024 * 1024;
 fs.mkdirSync(FILES_DIR, { recursive: true });
 function safeRel(rel) {
   const parts = String(rel).split('/').map((x) => x.replace(/[\\:*?"<>|\u0000-\u001f]/g, '_').trim()).filter((x) => x && x !== '.' && x !== '..').map((x) => x.replace(/^\.+/, '_'));
@@ -249,10 +249,18 @@ const server = http.createServer(async (req, res) => {
         if (!rel) return json(res, 400, { error: 'Pfad fehlt' });
         const abs = path.join(FILES_DIR, rel);
         if (req.method === 'PUT') {
-          const buf = await bodyBuf(req, MAX_FILE);
           fs.mkdirSync(path.dirname(abs), { recursive: true });
-          fs.writeFileSync(abs, buf);
-          return json(res, 200, { ok: true, path: rel, size: buf.length });
+          const tmp = abs + '.part', ws = fs.createWriteStream(tmp); let n = 0, tooBig = false;
+          try {
+            await new Promise((ok, no) => {
+              req.on('data', (c) => { n += c.length; if (n > MAX_FILE && !tooBig) { tooBig = true; no(new Error('Datei zu groß (mehr als 1 GB)')); req.unpipe(ws); ws.destroy(); } });
+              req.on('error', no); ws.on('error', no); ws.on('finish', ok);
+              req.on('aborted', () => no(new Error('Übertragung abgebrochen')));
+              req.pipe(ws);
+            });
+          } catch (e) { try { ws.destroy(); fs.unlinkSync(tmp); } catch { /* */ } if (!res.headersSent) return json(res, e.message.includes('groß') ? 413 : 500, { error: e.message }); return; }
+          fs.renameSync(tmp, abs);
+          return json(res, 200, { ok: true, path: rel, size: n });
         }
         if (req.method === 'GET') {
           if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) return json(res, 404, { error: 'Datei nicht gefunden' });
