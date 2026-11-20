@@ -153,7 +153,7 @@ const KM = (() => {
   const prnIcon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="9" rx="2"/><path d="M7 14h10v7H7z"/></svg>';
   function subject(c, kd) {
     const G = primary(kd === 'gpb' ? c.gpb : c.bspk), ci = cinfo(G.slug), multi = G.classes.length > 1;
-    const all = studentsSorted(G), fl = multi && U.kmcf && U.kmcf[G.slug] && G.classes.includes(U.kmcf[G.slug]) ? U.kmcf[G.slug] : '', gf = U.kmgf && U.kmgf[G.slug] || '', list = all.filter((x) => (!fl || x.kl === fl) && (!gf || x.g === gf)), nl = nextLesson(G), lg = logOf(ci).filter((e) => e.text).slice(0, 3);
+    const all = studentsSorted(G), fl = multi && U.kmcf && U.kmcf[G.slug] && G.classes.includes(U.kmcf[G.slug]) ? U.kmcf[G.slug] : '', both = all.some((x) => x.g === 'm') && all.some((x) => x.g === 'w'), gf = both && U.kmgf && U.kmgf[G.slug] || [], list = all.filter((x) => (!fl || x.kl === fl) && (!gf.length || gf.includes(x.g))), nl = nextLesson(G), lg = logOf(ci).filter((e) => e.text).slice(0, 3);
     const tests = grpTests(G).filter((t) => t.status === 'geplant' && t.date >= TODAY).slice(0, 3);
     const head = `<!--H--><div class="kmh"><h1>${SUBJ[kd]}<span class="kmsep kmh1">I</span><span class="muted" style="font-weight:500">Klasse ${disp(c)}</span></h1></div><!--/H-->`;
     let cards = `<div class="kmgrid">
@@ -194,7 +194,7 @@ const KM = (() => {
       const cols0 = visCols(c), risk = all.map((x) => ({ x, P: perfOf(G, x, cols0) })).filter((r) => r.P.note >= 4);
       cards = cards.replace(/<\/div>\s*$/, `<div class="card"><h2>Notenmäßig gefährdet</h2>${risk.length ? risk.map((r) => `<div class="kmli"><span class="kmp ${r.P.note === 5 ? 'ab' : 'pa'}">${r.P.note}</span> <b>${esc(up(r.x.nn))}</b> ${esc(r.x.vn)} <span class="muted sm">${r.P.pc} %</span></div>`).join('') : '<div class="muted sm">Niemand mit Genügend oder Nicht genügend</div>'}<span class="kmmore" data-act="kmsok" role="button" tabindex="0" style="cursor:pointer">Frühwarnung in Sokrates verfassen ›</span></div></div>`);
     }
-    const stu = `<section class="card" style="margin-top:14px"><div class="row" style="margin-bottom:10px"><h2 style="margin:0">Schülerliste</h2><span class="muted sm">${cardsExtraInfo || list.length + ' Schüler'}</span>${multi ? `<span class="kmflt" role="group" aria-label="Nach Klasse filtern">${['', ...G.classes].map((k) => `<button class="kmfb${(fl || '') === k ? ' on' : ''}" data-act="kmcf" data-slug="${G.slug}" data-k="${esc(k)}">${k ? esc(String(k).toUpperCase()) : 'Alle'}</button>`).join('')}</span>` : ''}<span class="kmflt" role="group" aria-label="Nach Geschlecht filtern">${[['', 'Alle'], ['w', 'Mädchen'], ['m', 'Burschen']].map(([k, n]) => `<button class="kmfb${gf === k ? ' on' : ''}" data-act="kmgf" data-slug="${G.slug}" data-k="${k}">${n}</button>`).join('')}</span><span style="flex:1"></span>${gear}<button class="btn sm pr" data-act="stuprint" data-slug="${G.slug}" aria-expanded="${!!pn}" aria-label="Schülerliste drucken" title="Schülerliste drucken">${prnIcon}</button></div>${colPanel}${prnPanel(G)}${tbl}</section>`;
+    const stu = `<section class="card" style="margin-top:14px"><div class="row" style="margin-bottom:10px"><h2 style="margin:0">Schülerliste</h2><span class="muted sm">${list.length} Schüler (${(list.some((x) => x.g === 'm') ? 'm' : '') + (list.some((x) => x.g === 'm') && list.some((x) => x.g === 'w') ? '/' : '') + (list.some((x) => x.g === 'w') ? 'w' : '')})</span>${multi ? `<span class="kmflt" role="group" aria-label="Nach Klasse filtern">${['', ...G.classes].map((k) => `<button class="kmfb${(fl || '') === k ? ' on' : ''}" data-act="kmcf" data-slug="${G.slug}" data-k="${esc(k)}">${k ? esc(String(k).toUpperCase()) : 'Alle'}</button>`).join('')}</span>` : ''}${both ? `<span class="kmflt" role="group" aria-label="Nach Geschlecht filtern">${[['w', 'Mädchen'], ['m', 'Burschen']].map(([k, n]) => `<button class="kmfb${gf.includes(k) ? ' on' : ''}" aria-pressed="${gf.includes(k)}" data-act="kmgf" data-slug="${G.slug}" data-k="${k}">${n}</button>`).join('')}</span>` : ''}<span style="flex:1"></span>${gear}<button class="btn sm pr" data-act="stuprint" data-slug="${G.slug}" aria-expanded="${!!pn}" aria-label="Schülerliste drucken" title="Schülerliste drucken">${prnIcon}</button></div>${colPanel}${prnPanel(G)}${tbl}</section>`;
     return head + cards + stu;
   }
 
@@ -226,7 +226,7 @@ const KM = (() => {
   Object.assign(A, {
     kmsel: (e) => setView('mappe-' + e.dataset.key),
     kmcf: (e) => { U.kmcf = U.kmcf || {}; U.kmcf[e.dataset.slug] = e.dataset.k; render(); },
-    kmgf: (e) => { U.kmgf = U.kmgf || {}; U.kmgf[e.dataset.slug] = e.dataset.k; render(); },
+    kmgf: (e) => { U.kmgf = U.kmgf || {}; const a = (U.kmgf[e.dataset.slug] || []).slice(), i = a.indexOf(e.dataset.k); if (i < 0) a.push(e.dataset.k); else a.splice(i, 1); U.kmgf[e.dataset.slug] = a; render(); },
     kmtab: (e) => setView(route(e.dataset.key, e.dataset.tab)),
     kmkvedit: (e) => { U.kmKvEdit = U.kmKvEdit === e.dataset.key ? null : e.dataset.key; render(); if (U.kmKvEdit) setTimeout(() => { const i = document.getElementById('kmkvin'); if (i) { i.focus(); i.select(); } }, 30); },
     kmnop: () => {},
