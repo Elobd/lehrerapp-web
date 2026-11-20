@@ -517,7 +517,7 @@ const MAT = (() => {
     try {
       const f = d.f, tagFix = { epoche: d.ep, tags: d.tg, keys: d.keys };
       const type = d.kind === 'pdf' ? 'pdf' : d.kind === 'epub' ? 'buch' : d.kind === 'yt' || d.kind === 'video' ? 'video' : 'sonst';
-      const extra = { lock: true, kind: d.art || artOf(d), auto: tagFix, author: f.author || '', publisher: f.publisher || '', lang: f.lang || '', year: f.year || '', fileName: d.name || '', size: d.file ? d.file.size : 0 };
+      const extra = { lock: true, cls: d.cls || {}, kind: d.art || artOf(d), auto: tagFix, author: f.author || '', publisher: f.publisher || '', lang: f.lang || '', year: f.year || '', fileName: d.name || '', size: d.file ? d.file.size : 0 };
       let id;
       if (d.kind === 'yt') { id = newSrc(f.title, 'video', Object.assign(extra, { url: f.url, vtitle: f.title, channel: f.channel, channelUrl: f.channelUrl, seconds: d.seconds == null ? null : d.seconds, desc: d.desc || '' })); }
       else if (d.kind === 'link') id = newSrc(f.title, 'sonst', Object.assign(extra, { url: f.url }));
@@ -549,6 +549,16 @@ const MAT = (() => {
   const ro = (label, val, link) => `<div class="kmkvr"><span class="kmk">${label}</span><span class="kmv">${link ? `<a href="${esc(link)}" target="_blank" rel="noopener">${esc(val)}</a>` : esc(val)}</span></div>`;
   const epChips = (list, cur, act, did) => list.map((x) => `<button class="mattag ep sel${cur.includes(x) ? ' on' : ''}"${epS(x)} data-act="${act}" data-d="${did}" data-v="${esc(x)}">${esc(x)}</button>`).join('');
   const tgChips = (list, cur, act, did) => list.map((x) => `<button class="mattag sel${cur.includes(x) ? ' on' : ''}" data-act="${act}" data-d="${did}" data-v="${esc(x)}">${esc(x)}</button>`).join('');
+  const DEFGROUPS = [{ id: 'dok', name: 'Dokument', multi: false, items: ['Arbeitsblatt', 'Lösung'] }, { id: 'form', name: 'Aufgabenform', multi: true, items: ['Lückentext', 'Kreuzworträtsel', 'Offene Antworten'] }];
+  const cfgM = () => S.settings.matcfg || {};
+  const groups = () => (cfgM().groups && cfgM().groups.length ? cfgM().groups : DEFGROUPS);
+  const saveGroups = (g) => put('settings', Object.assign({}, cfgM(), { id: 'matcfg', groups: g }));
+  const clsAll = (s) => Object.values(s.cls || {}).flat();
+  function clsRows(cur, act, attr) {
+    cur = cur || {};
+    return groups().map((g) => `<div class="kmkvr"><span class="kmk">${esc(g.name)}${g.custom ? `<button class="matgx matgrpx" data-act="matgrpdel" data-g="${g.id}" title="Einteilung löschen" aria-label="Einteilung löschen">×</button>` : ''}</span><span class="kmv chips">${g.items.map((x) => `<span class="mattag sel matgi${(cur[g.id] || []).includes(x) ? ' on' : ''}" draggable="true" data-g="${g.id}" data-v="${esc(x)}" title="Ziehen zum Verschieben"><button class="matgl" data-act="${act}" ${attr} data-g="${g.id}" data-v="${esc(x)}">${esc(x)}</button><button class="matgx" data-act="matgdel" data-g="${g.id}" data-v="${esc(x)}" title="Aus der Auswahl entfernen" aria-label="Entfernen">×</button></span>`).join('')}<input class="matin" data-ch="matgnew" data-g="${g.id}" placeholder="+ neu" style="width:90px"></span></div>`).join('') + `<div class="kmkvr"><span class="kmk"></span><span class="kmv"><button class="btn sm" data-act="matgrpadd">+ Neue Einteilung</button></span></div>`;
+  }
+  const clsToggle = (cur, gid, v) => { const g = groups().find((x) => x.id === gid), a = (cur || {})[gid] || []; const n = Object.assign({}, cur || {}); n[gid] = g && g.multi ? (a.includes(v) ? a.filter((x) => x !== v) : a.concat(v)) : (a.includes(v) ? [] : [v]); return n; };
   const artOf = (d) => ({ ppt: 'ppt', pdf: 'pdf', epub: 'epub', video: 'video', yt: 'video', bild: 'bild', text: 'text', link: 'link', datei: 'text' }[d.kind] || 'text');
   function draftCard(d) {
     const k = d.kind, did = d.id, head = `<h2>${KLABEL[k]}${d.name ? ' · ' + esc(d.name) : ''}</h2>`;
@@ -568,6 +578,7 @@ const MAT = (() => {
       ${d.warn ? `<div class="matnote warn"><span>${esc(d.warn)}</span></div>` : ''}
       ${k === 'datei' ? `<div class="kmkvr"><span class="kmk">Behandeln als</span><span class="kmv"><button class="mattag sel${d.mode === 'file' ? ' on' : ''}" data-act="mdmode" data-d="${did}" data-v="file">Datei ablegen</button><button class="mattag sel${d.mode === 'text' ? ' on' : ''}" data-act="mdmode" data-d="${did}" data-v="text">Als Text lesen</button></span></div>` : ''}
       <div class="kmkvr"><span class="kmk">Art</span><span class="kmv chips">${kindsOrdered().map(([kk, n]) => `<button class="mattag sel matkindchip${(d.art || artOf(d)) === kk ? ' on' : ''}" draggable="true" data-k="${kk}" title="Ziehen zum Verschieben" data-act="mdkind" data-d="${did}" data-v="${kk}">${n}</button>`).join('')}</span></div>
+      ${clsRows(d.cls, 'mdcls', 'data-d="' + did + '"')}
       <div class="kmkvr"><span class="kmk">Epoche</span><span class="kmv chips">${epChips(EPOCHS, d.ep, 'mdep', did)}</span></div>
       <div class="kmkvr"><span class="kmk">Themen</span><span class="kmv chips">${tgChips(d.tg, d.tg, 'mdtg', did)}${tgChips(rest.slice(0, 6), d.tg, 'mdtg', did)}<details class="matmore"><summary class="mattag">Weitere ▾</summary><div>${tgChips(rest.slice(6), d.tg, 'mdtg', did)}</div></details><input class="matin" id="dr-${did}-new" data-ch="mdnew" data-d="${did}" placeholder="+ eigener Tag" style="width:130px"></span></div>
       <div class="kmkvr"><span class="kmk">Schlagwörter</span><span class="kmv chips">${d.keys.map((x) => `<span class="mattag ky">${esc(x)}<button data-act="mdrmkey" data-d="${did}" data-v="${esc(x)}" aria-label="Entfernen">×</button></span>`).join('')}<input class="matin" id="dr-${did}-newkey" data-ch="mdkey" data-d="${did}" placeholder="+ Schlagwort" style="width:140px"></span></div>
@@ -630,7 +641,7 @@ const MAT = (() => {
   const kindOf = (s) => (s.kind && KINDS.some((k) => k[0] === s.kind) ? s.kind : isYt(s.url) || s.type === 'video' ? 'video' : s.epub ? 'epub' : /\.(pptx?|ppsx?|odp|pptm)$/i.test(s.file || '') ? 'ppt' : s.type === 'pdf' || /\.pdf$/i.test(s.file || '') ? 'pdf' : s.url && !s.pages ? 'link' : /^Screenshots /.test(s.title || '') ? 'bild' : 'text');
   const newF = () => ({ q: '', e: '', t: [], a: '' });
   function filterOf() { const m = M(); if (!m.f) m.f = newF(); if (m.f.a === undefined) m.f.a = ''; return m.f; }
-  const matches = (s) => { const f = filterOf(), t = tagsOf(s); if (f.a && kindOf(s) !== f.a) return false; if (f.e && !t.epoche.includes(f.e)) return false; if (f.t.some((x) => !t.tags.includes(x) && !t.keys.includes(x))) return false; const q = norm(f.q).split(/\s+/).filter(Boolean); if (q.length) { const hay = norm([s.title, s.vtitle, s.channel, s.notes, ...t.epoche, ...t.tags, ...t.keys].join(' ')); if (q.some((w) => !hay.includes(w))) return false; } return true; };
+  const matches = (s) => { const f = filterOf(), t = tagsOf(s); if (f.a && kindOf(s) !== f.a) return false; if (f.e && !t.epoche.includes(f.e)) return false; if (f.t.some((x) => !t.tags.includes(x) && !t.keys.includes(x))) return false; const q = norm(f.q).split(/\s+/).filter(Boolean); if (q.length) { const hay = norm([s.title, s.vtitle, s.channel, s.notes, s.author, ...clsAll(s), ...t.epoche, ...t.tags, ...t.keys].join(' ')); if (q.some((w) => !hay.includes(w))) return false; } return true; };
   function filterBar(list) {
     const f = filterOf(), eps = EPOCHS.filter((e) => list.some((s) => tagsOf(s).epoche.includes(e))), cnt = {}; list.forEach((s) => { const t = tagsOf(s); t.tags.concat(t.keys).forEach((x) => { cnt[x] = (cnt[x] || 0) + 1; }); });
     const tg = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a] || a.localeCompare(b, 'de')).slice(0, 30);
@@ -655,6 +666,7 @@ const MAT = (() => {
     const yt = isYt(s.url) ? row('Kanal', s.channelUrl ? `<a href="${esc(s.channelUrl)}" target="_blank" rel="noopener">${esc(s.channel || '')}</a>` : esc(s.channel || '–')) + row('Video', `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.url)}</a>`) + row('Dauer', s.seconds != null ? esc(dur(s.seconds)) : '–') : s.url ? row('Adresse', `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.url)}</a>`) : '';
     return `<section class="card" id="matdetail" style="margin-top:14px"><div class="row" style="align-items:center;gap:8px"><h2 style="margin:0">Bearbeiten</h2><span style="flex:1"></span><button class="btn sm" data-act="matopen" data-id="${id}">Schließen</button></div>
       ${row('Art', `<span class="chips">${kindsOrdered().map(([k, n]) => `<button class="mattag sel matkindchip${kindOf(s) === k ? ' on' : ''}" draggable="true" data-k="${k}" title="Ziehen zum Verschieben" data-act="matkind" data-id="${id}" data-v="${k}">${n}</button>`).join('')}</span>`)}
+      ${clsRows(s.cls, 'matcls', 'data-id="' + id + '"')}
       ${row('Titel', `<input class="matin" data-ch="matttl" data-id="${id}" value="${esc(s.vtitle || s.title)}">`)}${yt}${ang}
       ${s.file ? row('Datei', `<a href="${url(s.file, /\.pdf$/i.test(s.file) ? '&inline=1' : '')}" target="_blank">${/\.pdf$/i.test(s.file) ? 'PDF ansehen' : 'Datei öffnen'}</a>`) : ''}
       ${isYt(s.url) ? `<div class="kmkvr"><span class="kmk">Video-Datei</span><span class="kmv">${videoBlock(s, id).replace('margin-top:10px', 'margin-top:0')}</span></div>` : ''}
@@ -676,7 +688,7 @@ const MAT = (() => {
     const view = m.view || 'liste';
     const rows = shown.map((s, i) => {
       const id = s.id.replace(/^mat_/, ''), on = m.open === id;
-      return `<div class="kmrow kmgo${on ? ' matsel' : ''}" data-act="matpop" data-id="${id}" tabindex="0" role="link"><span class="kmno">${i + 1}</span><span class="matth2">${thumbOf(s)}</span><span class="kmnm"><b>${esc(s.vtitle || s.title)}</b><small class="muted"> ${esc(s.channel || s.author || '')}</small></span><span class="matc">${esc((KINDS.find(([k]) => k === kindOf(s)) || [0, ''])[1])}${s.dl && s.dl.state === 'done' ? ' <b class="matnas2">NAS</b>' : ''}</span><span class="matc chips2">${epTags(s)}</span><span class="matc">${esc(umfang(s))}</span><button class="matedit2" data-act="matopen" data-id="${id}" aria-expanded="${on}" aria-label="Bearbeiten" title="Bearbeiten"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button></div>`;
+      return `<div class="kmrow kmgo${on ? ' matsel' : ''}" data-act="matpop" data-id="${id}" tabindex="0" role="link"><span class="kmno">${i + 1}</span><span class="matth2">${thumbOf(s)}</span><span class="kmnm"><b>${esc(s.vtitle || s.title)}</b><small class="muted"> ${esc(s.channel || s.author || '')}</small>${clsAll(s).map((x) => `<span class="mattag mini">${esc(x)}</span>`).join('')}</span><span class="matc">${esc((KINDS.find(([k]) => k === kindOf(s)) || [0, ''])[1])}${s.dl && s.dl.state === 'done' ? ' <b class="matnas2">NAS</b>' : ''}</span><span class="matc chips2">${epTags(s)}</span><span class="matc">${esc(umfang(s))}</span><button class="matedit2" data-act="matopen" data-id="${id}" aria-expanded="${on}" aria-label="Bearbeiten" title="Bearbeiten"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button></div>`;
     }).join('');
     const tile = (s) => { const id = s.id.replace(/^mat_/, ''), on = m.open === id, e0 = tagsOf(s).epoche[0]; return `<div class="mattile${on ? ' on' : ''}${e0 ? ' hasep' : ''}"${epS(e0)}><button class="matmain" data-act="matpop" data-id="${id}" title="Öffnen: ${esc(s.title)}"><span class="matth">${thumbOf(s, true)}${s.dl && s.dl.state === 'done' ? '<b class="matnas" title="Video liegt auf der NAS">NAS</b>' : ''}${s.seconds != null ? `<b class="matdur">${esc(dur(s.seconds).replace(/ (Min|Std)$/, ''))}</b>` : ''}</span><span class="matti">${esc(s.vtitle || s.title)}</span><span class="matsub">${epTags(s)}</span></button><button class="matedit" data-act="matopen" data-id="${id}" aria-expanded="${on}" aria-label="Bearbeiten" title="Bearbeiten"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button></div>`; };
     const body = !list.length ? '<p class="muted" style="margin:0">Noch keine Quellen. Ziehe oben ein PDF, ein Video oder einen YouTube-Link hinein.</p>'
@@ -717,6 +729,11 @@ const MAT = (() => {
     matnote0: () => { note(); render(); },
     matrmkey: (e) => { const s = srcOf(e.dataset.id); if (!s) return; const t = e.dataset.t, mk = (s.mankeys || []).filter((x) => x !== t), hid = (s.hid || []).slice(); if (!(s.mankeys || []).includes(t) && !hid.includes(t)) hid.push(t); put('settings', Object.assign({}, s, { mankeys: mk, hid })); render(); },
     mdrmkey: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d); if (d) { d.keys = d.keys.filter((x) => x !== e.dataset.v); render(); } },
+    mdcls: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d); if (d) { d.cls = clsToggle(d.cls, e.dataset.g, e.dataset.v); render(); } },
+    matcls: (e) => { const s = srcOf(e.dataset.id); if (s) { put('settings', Object.assign({}, s, { cls: clsToggle(s.cls, e.dataset.g, e.dataset.v) })); render(); } },
+    matgdel: (e) => { const g = groups().map((x) => Object.assign({}, x, { items: x.items.slice() })), gr = g.find((x) => x.id === e.dataset.g); if (!gr) return; gr.items = gr.items.filter((x) => x !== e.dataset.v); saveGroups(g); render(); },
+    matgrpadd: () => { const n = (prompt('Name der neuen Einteilung (z. B. „Schwierigkeit“):') || '').trim(); if (!n) return; const g = groups().map((x) => Object.assign({}, x, { items: x.items.slice() })); g.push({ id: 'g' + Date.now().toString(36), name: n, multi: true, items: [], custom: true }); saveGroups(g); render(); },
+    matgrpdel: (e) => { const gr = groups().find((x) => x.id === e.dataset.g); if (!gr || !confirm('Einteilung „' + gr.name + '“ löschen? Bereits gesetzte Angaben bleiben an den Quellen gespeichert.')) return; saveGroups(groups().filter((x) => x.id !== e.dataset.g)); render(); },
     matkind: (e) => { const s = srcOf(e.dataset.id); if (s) { put('settings', Object.assign({}, s, { kind: e.dataset.v })); render(); } },
     mdkind: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d); if (d) { d.art = e.dataset.v; render(); } },
     matgoogle: (e) => { const s = srcOf(e.dataset.id); if (!s) return; googleImg(((s.vtitle || s.title || '') + ' ' + (tagsOf(s).epoche[0] || '')).trim()); },
@@ -775,6 +792,7 @@ const MAT = (() => {
     mdnew: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d), v = e.value.trim(); if (!d || !v) return; if (!d.tg.includes(v)) d.tg.push(v); e.value = ''; render(); },
     matatag: (e) => { const v = e.value.trim(); if (!v) return; const s = srcOf(e.dataset.id); if (!s) return; put('settings', Object.assign({}, s, { man: [...new Set((s.man || []).concat(v)) ], hid: (s.hid || []).filter((x) => x !== v) })); e.value = ''; render(); },
     matfq: (e) => { filterOf().q = e.value; render(); },
+    matgnew: (e) => { const v = e.value.trim(); if (!v) return; const g = groups().map((x) => Object.assign({}, x, { items: x.items.slice() })), gr = g.find((x) => x.id === e.dataset.g); if (!gr) return; if (!gr.items.includes(v)) gr.items.push(v); saveGroups(g); e.value = ''; render(); },
     matakey: (e) => { const v = e.value.trim(); if (!v) return; const s = srcOf(e.dataset.id); if (!s) return; put('settings', Object.assign({}, s, { mankeys: [...new Set((s.mankeys || []).concat(v))], hid: (s.hid || []).filter((x) => x !== v) })); e.value = ''; render(); },
     mdkey: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d), v = e.value.trim(); if (!d || !v) return; if (!d.keys.includes(v)) d.keys.push(v); e.value = ''; render(); },
     matttl: (e) => { const s = srcOf(e.dataset.id); if (!s) return; const v = e.value.trim(); if (v) put('settings', Object.assign({}, s, s.vtitle ? { vtitle: v, title: v } : { title: v })); render(); },
@@ -840,9 +858,19 @@ const MAT = (() => {
     const k = kdrag && kicon(e); if (!k) return; e.preventDefault(); e.stopImmediatePropagation();
     const from = kdrag, to = k.dataset.k; kdrag = null; if (from === to) return;
     const order = kindsOrdered().map((x) => x[0]), fi = order.indexOf(from), ti = order.indexOf(to); order.splice(fi, 1); order.splice(ti, 0, from);
-    put('settings', { id: 'matcfg', order }); render();
+    put('settings', Object.assign({}, cfgM(), { id: 'matcfg', order })); render();
   }, true);
-  document.addEventListener('dragend', () => { kdrag = null; document.querySelectorAll('.kmicon.drag,.kmicon.over,.matkindchip.drag,.matkindchip.over').forEach((x) => x.classList.remove('drag', 'over')); });
+  let gdrag = null;
+  const gitem = (e) => e.target && e.target.closest && e.target.closest('.matgi');
+  document.addEventListener('dragstart', (e) => { const g = gitem(e); if (!g) return; gdrag = { g: g.dataset.g, v: g.dataset.v }; g.classList.add('drag'); try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', g.dataset.v); } catch (x) { /* */ } });
+  document.addEventListener('dragover', (e) => { const g = gdrag && gitem(e); if (g && g.dataset.g === gdrag.g && g.dataset.v !== gdrag.v) { e.preventDefault(); document.querySelectorAll('.matgi.over').forEach((x) => x.classList.remove('over')); g.classList.add('over'); } });
+  document.addEventListener('drop', (e) => {
+    const g = gdrag && gitem(e); if (!g || g.dataset.g !== gdrag.g) return; e.preventDefault(); e.stopImmediatePropagation();
+    const from = gdrag.v, to = g.dataset.v, gid = gdrag.g; gdrag = null; if (from === to) return;
+    const all = groups().map((x) => Object.assign({}, x, { items: x.items.slice() })), gr = all.find((x) => x.id === gid); if (!gr) return;
+    const fi = gr.items.indexOf(from), ti = gr.items.indexOf(to); gr.items.splice(fi, 1); gr.items.splice(ti, 0, from); saveGroups(all); render();
+  }, true);
+  document.addEventListener('dragend', () => { gdrag = null; document.querySelectorAll('.matgi.drag,.matgi.over').forEach((x) => x.classList.remove('drag', 'over')); kdrag = null; document.querySelectorAll('.kmicon.drag,.kmicon.over,.matkindchip.drag,.matkindchip.over').forEach((x) => x.classList.remove('drag', 'over')); });
   const zone = (e) => e.target && e.target.closest && e.target.closest('#matdz');
   document.addEventListener('click', (e) => { const pz = e.target.closest && e.target.closest('.matpz'); if (pz) { pz.focus(); return; } if (zone(e) && !(e.target.tagName === 'INPUT')) { const f = document.getElementById('matdzf'); if (f) f.click(); } });
   document.addEventListener('change', (e) => { if (e.target && e.target.id === 'matdzf') { const f = [...e.target.files]; e.target.value = ''; intake(f, ''); } });
@@ -859,7 +887,9 @@ const MAT = (() => {
     if (!files.length && !text.trim()) return; e.preventDefault(); intake(files, text);
   });
   const st = document.createElement('style');
-  st.textContent = `.matdz{display:flex;gap:16px;align-items:center;border:2px dashed var(--line);cursor:pointer;padding:22px 24px}.matdz:hover,.matdz.over,.matdz:focus{border-color:var(--brand,var(--accent));background:var(--accent-soft);outline:none}.matdzi{font-size:34px;line-height:1;color:var(--muted)}
+  st.textContent = `.matgi{cursor:grab;padding-right:4px}.matgi .matgl{border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;padding:0}.matgx{border:0;background:transparent;color:inherit;opacity:.45;cursor:pointer;font:700 13px/1 var(--font-body);padding:0 2px}.matgx:hover{opacity:1;color:var(--bad)}.matgi.drag{opacity:.35}.matgi.over{box-shadow:inset 3px 0 0 var(--brand,var(--accent))}.matgrpx{margin-left:4px}
+.mattag.mini{margin:0 0 0 6px;font-size:10px;padding:0 6px;background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.matdz{display:flex;gap:16px;align-items:center;border:2px dashed var(--line);cursor:pointer;padding:22px 24px}.matdz:hover,.matdz.over,.matdz:focus{border-color:var(--brand,var(--accent));background:var(--accent-soft);outline:none}.matdzi{font-size:34px;line-height:1;color:var(--muted)}
 .matask{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:3000;display:grid;place-items:center;padding:16px}.matbox{background:var(--surface);color:var(--ink);border-radius:14px;padding:20px;max-width:520px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.35)}
 .mattag{display:inline-flex;align-items:center;gap:3px;border-radius:7px;padding:3px 10px;font:600 12px var(--font-body);margin:0 4px 4px 0;border:1px solid var(--line);background:var(--surface2);color:var(--ink)}.mattag button{border:0;background:transparent;color:inherit;cursor:pointer;font:700 14px/1 var(--font-body);padding:0 0 0 2px}
 .mattag.ep{--ec:#9a8f6c;background:color-mix(in srgb,var(--ec) 18%,var(--surface));border-color:var(--ec);color:var(--ink)}.mattag.ep.sel:hover{background:color-mix(in srgb,var(--ec) 32%,var(--surface))}.mattag.ep.sel.on{background:var(--ec);border-color:var(--ec);color:#fff}
