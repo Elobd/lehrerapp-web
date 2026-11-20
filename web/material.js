@@ -132,7 +132,7 @@ const MAT = (() => {
     return skip ? out.filter((x) => !skip.includes(x.url)) : out;
   }
   async function autoThumb(id, force, query) {
-    const s = srcOf(id); if (!s || isYt(s.url) || (!force && (s.thumb || s.type === 'pdf' || s.type === 'buch' || /^Screenshots /.test(s.title || '')))) return;
+    const s = srcOf(id); if (!s || isYt(s.url) || (!force && (s.noThumb || s.thumb || s.type === 'pdf' || s.type === 'buch' || /^Screenshots /.test(s.title || '')))) return;
     const t = tagsOf(s), q = query || (t.tags[0] ? t.tags[0] + (t.epoche[0] ? ' ' + t.epoche[0] : '') : t.epoche[0] || s.title);
     if (!q || /^Screenshots /.test(q)) return;
     try { const c = await commonsFind(q, force && s.thumb ? [s.thumb.url] : null); if (c[0] && (force || !(srcOf(id) || {}).thumb)) setThumb(id, c[0]); } catch (e) { /* offline */ }
@@ -495,10 +495,11 @@ const MAT = (() => {
         if (d.mode === 'text') { const raw = (await d.file.text()).replace(/\u0000/g, '').replace(/\s+/g, ' ').trim(); if (raw.length >= 20) { d.pages = [{ p: 1, t: raw }]; await saveSt(); } }
       }
       if (d.kind === 'yt') await saveSt();
-      if (d.thumbBlob) { const nm = QDIR + '/' + id + '-thumb.jpg'; await fput(nm, d.thumbBlob); setS({ thumb: { file: nm, src: d.kind === 'pdf' ? 'PDF, Seite 1' : d.kind === 'bild' ? 'Screenshot' : 'Video' } }); }
+      if (d.noThumb) setS({ noThumb: true });
+      else if (d.thumbBlob) { const nm = QDIR + '/' + id + '-thumb.jpg'; await fput(nm, d.thumbBlob); setS({ thumb: { file: nm, src: d.kind === 'pdf' ? 'PDF, Seite 1' : d.kind === 'bild' ? 'Screenshot' : 'Video' } }); }
       else if (d.cover) { const nm = QDIR + '/' + id + '-thumb.' + d.cover.ext; await fput(nm, d.cover.blob); setS({ thumb: { file: nm, src: 'EPUB-Titelbild' } }); }
       if (d.kind === 'yt' && d.dl) startDownload(id);
-      if (!d.thumbBlob && !d.cover && d.kind !== 'yt') autoThumb(id, false);
+      if (!d.noThumb && !d.thumbBlob && !d.cover && d.kind !== 'yt') autoThumb(id, false);
       if (d.thumbUrl && d.thumbUrl.startsWith('blob:')) URL.revokeObjectURL(d.thumbUrl);
       m.drafts = m.drafts.filter((x) => x.id !== d.id); m.open = id; toast('Angelegt und auf der NAS gespeichert');
     } catch (e) { d.status = 'ready'; d.err = e.message || String(e); note('err', 'Anlegen fehlgeschlagen: ' + d.err); }
@@ -520,9 +521,9 @@ const MAT = (() => {
     if (k === 'link') rows.push(ro('Adresse', d.f.url, d.f.url));
     d.meta.forEach(([a, b]) => { if (a !== 'Datei') rows.push(ro(a, b)); });
     const allTg = TAGS.map((t) => t[0]).filter((x) => !EPOCHS.includes(x)), rest = allTg.filter((x) => !d.tg.includes(x));
-    const hasPic = !!ths;
+    const hasPic = !!ths && !d.noThumb;
     return `<section class="card matdraft" tabindex="-1" data-d="${did}">${head}
-      <div class="matdgrid${hasPic ? '' : ' nopic'}">${hasPic ? `<div class="matdpic"><img src="${esc(ths)}" alt="" referrerpolicy="no-referrer"></div>` : ''}<div>${rows.join('')}${k === 'yt' ? `<label class="matchk"><input type="checkbox" data-ch="mddl" data-d="${did}" ${d.dl ? 'checked' : ''}> Video zusätzlich auf die NAS herunterladen</label>` : ''}</div></div>
+      <div class="matdgrid${ths ? '' : ' nopic'}">${ths ? `<div>${hasPic ? `<div class="matdpic"><img src="${esc(ths)}" alt="" referrerpolicy="no-referrer"></div>` : '<div class="matdpic matnopic">Kein Vorschaubild</div>'}<button class="btn sm" style="margin-top:6px" data-act="mdnothumb" data-d="${did}">${d.noThumb ? 'Vorschaubild wieder verwenden' : 'Vorschaubild löschen'}</button></div>` : ''}<div>${rows.join('')}${k === 'yt' ? `<label class="matchk"><input type="checkbox" data-ch="mddl" data-d="${did}" ${d.dl ? 'checked' : ''}> Video zusätzlich auf die NAS herunterladen</label>` : ''}</div></div>
       ${d.warn ? `<div class="matnote warn"><span>${esc(d.warn)}</span></div>` : ''}
       ${k === 'datei' ? `<div class="kmkvr"><span class="kmk">Behandeln als</span><span class="kmv"><button class="mattag sel${d.mode === 'file' ? ' on' : ''}" data-act="mdmode" data-d="${did}" data-v="file">Datei ablegen</button><button class="mattag sel${d.mode === 'text' ? ' on' : ''}" data-act="mdmode" data-d="${did}" data-v="text">Als Text lesen</button></span></div>` : ''}
       <div class="kmkvr"><span class="kmk">Epoche</span><span class="kmv chips">${epChips(EPOCHS, d.ep, 'mdep', did)}</span></div>
@@ -566,9 +567,9 @@ const MAT = (() => {
     return `<div style="margin-top:10px">${h}</div>`;
   }
   function thumbBlock(s, id) {
-    if (isYt(s.url)) return '';
-    const th = s.thumb;
-    return `<div class="sm" style="margin-top:10px"><span class="muted">Vorschaubild:</span> ${th ? esc(th.src || '') + (th.lic ? ` · ${esc(th.by || 'unbekannt')} · ${esc(th.lic)} · <a href="${esc(th.page || '#')}" target="_blank" rel="noopener">Quelle</a>` : '') : 'keines'} <button class="btn sm" data-act="matthumb" data-id="${id}" title="Freie Bilder auf Wikimedia Commons suchen">${th && th.lic ? 'Anderes Bild' : 'Bild im Internet suchen'}</button></div>`;
+    const th = s.thumb, has = !s.noThumb && (isYt(s.url) || th);
+    const info = isYt(s.url) ? (has ? 'YouTube' : 'keines') : th && !s.noThumb ? esc(th.src || '') + (th.lic ? ` · ${esc(th.by || 'unbekannt')} · ${esc(th.lic)} · <a href="${esc(th.page || '#')}" target="_blank" rel="noopener">Quelle</a>` : '') : 'keines';
+    return `<div class="sm" style="margin-top:10px"><span class="muted">Vorschaubild:</span> ${info} ${has ? `<button class="btn sm bad" data-act="matthumbdel" data-id="${id}" title="Vorschaubild entfernen">Löschen</button>` : ''}${!isYt(s.url) ? ` <button class="btn sm" data-act="matthumb" data-id="${id}" title="Freie Bilder auf Wikimedia Commons suchen">${th && th.lic && !s.noThumb ? 'Anderes Bild' : 'Bild im Internet suchen'}</button>` : (s.noThumb ? ` <button class="btn sm" data-act="matthumbdel" data-id="${id}" data-back="1">Wieder anzeigen</button>` : '')}</div>`;
   }
   function tagBlock(s, id) {
     const t = tagsOf(s), chip = (x, k) => `<span class="mattag ${k}"${k === 'ep' ? epS(x) : ''}>${esc(x)}<button data-act="matrm" data-id="${id}" data-t="${esc(x)}" aria-label="Entfernen">×</button></span>`;
@@ -593,7 +594,7 @@ const MAT = (() => {
       ${tg.length ? `<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px"><span class="muted sm">Tags:</span>${tg.map((x) => `<button class="mattag tg sel${f.t.includes(x) ? ' on' : ''}" data-act="matft" data-v="${esc(x)}">${esc(x)}<small> ${cnt[x]}</small></button>`).join('')}</div>` : ''}</div>`;
   }
   function thumbOf(s, big) {
-    const vid = ytVid(s.url), th = s.thumb, k = kindOf(s);
+    const vid = s.noThumb ? null : ytVid(s.url), th = s.noThumb ? null : s.thumb, k = kindOf(s);
     if (vid) return `<img src="https://i.ytimg.com/vi/${vid}/hqdefault.jpg" alt="" loading="lazy" referrerpolicy="no-referrer">`;
     if (th && (th.file || th.url)) return `<img src="${th.file ? url(th.file, '&inline=1') : esc(th.url)}" alt="" loading="lazy" referrerpolicy="no-referrer">${th.lic ? '<b class="matcc">CC</b>' : ''}`;
     return `<div class="matph t-${esc(s.type || 'sonst')}"><span>${big ? esc(TYPES[s.type] || 'Quelle') : esc(((KINDS.find(([x]) => x === k) || [0, ''])[1] || '').split(' ')[0].slice(0, 5))}</span></div>`;
@@ -610,7 +611,7 @@ const MAT = (() => {
       ${row('Titel', `<input class="matin" data-ch="matttl" data-id="${id}" value="${esc(s.vtitle || s.title)}">`)}${yt}${ang}
       ${s.file ? row('Datei', `<a href="${url(s.file, /\.pdf$/i.test(s.file) ? '&inline=1' : '')}" target="_blank">${/\.pdf$/i.test(s.file) ? 'PDF ansehen' : 'Datei öffnen'}</a>`) : ''}
       ${isYt(s.url) ? `<div class="kmkvr"><span class="kmk">Video-Datei</span><span class="kmv">${videoBlock(s, id).replace('margin-top:10px', 'margin-top:0')}</span></div>` : ''}
-      ${!isYt(s.url) ? `<div class="kmkvr"><span class="kmk">Vorschaubild</span><span class="kmv">${thumbBlock(s, id).replace('<span class="muted">Vorschaubild:</span>', '').replace('margin-top:10px', 'margin-top:0')}</span></div>` : ''}
+      <div class="kmkvr"><span class="kmk">Vorschaubild</span><span class="kmv">${thumbBlock(s, id).replace('<span class="muted">Vorschaubild:</span>', '').replace('margin-top:10px', 'margin-top:0')}</span></div>
       <div class="kmkvr"><span class="kmk">Epoche</span><span class="kmv chips">${tog(EPOCHS, t.epoche, true)}</span></div>
       <div class="kmkvr"><span class="kmk">Themen</span><span class="kmv chips">${tog(t.tags, t.tags)}${tog(restT.slice(0, 6), t.tags)}<details class="matmore"><summary class="mattag">Weitere ▾</summary><div>${tog(restT.slice(6), t.tags)}</div></details><input class="matin" data-ch="matatag" data-id="${id}" placeholder="+ eigener Tag" style="width:130px"></span></div>
       ${t.keys.length ? row('Schlagwörter', t.keys.map((x) => `<span class="mattag ky">${esc(x)}<button data-act="matrm" data-id="${id}" data-t="${esc(x)}" aria-label="Entfernen">×</button></span>`).join('')) : ''}
@@ -667,10 +668,12 @@ const MAT = (() => {
     matall: async (e) => { const id = e.dataset.id, s = srcOf(id), t = await textOf(id); if (!t.pages.length) return toast('Diese Quelle hat noch keinen Text'); M().sel.push({ ref: (s.vtitle || s.title) + ' (ganze Quelle)', t: t.pages.map((p) => p.t).join('\n').slice(0, 15000) }); toast('Übernommen'); render(); },
     matai: (e) => toast(e.dataset.k + ': Dafür brauche ich den KI-Schlüssel. Das schalten wir in der nächsten Stufe frei, die Auswahl bleibt erhalten.'),
     matnote0: () => { note(); render(); },
+    matthumbdel: async (e) => { const id = e.dataset.id, s = srcOf(id); if (!s) return; if (e.dataset.back) { put('settings', Object.assign({}, s, { noThumb: false })); return render(); } if (s.thumb && s.thumb.file) { try { await fdel(s.thumb.file); } catch (x) { /* */ } } const n = Object.assign({}, s, { noThumb: true }); delete n.thumb; put('settings', n); toast('Vorschaubild entfernt'); render(); },
+    mdnothumb: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d); if (d) { d.noThumb = !d.noThumb; render(); } },
     matthumb: async (e) => {
       const id = e.dataset.id, s = srcOf(id), t = tagsOf(s), q = prompt('Suchbegriff für das Vorschaubild (freie Bilder von Wikimedia Commons):', (s.thumb && s.thumb.q) || t.tags[0] || t.epoche[0] || s.title); if (!q) return;
       const m = M(); m.busy = 'Bild wird gesucht …'; render();
-      try { const c = await commonsFind(q, s.thumb && s.thumb.url ? [s.thumb.url] : null); if (!c.length) toast('Kein passendes freies Bild gefunden. Versuche einen anderen Suchbegriff.'); else { setThumb(id, Object.assign({ q }, c[0])); toast('Vorschaubild gesetzt'); } } catch (x) { toast('Bildsuche nicht möglich: ' + (x.message || x)); }
+      try { const c = await commonsFind(q, s.thumb && s.thumb.url ? [s.thumb.url] : null); if (!c.length) toast('Kein passendes freies Bild gefunden. Versuche einen anderen Suchbegriff.'); else { put('settings', Object.assign({}, srcOf(id), { noThumb: false, thumb: Object.assign({ q }, c[0]) })); toast('Vorschaubild gesetzt'); } } catch (x) { toast('Bildsuche nicht möglich: ' + (x.message || x)); }
       m.busy = ''; render();
     },
     matdl: (e) => startDownload(e.dataset.id),
@@ -788,6 +791,7 @@ const MAT = (() => {
 @media(max-width:640px){.matdgrid{grid-template-columns:1fr}}
 .matin{font:600 14px var(--font-body);padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);width:min(420px,100%)}.kmkvr .kmv.chips,.chips{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
 .matdz{display:flex;gap:16px;align-items:center;border:2px dashed var(--line);border-radius:12px;cursor:pointer;padding:18px 22px}.matdz:hover,.matdz.over,.matdz:focus{border-color:var(--brand,var(--accent));background:var(--accent-soft);outline:none}.matdzi{font-size:30px;line-height:1;color:var(--muted)}
+.matnopic{display:grid;place-items:center;color:var(--muted);font-size:12px;border:1px dashed var(--line);background:transparent!important}
 .matdgrid{display:grid;grid-template-columns:200px minmax(0,1fr);gap:18px;align-items:start}.matdgrid.nopic{grid-template-columns:1fr}.matdpic{aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:var(--surface2)}.matdpic img{width:100%;height:100%;object-fit:cover;display:block}
 .matfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}.matnote.warn{background:var(--warn-soft);color:var(--warn);margin:10px 0}
 .matmore{display:inline}.matmore summary{list-style:none;cursor:pointer;display:inline-flex}.matmore[open] summary{background:var(--accent-soft)}.matmore>div{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
