@@ -574,8 +574,8 @@ const MAT = (() => {
     const cnt = (e) => list.filter((x) => tagsOf(x).epoche.includes(e)).length;
     const eps = EPOCHS.map((e) => `<span class="kmchipw"><button class="kmchip matep${f.e === e ? ' on' : ''}${f.e && f.e !== e ? ' dim' : ''}" style="--ec:${EPCOL[e]}" data-act="matfe" data-v="${esc(e)}" title="${esc(e)}: ${cnt(e)} Quelle(n)">${esc(e)}<small>${cnt(e)}</small></button></span>`).join('');
     const bar = `<div class="kmcls"><div class="kmchips"><span class="kmchipw"><button class="kmchip matep matall${!f.e ? ' on' : ' dim'}" style="--ec:#6e7480" data-act="matfe" data-v="">Alle<small>${list.length}</small></button></span><span class="kmdiv" style="cursor:default"></span>${eps}</div></div>`;
-    const kinds = KINDS;
-    const side = `<nav class="kmside" aria-label="Art"><div class="kmsidet">Art</div><button class="kmicon${!f.a ? ' on' : ''}" data-act="matfa" data-v="">${ico('all')}<small>Alle ${list.length}</small></button>${kinds.map(([k, n]) => `<button class="kmicon${f.a === k ? ' on' : ''}${list.some((x) => kindOf(x) === k) ? '' : ' zero'}" data-act="matfa" data-v="${k}">${ico(k)}<small>${esc(n.split(' ')[0])} ${list.filter((x) => kindOf(x) === k).length}</small></button>`).join('')}</nav>`;
+    const kinds = kindsOrdered();
+    const side = `<nav class="kmside" aria-label="Art"><div class="kmsidet">Art</div><button class="kmicon${!f.a ? ' on' : ''}" data-act="matfa" data-v="">${ico('all')}<small>Alle ${list.length}</small></button>${kinds.map(([k, n]) => `<button class="kmicon${f.a === k ? ' on' : ''}${list.some((x) => kindOf(x) === k) ? '' : ' zero'}" draggable="true" data-k="${k}" title="Ziehen zum Verschieben" data-act="matfa" data-v="${k}">${ico(k)}<small>${esc(n.split(' ')[0])} ${list.filter((x) => kindOf(x) === k).length}</small></button>`).join('')}</nav>`;
     const artName = (KINDS.find(([k]) => k === f.a) || [0, 'Alle Quellen'])[1];
     const head = `<div class="kmh"><h1>Material<span class="kmsep kmh1">I</span><span class="muted" style="font-weight:500">${esc(f.e || 'Alle Epochen')}${f.a ? ' · ' + esc(artName) : ''}</span></h1></div>`;
     return `<div class="km">${bar}${head}${banner}<div class="kmbody">${side}<section class="kmmain">${quellen()}</section></div></div>`;
@@ -607,6 +607,7 @@ const MAT = (() => {
   const saveHist = (items) => put('settings', { id: 'matq_hist', items: items.slice(0, 12) });
   const clearBtn = (act, show) => (show ? `<button class="matclr" data-act="${act}" title="Eingabe löschen" aria-label="Eingabe löschen">×</button>` : '');
   const KINDS = [['video', 'Video'], ['buch', 'Buch'], ['pdf', 'PDF'], ['epub', 'EPUB'], ['text', 'Text / Word'], ['bild', 'Screenshots'], ['link', 'Link']];
+  const kindsOrdered = () => { const sv = ((S.settings.matcfg || {}).order || []).filter((k) => KINDS.some((x) => x[0] === k)); return sv.map((k) => KINDS.find((x) => x[0] === k)).concat(KINDS.filter((x) => !sv.includes(x[0]))); };
   const kindOf = (s) => (s.kind && KINDS.some((k) => k[0] === s.kind) ? s.kind : isYt(s.url) || s.type === 'video' ? 'video' : s.epub ? 'epub' : s.type === 'pdf' || /\.pdf$/i.test(s.file || '') ? 'pdf' : s.url && !s.pages ? 'link' : /^Screenshots /.test(s.title || '') ? 'bild' : 'text');
   const newF = () => ({ q: '', e: '', t: [], a: '' });
   function filterOf() { const m = M(); if (!m.f) m.f = newF(); if (m.f.a === undefined) m.f.a = ''; return m.f; }
@@ -810,6 +811,19 @@ const MAT = (() => {
     if (kind === 'pdf' && s.file) showPdf(o, s.file, s.title);
   }
   const inView = () => U.view === 'material';
+  /* Symbole der Seitenleiste per Drag-and-Drop anordnen (wird auf allen Geräten gespeichert) */
+  let kdrag = null;
+  const kicon = (e) => e.target && e.target.closest && e.target.closest('.kmside .kmicon[data-k]');
+  document.addEventListener('dragstart', (e) => { const k = inView() && kicon(e); if (!k) return; kdrag = k.dataset.k; k.classList.add('drag'); try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', kdrag); } catch (x) { /* */ } });
+  document.addEventListener('dragover', (e) => { const k = kdrag && kicon(e); if (k && k.dataset.k !== kdrag) { e.preventDefault(); document.querySelectorAll('.kmicon.over').forEach((x) => x.classList.remove('over')); k.classList.add('over'); } });
+  document.addEventListener('dragleave', (e) => { const k = kicon(e); if (k) k.classList.remove('over'); });
+  document.addEventListener('drop', (e) => {
+    const k = kdrag && kicon(e); if (!k) return; e.preventDefault(); e.stopImmediatePropagation();
+    const from = kdrag, to = k.dataset.k; kdrag = null; if (from === to) return;
+    const order = kindsOrdered().map((x) => x[0]), fi = order.indexOf(from), ti = order.indexOf(to); order.splice(fi, 1); order.splice(ti, 0, from);
+    put('settings', { id: 'matcfg', order }); render();
+  }, true);
+  document.addEventListener('dragend', () => { kdrag = null; document.querySelectorAll('.kmicon.drag,.kmicon.over').forEach((x) => x.classList.remove('drag', 'over')); });
   const zone = (e) => e.target && e.target.closest && e.target.closest('#matdz');
   document.addEventListener('click', (e) => { const pz = e.target.closest && e.target.closest('.matpz'); if (pz) { pz.focus(); return; } if (zone(e) && !(e.target.tagName === 'INPUT')) { const f = document.getElementById('matdzf'); if (f) f.click(); } });
   document.addEventListener('change', (e) => { if (e.target && e.target.id === 'matdzf') { const f = [...e.target.files]; e.target.value = ''; intake(f, ''); } });
@@ -850,7 +864,7 @@ const MAT = (() => {
 .matfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}.matnote.warn{background:var(--warn-soft);color:var(--warn);margin:10px 0}
 .matmore{display:inline}.matmore summary{list-style:none;cursor:pointer;display:inline-flex}.matmore[open] summary{background:var(--accent-soft)}.matmore>div{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
 html:root .kmchip.matep{background:var(--ec);border-color:var(--ec);color:#fff}html:root .kmchip.matep.dim{opacity:.45}html:root .kmchip.matep:hover{opacity:1}html:root .kmchip.matep.on{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ec)}html:root .kmchip.matep small,html:root .kmchip.matep.on small,html:root .kmchip.matep:hover small{color:#fff!important;opacity:1}
-.matdot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}.kmchip.zero{opacity:.55}.kmside .kmicon.zero{opacity:.5}.kmside .kmicon.zero:hover{opacity:1}.kmchip small{margin-left:4px}
+.matdot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}.kmchip.zero{opacity:.55}.kmside .kmicon.zero{opacity:.5}.kmside .kmicon[draggable=true]{cursor:grab}.kmside .kmicon.drag{opacity:.35}.kmside .kmicon.over{box-shadow:inset 0 3px 0 var(--brand,#fff);background:rgba(255,255,255,.18)}.kmside .kmicon.zero:hover{opacity:1}.kmchip small{margin-left:4px}
 .matth2{display:block;width:64px;height:36px;border-radius:6px;overflow:hidden;background:var(--surface2);position:relative}.matth2 img{width:100%;height:100%;object-fit:cover;display:block}.matth2 .matph{font-size:11px}.matth2 .matcc{display:none}
 .matc{font-size:13px;color:var(--ink)}.matc.chips2{display:flex;gap:3px;flex-wrap:wrap}.matc.chips2 .mattag{margin:0;font-size:11px;padding:1px 7px}.matnas2{background:var(--good);color:#fff;border-radius:4px;padding:0 5px;font-size:10px}
 .matedit2{border:0;background:transparent;color:var(--muted);cursor:pointer;border-radius:8px;padding:6px}.matedit2:hover,.matedit2[aria-expanded=true]{background:var(--accent-soft);color:var(--accent)}.kmrow.matsel{background:var(--accent-soft)}
