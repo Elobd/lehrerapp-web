@@ -318,6 +318,29 @@ const KM = (() => {
   document.addEventListener('drop', (ev) => { const c = chipOf(ev); if (c && drag && c.getAttribute('draggable') === 'true') { ev.preventDefault(); const f = drag; drag = null; move(f, c.dataset.key); } });
   document.addEventListener('dragend', () => { drag = null; document.querySelectorAll('.kmchip.drag,.kmchip.over,.kmdiv.drag,.kmdiv.over').forEach((x) => x.classList.remove('drag', 'over')); });
   document.addEventListener('keydown', (ev) => { const t1 = ev.target; if (ev.key === 'Enter' && t1 && t1.classList && t1.classList.contains('kmsmi')) { ev.preventDefault(); const all = [...document.querySelectorAll('.kmsmi[data-s="' + t1.dataset.s + '"]')], i = all.indexOf(t1); if (all[i + 1]) { all[i + 1].focus(); all[i + 1].select(); } else t1.blur(); return; } const t0 = ev.target; if (ev.key === 'Enter' && t0 && t0.classList && t0.classList.contains('kmept') === false && t0.closest && t0.closest('.kmin') && t0.dataset && t0.dataset.ch === 'kmept') { ev.preventDefault(); const all = [...document.querySelectorAll('.kmin input[data-eid="' + t0.dataset.eid + '"][data-sid]')], i = all.indexOf(t0); if (all[i + 1]) { all[i + 1].focus(); all[i + 1].select(); } return; } if (ev.key === 'Enter' && ev.target && ev.target.id === 'kmkvin') { ev.target.blur(); return; } if (ev.key === 'Escape' && U.kmKvEdit) { U.kmKvEdit = null; render(); return; } if (ev.key === 'Enter' && ev.target && ev.target.classList && ev.target.classList.contains('kmgo')) A.kmstu(ev.target); });
+  /* Semesternoten: mit gedrückter Maustaste mehrere Felder markieren, Entf löscht alle markierten */
+  { let ds = null, sel = [], swallow = 0;
+    document.addEventListener('click', (e) => { if (Date.now() - swallow < 300) { e.stopPropagation(); e.preventDefault(); } }, true);
+    const clearSel = () => { sel.forEach((x) => x.classList.remove('kmsel')); sel = []; };
+    const inRect = (a, b) => { const r1 = a.getBoundingClientRect(), r2 = b.getBoundingClientRect(), x0 = Math.min(r1.left, r2.left), x1 = Math.max(r1.right, r2.right), y0 = Math.min(r1.top, r2.top), y1 = Math.max(r1.bottom, r2.bottom); return [...document.querySelectorAll('.kmsmi')].filter((x) => { const r = x.getBoundingClientRect(), cx = (r.left + r.right) / 2, cy = (r.top + r.bottom) / 2; return cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1; }); };
+    document.addEventListener('pointerdown', (e) => { const t = e.target; if (e.button === 0 && t.classList && t.classList.contains('kmsmi') && e.pointerType === 'mouse') ds = { el: t, multi: false }; else { ds = null; if (!(t.closest && t.closest('.kmsel'))) clearSel(); } }, true);
+    document.addEventListener('pointermove', (e) => {
+      if (!ds || !(e.buttons & 1)) return; const o = document.elementFromPoint(e.clientX, e.clientY), t = o && o.classList && o.classList.contains('kmsmi') ? o : null;
+      if (!ds.multi) { if (!t || t === ds.el) return; ds.multi = true; if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); document.body.style.userSelect = 'none'; const sl = window.getSelection && window.getSelection(); if (sl) sl.removeAllRanges(); }
+      e.preventDefault(); if (t) { clearSel(); sel = inRect(ds.el, t); sel.forEach((x) => x.classList.add('kmsel')); }
+    }, true);
+    document.addEventListener('pointerup', () => { if (ds && ds.multi) { document.body.style.userSelect = ''; swallow = Date.now(); const k = document.querySelector('.kmsel'); if (k) toast(sel.length + ' Felder markiert · Entf löscht sie'); } ds = null; }, true);
+    document.addEventListener('keydown', (ev) => {
+      if (!sel.length) return;
+      if (ev.key === 'Escape') { clearSel(); return; }
+      if (ev.key !== 'Delete' && ev.key !== 'Backspace') return;
+      ev.preventDefault(); ev.stopPropagation();
+      const G = groups().find((g) => g.slug === sel[0].dataset.slug); if (!G) { clearSel(); return; }
+      const sem = Object.assign({}, resDoc(G).sem || {});
+      sel.forEach((x) => { const cur = Object.assign({}, sem[x.dataset.id] || {}); delete cur[x.dataset.s]; sem[x.dataset.id] = cur; x.value = ''; });
+      const orig = window.scheduleRender; window.scheduleRender = () => {}; try { patchRes(G, { sem }); } finally { window.scheduleRender = orig; }
+      const n = sel.length; clearSel(); toast(n + ' Noten gelöscht');
+    }, true); }
 
   /* ---------- Stil ---------- */
   const st = document.createElement('style');
@@ -402,7 +425,7 @@ tr.kmbad td{background:var(--bad-soft)!important}tr.kmwarn td{background:var(--w
 .kmtable .kmrow:focus-within{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
 .kmin tbody tr:focus-within td{background:var(--accent-soft)}
 .kmth .kmcolh{display:block;text-align:center;cursor:pointer;border-radius:6px;padding:2px 4px;text-transform:uppercase;font:inherit;letter-spacing:inherit}.kmth .kmcolh:hover{background:var(--accent-soft);color:var(--accent)}.kmth .kmcolh.over{outline:2px dashed var(--accent)}
-.kmsmi{width:46px;text-align:center;border:1px solid var(--line);border-radius:7px;padding:4px 2px;background:var(--surface);color:var(--ink);font:600 14px var(--font-body)}.kmsmi:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 2px var(--accent-soft)}
+.kmsmi{width:46px;text-align:center;border:1px solid var(--line);border-radius:7px;padding:4px 2px;background:var(--surface);color:var(--ink);font:600 14px var(--font-body)}.kmsmi.kmsel{background:var(--accent-soft);border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}.kmsmi:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 2px var(--accent-soft)}
 @media(max-width:700px){.kmbody{grid-template-columns:1fr}.kmside{position:sticky;top:0;z-index:5;flex-direction:row;overflow-x:auto;align-items:center;padding:6px}.kmsidet{border:0;margin:0;padding:0 8px;white-space:nowrap}.kmicon{flex:1;min-width:64px}}
 `;
   document.head.appendChild(st);
