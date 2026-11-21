@@ -876,7 +876,7 @@ tr.kmbad td{background:var(--bad-soft)!important}tr.kmwarn td{background:var(--w
     const sorted2 = logAll.slice().sort((a, b) => a.date.localeCompare(b.date) || String(a.id).localeCompare(String(b.id))), idx = sorted2.findIndex((x) => x.id === id), prev = sorted2.slice(0, idx).reverse().find((x) => x.date < e.date);
     const dates = lessonDates(G, e.date, -400, 120), pd = [...dates].reverse().find((d) => d < e.date), nd = dates.find((d) => d > e.date);
     const at = (k) => `data-ch="lgfield" data-slug="${G.slug}" data-id="${esc(e.id)}" data-k="${k}"`, dt = `data-slug="${G.slug}" data-id="${esc(e.id)}"`;
-    const side = tabs.map((t) => `<button class="kmicon${t === tab ? ' on' : ''}" data-act="lstab" data-id="${esc(e.id)}" data-t="${t}" title="${LTABS[t]}" aria-label="${LTABS[t]}">${svg(t, 26)}<small>${LTABS[t]}</small></button>`).join('');
+    const side = tabs.map((t) => `<button class="kmicon${t === tab ? ' on' : ''}" data-act="lstab" data-slug="${G.slug}" data-id="${esc(e.id)}" data-t="${t}" title="${t === 'p' ? 'Planung (nochmal klicken: zur heutigen Stunde)' : LTABS[t]}" aria-label="${LTABS[t]}">${svg(t, 26)}<small>${LTABS[t]}</small></button>`).join('');
     const head = `<div class="kmh">${backLink(back, c ? 'Klassenmappe ' + esc(c.label) : 'Klassenmappe', 'margin:0 0 6px')}<h1>Stundenplanung<span class="kmsep kmh1">I</span><span class="muted" style="font-weight:500">${c ? 'Klasse ' + disp(c) : esc(G.label)} · ${SUBJ[kd] || esc(G.subject)}</span></h1></div>`;
     const navBtns = `<div class="lsnav">${pd ? `<button class="btn sm" data-act="godate" data-slug="${G.slug}" data-d="${pd}">‹ ${esc(dshort(pd))}</button>` : '<span></span>'}<span class="muted sm">Vorige / nächste Stunde</span>${nd ? `<button class="btn sm" data-act="godate" data-slug="${G.slug}" data-d="${nd}">${esc(dshort(nd))} ›</button>` : '<span></span>'}</div>`;
     const kv = (k, v) => `<div class="kmkvr lsstk"><span class="kmk">${k}</span><span class="kmv">${v}</span></div>`;
@@ -996,7 +996,16 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
   document.addEventListener('drop', (e) => { if (!lsSrc) return; const z = e.target.closest && e.target.closest('.lssmz'); const id = lsSrc; lsSrc = null; document.querySelectorAll('.lssmz').forEach((x) => x.classList.remove('over', 'lsarm')); if (!z) return; e.preventDefault(); A.lssmadd({ dataset: { slug: z.dataset.slug, id: z.dataset.lid, mid: id } }); });
   document.addEventListener('dragend', () => { lsSrc = null; document.querySelectorAll('.lssmz').forEach((x) => x.classList.remove('over', 'lsarm')); });
   Object.assign(A, {
-    lstab: (e) => { lesState()[e.dataset.id] = e.dataset.t; render(); },
+    lstab: (e) => {
+      const st0 = lesState(), cur = st0[e.dataset.id] || 'p';
+      if (e.dataset.t === 'p' && cur === 'p' && e.dataset.slug) {
+        const G = groups().find((g) => g.slug === e.dataset.slug), ci = cinfo(e.dataset.slug), here = (ci.log || []).find((x) => x.id === e.dataset.id);
+        if (G) { let d = ''; try { d = lessonDates(G, null, 0, 0).includes(TODAY) ? TODAY : ((nextLesson(G) || {}).date || ''); } catch (x) { d = ''; }
+          if (d && here && here.date === d) { try { window.scrollTo(0, 0); } catch (x) { /* */ } return toast('Das ist schon die heutige Stunde'); }
+          if (d) return A.godate({ preventDefault() { }, dataset: { slug: e.dataset.slug, d } }); }
+      }
+      st0[e.dataset.id] = e.dataset.t; render();
+    },
     lshos: (e) => { const nx = { '': 'ausgegeben', ausgegeben: 'begonnen', begonnen: 'verglichen', verglichen: 'ausgegeben' }; saveLog(e.dataset.slug, (log) => { const x = log.find((y) => y.id === e.dataset.id); if (!x) return; const cur = x.hos || (x.ho && String(x.ho).trim() ? 'ausgegeben' : ''); x.hos = nx[cur] || 'ausgegeben'; }); render(); },
     lsedit: (e) => { const st0 = lesState(); st0[e.dataset.k] = !st0[e.dataset.k]; render(); },
     lsmatview: (e) => { saveCfg({ lsMatView: e.dataset.v }); },
