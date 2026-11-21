@@ -943,8 +943,10 @@ function datenView(){
   </div>`;
 }
 function viewFromHash(){const h=(location.hash||'').replace(/^#/,'');return /^mappe/.test(h)||h==='material'||/^schueler-/.test(h)||h==='klassen'||h==='daten'||h==='jahresplan'||/^thema-/.test(h)||/^klasse-/.test(h)||/^stunde-/.test(h)?h:'uebersicht'}
-function setView(v,nopush){if(!nopush&&v!==U.view){(U.hist=U.hist||[]).push(U.view);if(U.hist.length>60)U.hist.shift()}U.view=v;U.dp=null;U.dv={};try{if(location.hash.replace(/^#/,'')!==(v==='uebersicht'?'':v))location.hash=v==='uebersicht'?'':v}catch(e){}render();try{window.scrollTo(0,0)}catch(e){}}
-window.addEventListener('hashchange',()=>{const v=viewFromHash();if(v!==U.view){U.hist=U.hist||[];if(U.hist[U.hist.length-1]===v)U.hist.pop();else{U.hist.push(U.view);if(U.hist.length>60)U.hist.shift()}U.view=v;U.dp=null;U.dv={};render()}});
+function savePos(){try{U.pos=U.pos||{};U.pos[U.view]={y:window.scrollY||document.documentElement.scrollTop||0,inner:[...document.querySelectorAll('.lscroll,.lslist')].map(x=>x.scrollTop)}}catch(e){}}
+function restorePos(v){const p=U.pos&&U.pos[v];if(!p)return false;const go=()=>{try{window.scrollTo(0,p.y);[...document.querySelectorAll('.lscroll,.lslist')].forEach((x,i)=>{if(p.inner&&p.inner[i]!=null)x.scrollTop=p.inner[i]})}catch(e){}};go();setTimeout(go,60);setTimeout(go,250);return true}
+function setView(v,nopush){savePos();if(!nopush&&v!==U.view){(U.hist=U.hist||[]).push(U.view);if(U.hist.length>60)U.hist.shift()}U.view=v;U.dp=null;U.dv={};try{if(location.hash.replace(/^#/,'')!==(v==='uebersicht'?'':v))location.hash=v==='uebersicht'?'':v}catch(e){}render();if(nopush&&restorePos(v))return;try{window.scrollTo(0,0)}catch(e){}}
+window.addEventListener('hashchange',()=>{const v=viewFromHash();if(v!==U.view){savePos();U.hist=U.hist||[];let back=false;if(U.hist[U.hist.length-1]===v){U.hist.pop();back=true}else{U.hist.push(U.view);if(U.hist.length>60)U.hist.shift()}U.view=v;U.dp=null;U.dv={};render();if(back)restorePos(v)}});
 U.view=viewFromHash();
 
 /* ---------- Tests ---------- */
