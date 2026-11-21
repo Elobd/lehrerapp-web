@@ -1147,6 +1147,7 @@ const MAT = (() => {
   }
   async function popup(id) {
     const s = srcOf(id); if (!s) return;
+    if (s.file && isWord(s)) return openWordEditor(id);
     const o = document.createElement('div'); o.className = 'matask'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true');
     const kind = kindOf(s); let body = '';
     if (kind === 'video' && s.file && !(s.dl && s.dl.file) && /\.(mp4|m4v|mov|webm|mkv)$/i.test(s.file)) body = `<video controls autoplay src="${url(s.file, '&inline=1')}" style="width:100%;height:100%;background:#000"></video>`;
@@ -1310,6 +1311,7 @@ const MAT = (() => {
 .matgi{cursor:grab;padding-right:4px}.matgi .matgl{border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;padding:0}.matgx{border:0;background:transparent;color:inherit;opacity:.45;cursor:pointer;font:700 13px/1 var(--font-body);padding:0 2px}.matgx:hover{opacity:1;color:var(--bad)}.matgi.drag{opacity:.35}.matgi.over{box-shadow:inset 3px 0 0 var(--brand,var(--accent))}.matgrpx{margin-left:4px}
 .mattag.mini{margin:0 0 0 6px;font-size:10px;padding:0 6px;background:var(--accent-soft);color:var(--accent);border-color:transparent}
 .mataoov{background:rgba(10,12,8,.18)!important;display:block!important;padding:0!important;overflow:hidden!important}.mataoov .matedbox{position:fixed;overflow:auto;box-shadow:0 16px 48px rgba(0,0,0,.35);max-width:none}
+.matwed{position:fixed;inset:0;z-index:9500;background:rgba(10,12,8,.6);display:flex;align-items:stretch;justify-content:center;padding:2vh 2vw}.matwbox{background:var(--bg,#f4f6ef);border-radius:14px;width:100%;max-width:1000px;padding:14px 16px;display:flex;flex-direction:column;min-height:0}.matwtb{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0}.matwsep{width:1px;height:22px;background:var(--line)}.matwpagew{flex:1;min-height:0;overflow:auto;background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:16px}.matwpage{background:#fff;color:#111;max-width:794px;min-height:900px;margin:0 auto;padding:48px 56px;box-shadow:0 2px 12px rgba(0,0,0,.15);font:15px/1.5 Calibri,Arial,sans-serif;outline:none}.matwpage table{border-collapse:collapse;width:100%}.matwpage td,.matwpage th{border:1px solid #888;padding:4px 6px;vertical-align:top}.matwpage img{max-width:100%}
 .mataows{margin-top:14px;padding:12px;border:1px solid var(--accent);border-radius:10px;background:var(--surface2)}.aoover{outline:3px solid var(--accent);outline-offset:2px}.mataot.drag{opacity:.4}
 .mataog{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;grid-auto-flow:row dense}.mataonew{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:12px;display:flex;flex-direction:column;gap:8px}.mataonew .matin{width:100%}.mataodz{border:2px dashed var(--line);border-radius:10px;padding:14px 10px;text-align:center;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;min-height:110px;justify-content:center}.mataodz:hover,.mataodz.over,.mataodz:focus{border-color:var(--accent);background:var(--accent-soft)}
 .mataop{grid-column:1/-1;border:1px solid var(--accent);border-radius:12px;padding:10px 14px;background:var(--surface2)}.mataot.on{outline:2px solid var(--accent)}
@@ -1407,6 +1409,49 @@ html:root .kmchip.matep{padding:3px 10px;font-size:12.5px;gap:4px;background:var
     put('settings', Object.assign({}, srcOf(wid), { file: nm, fileName: file.name, size: file.size, pages: raw.length >= 20 ? 1 : (srcOf(wid) || {}).pages }));
     if (raw.length >= 20) { T[wid] = { pages: [{ p: 1, t: raw }] }; await fput(QDIR + '/' + wid + '.json', new Blob([JSON.stringify(T[wid])], { type: 'application/json' })); }
     toast('Word-Datei ersetzt');
+  }
+  /* ---------- Word-Datei direkt im Programm bearbeiten ---------- */
+  const loadMammoth = () => loadScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js', 'mammoth');
+  async function openWordEditor(id) {
+    const s = srcOf(id); if (!s || !s.file || document.getElementById('matwed')) return;
+    const o = document.createElement('div'); o.id = 'matwed'; o.className = 'matwed'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true');
+    const T1 = (c, t, l) => `<button type="button" class="btn sm" data-wc="${c}"${l ? ` data-wv="${l}"` : ''} title="${t}">${t}</button>`;
+    o.innerHTML = `<div class="matwbox"><div class="row" style="align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0;flex:1;min-width:200px">${esc(s.vtitle || s.title)}</h2><span class="muted sm" id="matwst">Wird geladen …</span><button class="btn good" id="matwsave" disabled>Speichern</button><button class="btn" id="matwclose">Schließen</button></div>
+      <div class="matwtb">${T1('bold', '<b>F</b>')}${T1('italic', '<i>K</i>')}${T1('underline', '<u>U</u>')}<span class="matwsep"></span>${T1('formatBlock', 'Überschrift 1', 'h1')}${T1('formatBlock', 'Überschrift 2', 'h2')}${T1('formatBlock', 'Text', 'p')}<span class="matwsep"></span>${T1('insertUnorderedList', '• Liste')}${T1('insertOrderedList', '1. Liste')}<span class="matwsep"></span>${T1('justifyLeft', '⇤')}${T1('justifyCenter', '↔')}<span class="matwsep"></span>${T1('undo', '↶ Zurück')}${T1('redo', '↷ Wieder')}<span class="matwsep"></span><button type="button" class="btn sm" data-wtable>Tabelle</button><button type="button" class="btn sm" data-wlines title="Lücke zum Ausfüllen einfügen">Lücke ____</button></div>
+      <div class="matwpagew"><div class="matwpage" id="matwpage" contenteditable="true" spellcheck="true"></div></div>
+      <div class="muted sm" style="margin-top:6px">Speichern ersetzt die Word-Datei und aktualisiert die verknüpfte PDF. Die vorherige Fassung bleibt als „…vorher.docx“ im selben Ordner erhalten. Der Editor zeigt Text, Überschriften, Listen, Tabellen und Bilder; besondere Seitenlayouts (Spalten, Textfelder, Kopf-/Fußzeilen) werden vereinfacht.</div></div>`;
+    document.body.appendChild(o);
+    const pg = o.querySelector('#matwpage'), st = o.querySelector('#matwst'), sv = o.querySelector('#matwsave'); let dirty = false, busy = false;
+    const say = (t, bad) => { st.textContent = t; st.style.color = bad ? 'var(--bad,#b3261e)' : ''; };
+    const close = () => { if (dirty && !confirm('Es gibt ungespeicherte Änderungen. Trotzdem schließen?')) return; o.remove(); document.removeEventListener('keydown', onK, true); render(); };
+    const onK = (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save(); } else if (e.key === 'Escape' && !document.querySelector('.matask')) { e.preventDefault(); close(); } };
+    async function save() {
+      if (busy || !dirty) return; busy = true; sv.disabled = true; say('Wird gespeichert …');
+      try {
+        const html = pg.innerHTML, r = await fetch('/api/html2docx', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dst: s.file, html }) });
+        if (!r.ok) throw new Error(((await r.json().catch(() => ({}))).error) || 'Fehler ' + r.status);
+        const j = await r.json(), raw = (pg.textContent || '').replace(/\s+/g, ' ').trim(), cur = srcOf(id) || s;
+        put('settings', Object.assign({}, cur, { size: j.size || cur.size, pages: raw.length >= 20 ? 1 : cur.pages }));
+        if (raw.length >= 20) { T[id] = { pages: [{ p: 1, t: raw }] }; try { await fput(QDIR + '/' + id + '.json', new Blob([JSON.stringify(T[id])], { type: 'application/json' })); } catch (x) { /* */ } }
+        dirty = false; say('Gespeichert ✓');
+        const link = sources().find((x) => x.pdfFrom === id);
+        if (link) { say('Gespeichert ✓ · PDF wird aktualisiert …'); const n = await syncPdfs(true, link.id.replace(/^mat_/, '')); say(n ? 'Gespeichert ✓ · PDF aktualisiert ✓' : 'Gespeichert ✓ · PDF noch nicht aktualisiert: ' + (SY.msg[link.id] || 'siehe Arbeitsauftrag'), !n); }
+      } catch (e) { say('Fehler beim Speichern: ' + (e.message || e), true); dirty = true; }
+      busy = false; sv.disabled = !dirty;
+    }
+    o.addEventListener('mousedown', (e) => { if (e.target.closest('[data-wc],[data-wtable],[data-wlines]')) e.preventDefault(); });
+    o.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-wc]'), t = e.target.closest('[data-wtable]'), l = e.target.closest('[data-wlines]');
+      if (b) { pg.focus(); document.execCommand(b.dataset.wc, false, b.dataset.wv ? '<' + b.dataset.wv + '>' : null); dirty = true; sv.disabled = false; }
+      else if (t) { const c = parseInt(prompt('Wie viele Spalten?', '3'), 10), r = parseInt(prompt('Wie viele Zeilen?', '3'), 10); if (c > 0 && r > 0) { pg.focus(); document.execCommand('insertHTML', false, '<table border="1" style="border-collapse:collapse;width:100%">' + ('<tr>' + '<td>&nbsp;</td>'.repeat(c) + '</tr>').repeat(r) + '</table><p></p>'); dirty = true; sv.disabled = false; } }
+      else if (l) { pg.focus(); document.execCommand('insertText', false, '__________'); dirty = true; sv.disabled = false; }
+    });
+    pg.addEventListener('input', () => { dirty = true; sv.disabled = busy; });
+    sv.addEventListener('click', save); o.querySelector('#matwclose').addEventListener('click', close); document.addEventListener('keydown', onK, true);
+    try {
+      const M2 = await loadMammoth(), buf = await (await fetch(url(s.file), { credentials: 'same-origin' })).arrayBuffer(), res = await M2.convertToHtml({ arrayBuffer: buf });
+      pg.innerHTML = res.value || '<p></p>'; say('Bereit' + (res.messages && res.messages.length ? ' · ' + res.messages.length + ' Hinweis(e) zur Umwandlung' : '')); pg.focus();
+    } catch (e) { say('Konnte die Word-Datei nicht öffnen: ' + (e.message || e), true); }
   }
   function openAo(k, anchor) {
     if (document.getElementById('mataomod') || !aoMembers(k).length) return; const m = M(); m.aoOpen = k; let key = k;
