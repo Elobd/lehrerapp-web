@@ -440,6 +440,11 @@ const KM = (() => {
     items.forEach((e) => { const ids = Object.keys(e.pts || {}).filter((id) => has(e, { id })), cell = t.querySelector('[data-avg="' + e.id + '"]'); if (cell) cell.textContent = ids.length && +e.max ? Math.round(ids.reduce((a, id) => a + +e.pts[id], 0) * 100 / (ids.length * +e.max)) : ''; });
   }
   const prnIcon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="9" rx="2"/><path d="M7 14h10v7H7z"/></svg>';
+  /* Sport: Gefährdung nicht beurteilt = 40 % oder mehr fehlend bzw. 50 % oder mehr passiv */
+  function sportRisk(G, all) {
+    const r = all.map((x) => ({ x, s: stat(G, x) })).filter((r) => r.s.t > 0 && (r.s.b * 100 >= 40 * r.s.t || r.s.p * 100 >= 50 * r.s.t)).sort((a, b) => (b.s.b / b.s.t) - (a.s.b / a.s.t) || (b.s.p / b.s.t) - (a.s.p / a.s.t));
+    return `<div class="card"><h2>Gefährdung nicht beurteilt</h2>${r.length ? r.map(({ x, s }) => `<div class="kmli"><b>${esc(up(x.nn))}</b> ${esc(x.vn)} ${s.b * 100 >= 40 * s.t ? `<span class="kmp ab" title="fehlt">${s.pb} % fehlt</span>` : ''} ${s.p * 100 >= 50 * s.t ? `<span class="kmp pa" title="passiv">${s.pp} % passiv</span>` : ''}</div>`).join('') : '<div class="muted sm">Niemand gefährdet</div>'}<div class="muted sm" style="margin-top:6px">ab 40 % fehlend oder 50 % passiv</div></div>`;
+  }
   function subject(c, kd) {
     const G = primary(kd === 'gpb' ? c.gpb : c.bspk), ci = cinfo(G.slug), multi = G.classes.length > 1;
     const all = studentsSorted(G), fl = multi && U.kmcf && U.kmcf[G.slug] && G.classes.includes(U.kmcf[G.slug]) ? U.kmcf[G.slug] : '', both = (all.some((x) => x.g === 'm') && all.some((x) => x.g === 'w')) || (kd !== 'gpb' && all.length > 0), gf = both && U.kmgf && U.kmgf[G.slug] || '', list = all.filter((x) => (!fl || x.kl === fl) && (!gf || x.g === gf)), nl = nextLesson(G), lg = logOf(ci).filter((e) => e.text).slice(0, 3);
@@ -448,7 +453,8 @@ const KM = (() => {
     let cards = `<div class="kmgrid">
       <div class="card"><h2>Nächste Stunde</h2>${nl ? `<div class="kmbig" style="font-size:20px">${esc(dshort(nl.date))}</div><div class="muted">${nl.von ? esc(nl.von) + (nl.bis ? '–' + esc(nl.bis) : '') : ''}${nl.room ? (nl.von ? '<span class="kmsep">I</span>' : '') + esc(nl.room) : ''}</div><button class="btn sm" style="margin-top:8px" data-act="godate" data-slug="${G.slug}" data-d="${nl.date}">Stunde vorbereiten</button>` : '<div class="muted sm">Keine kommende Stunde</div>'}</div>
       <div class="card"><h2>Letzte Stundeninhalte</h2>${lg.length ? lg.map((e) => `<div class="kmli"><a href="#stunde-${G.slug}--${esc(e.id)}" data-act="go" data-v="stunde-${G.slug}--${esc(e.id)}"><b class="kmdt">${esc(dshort(e.date))}</b> ${esc(e.text)}</a></div>`).join('') : '<div class="muted sm">Noch kein Stoff eingetragen</div>'}<a class="kmmore" href="#klasse-${G.slug}" data-act="go" data-v="klasse-${G.slug}">Alle Stunden, Themen und Notizen ›</a></div>
-      <div class="card"><h2>Anstehende Tests</h2>${tests.length ? tests.map((t) => `<div class="kmli"><b>${esc(dshort(t.date))}</b> ${esc(t.title || KINDS[t.kind] || 'Test')} <span class="pill">${esc(KINDS[t.kind] || 'Test')}</span></div>`).join('') : '<div class="muted sm">Keine geplanten Tests</div>'}<a class="kmmore" href="#klasse-${G.slug}" data-act="go" data-v="klasse-${G.slug}">Tests verwalten ›</a></div>
+      ${kd === 'gpb' ? '' : sportRisk(G, all)}
+      ${kd !== 'gpb' ? '' : `<div class="card"><h2>Anstehende Tests</h2>${tests.length ? tests.map((t) => `<div class="kmli"><b>${esc(dshort(t.date))}</b> ${esc(t.title || KINDS[t.kind] || 'Test')} <span class="pill">${esc(KINDS[t.kind] || 'Test')}</span></div>`).join('') : '<div class="muted sm">Keine geplanten Tests</div>'}<a class="kmmore" href="#klasse-${G.slug}" data-act="go" data-v="klasse-${G.slug}">Tests verwalten ›</a></div>`}
     </div>`;
     const pn = U.prn && U.prn[G.slug], isG = kd === 'gpb';
     let tbl, gear = '', colPanel = '', cardsExtraInfo = '';
