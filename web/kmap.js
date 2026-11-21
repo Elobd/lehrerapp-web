@@ -444,7 +444,7 @@ const KM = (() => {
   /* Sport: Gefährdung nicht beurteilt = 40 % oder mehr fehlend bzw. 50 % oder mehr passiv */
   function sportRisk(G, all) {
     const r = all.map((x) => ({ x, s: stat(G, x) })).filter((r) => r.s.t > 0 && (r.s.b * 100 >= 40 * r.s.t || r.s.p * 100 >= 50 * r.s.t)).sort((a, b) => (b.s.b / b.s.t) - (a.s.b / a.s.t) || (b.s.p / b.s.t) - (a.s.p / a.s.t));
-    return `<div class="card"><h2>Gefährdung nicht beurteilt</h2>${r.length ? r.map(({ x, s }) => `<div class="kmli"><b>${esc(up(x.nn))}</b> ${esc(x.vn)} ${s.b * 100 >= 40 * s.t ? `<span class="kmp ab" title="fehlt">${s.pb} % fehlt</span>` : ''} ${s.p * 100 >= 50 * s.t ? `<span class="kmp pa" title="passiv">${s.pp} % passiv</span>` : ''}</div>`).join('') : '<div class="muted sm">Niemand gefährdet</div>'}<div class="muted sm" style="margin-top:6px">ab 40 % fehlend oder 50 % passiv</div></div>`;
+    return `<div class="card"><h2>Gefährdung nicht beurteilt</h2>${r.length ? r.map(({ x, s }) => `<div class="kmli kmrisk"><b>${esc(up(x.nn))}</b> ${esc(x.vn)}${s.b * 100 >= 40 * s.t ? `&nbsp;&nbsp;<b class="kmrsep">I</b>&nbsp;&nbsp;<span class="kmp ab" title="fehlt">${s.pb} % fehlt</span>` : ''}${s.p * 100 >= 50 * s.t ? `&nbsp;&nbsp;<b class="kmrsep">I</b>&nbsp;&nbsp;<span class="kmp pa" title="passiv">${s.pp} % passiv</span>` : ''}</div>`).join('') : '<div class="muted sm">Niemand gefährdet</div>'}<div class="muted sm" style="margin-top:6px">ab 40 % fehlend oder 50 % passiv</div></div>`;
   }
   function subject(c, kd) {
     const G = primary(kd === 'gpb' ? c.gpb : c.bspk), ci = cinfo(G.slug), multi = G.classes.length > 1;
@@ -720,7 +720,7 @@ html{overflow-y:scroll;scrollbar-gutter:stable}
 .kmtls{font-size:14px;line-height:1.5;display:grid;grid-template-columns:max-content max-content max-content max-content;align-items:baseline;margin-top:4px}.kmtl{display:contents}.kmd{font-weight:700;padding-right:1.2em}.kmt{white-space:nowrap}.kmsep{margin:0 .8em;color:var(--muted);font-weight:300}.kmsep.kmh1{margin:0 .7em}.kmr{white-space:nowrap;color:var(--muted)}
 .kmtls.inl{display:flex;flex-wrap:wrap;gap:2px 28px}.kmtls.inl .kmtl{display:inline-flex;align-items:baseline}.kmtls.inl .kmd{padding-right:.6em}
 .kmchk{margin-top:8px;display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--muted)}
-.kmli{padding:5px 0;border-top:1px solid var(--line);font-size:14px}.kmli:first-of-type{border-top:0}.kmli a{color:inherit;text-decoration:none}.kmli a:hover{color:var(--accent)}.kmli .kmdt{color:var(--accent)}
+.kmli{padding:5px 0;border-top:1px solid var(--line);font-size:14px}.kmli:first-of-type{border-top:0}.kmli a{color:inherit;text-decoration:none}.kmli a:hover{color:var(--accent)}.kmrisk{font-size:13px}.kmrisk .kmp{font-size:13px}.kmrsep{font-weight:700;color:var(--muted)}.kmli .kmdt{color:var(--accent)}
 .kmmore{display:inline-block;margin-top:8px;font-size:13px;font-weight:600;color:var(--accent);text-decoration:none}
 .kmtable{overflow-x:auto}.kmrow{display:grid;grid-template-columns:var(--kmgrid,34px 38px minmax(150px,1.6fr) 56px repeat(3,minmax(58px,.55fr)));gap:8px;align-items:center;padding:6px 8px;border-top:1px solid var(--line);min-width:var(--kmmin,520px)}
 .kmrow.kmgo{cursor:pointer}.kmrow.kmgo:hover{background:var(--accent-soft)}.kmth{font:700 11px var(--font-head);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-top:0;padding-bottom:4px}
