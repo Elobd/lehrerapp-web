@@ -390,6 +390,7 @@ const KM = (() => {
     st.act = faces().findIndex((f) => !f.sid); paint();
     if (focusSid && st.img) { const idx = faces().findIndex((f) => f.sid === focusSid); if (idx >= 0) { st.act = idx; paint(); const bxe = o.querySelector('.kmfx[data-i="' + idx + '"]'); if (bxe) { bxe.scrollIntoView({ block: 'center', inline: 'center' }); const r = bxe.getBoundingClientRect(); st.pop = { i: idx, x: r.right, y: r.top, hl: focusSid }; drawPop(); } } else { const pn = peopleOf(getC(), part).find((x) => skey(x) === focusSid); st.msg = 'Dieses Foto ist noch keinem Gesicht zugeordnet. Klicke auf das Gesicht von ' + (pn ? dname(pn) : 'der Person') + ' und wähle den Namen.'; paint(); } return; } if (autoDetect && st.img) run(); else if (st.img && faces().some((f) => !f.sid && !f.t) && subs().length) names();
   }
+  document.addEventListener('keydown', (e) => { const t = e.target; if (!t || !t.id || (t.id !== 'kmnn' && t.id !== 'kmvn')) return; if (e.key === 'Enter') { e.preventDefault(); const b = document.querySelector('[data-act="kmnamesave"]'); if (b) A.kmnamesave(b); } else if (e.key === 'Escape') { U.stuNameEdit = null; render(); } });
   /* Foto in der Schülerliste beim Darüberfahren vergrößern */
   let zoomEl = null;
   const hideZoom = () => { if (zoomEl) { zoomEl.remove(); zoomEl = null; } };
@@ -511,7 +512,7 @@ const KM = (() => {
     const back = c ? route(c.key, kd === 'gpb' ? 'g' : 's') : 'mappe';
     const perf = `<div class="card"><h2>Leistungen</h2>${(() => { const P = perfOf(G, x, visCols(c || { key: '' })); return P.tm ? `<div class="kmli"><b>Gesamt</b> ${pctL(P.pc)} <span class="muted sm">${r1(P.tp)} von ${r1(P.tm)} Punkten</span> · <b>${GRADES[P.note]}</b> (${P.note})</div>` : ''; })()}${colsDef().map((k) => { const its = resItems(G).filter((e) => e.col === k.id && has(e, x)); return `<div class="kmli"><b>${esc(k.name)}</b> ${pctL(colPct(G, x, k.id))}${its.map((e) => `<div class="muted sm">${esc(dshort(e.date))} · ${esc(e.title)}: ${fmt(e.pts[x.id])} / ${fmt(e.max)}</div>`).join('')}</div>`; }).join('')}</div>`;
     return `<div class="kmh"><a class="kmmore" href="#${back}" data-act="go" data-v="${back}">‹ Zurück zur Klassenmappe ${c ? esc(c.label) : ''}</a></div>
-    <section class="card kmprofile">${avSpan(x, 'kmavbig').replace('<span','<div').replace(/<\/span>$/,'</div>')}<div><h1 style="margin:0">${esc(up(x.nn))} ${esc(x.vn)}</h1><div class="muted">Klasse ${esc(x.kl || (c ? c.names[0] : ''))} · ${SUBJ[kd] || esc(G.subject)}${x.g === 'm' || x.g === 'w' ? ' · ' + x.g : ''}</div></div></section>
+    <section class="card kmprofile">${avSpan(x, 'kmavbig').replace('<span','<div').replace(/<\/span>$/,'</div>')}<div style="min-width:0;flex:1">${U.stuNameEdit === x.id ? `<div class="kmnmed"><label class="f"><span class="lsl">Nachname</span><input id="kmnn" class="kminp" value="${esc(x.nn)}" maxlength="60" autocomplete="off"></label><label class="f"><span class="lsl">Vorname</span><input id="kmvn" class="kminp" value="${esc(x.vn)}" maxlength="60" autocomplete="off"></label><span class="row" style="gap:6px"><button class="btn sm good" data-act="kmnamesave" data-slug="${G.slug}" data-id="${esc(x.id)}">Speichern</button><button class="btn sm" data-act="kmnameedit" data-id="">Abbrechen</button></span></div>` : `<div class="row" style="align-items:center;gap:8px"><h1 style="margin:0">${esc(up(x.nn))} ${esc(x.vn)}</h1><button class="lsedit" data-act="kmnameedit" data-id="${esc(x.id)}" title="Name ändern" aria-label="Name ändern">✎</button></div>`}<div class="muted">Klasse ${esc(x.kl || (c ? c.names[0] : ''))} · ${SUBJ[kd] || esc(G.subject)}${x.g === 'm' || x.g === 'w' ? ' · ' + x.g : ''}</div></div></section>
     <div class="kmgrid" style="margin-top:14px">
       ${kd === 'gpb' ? perf : `<div class="card"><h2>Anwesenheit</h2><div class="row" style="gap:14px">${pct(s.pa, 'ak')}${pct(s.pp, 'pa')}${pct(s.pb, 'ab')}</div><div class="muted sm" style="margin-top:6px">${s.t ? s.t + ' kontrollierte Stunden: ' + s.a + ' aktiv, ' + s.p + ' passiv, ' + s.b + ' abwesend' : 'Noch keine Kontrolle erfasst'}</div></div>`}
       <div class="card"><h2>Fehlzeiten</h2>${absDates.length ? absDates.slice(0, 12).map((e) => `<div class="kmli"><a href="#stunde-${slug}--${esc(e.id)}" data-act="go" data-v="stunde-${slug}--${esc(e.id)}">${esc(dshort(e.date))}</a></div>`).join('') : '<div class="muted sm">Keine</div>'}</div>
@@ -556,6 +557,16 @@ const KM = (() => {
     kmcoladd: () => { const i = document.getElementById('kmcolnew'), n = i ? i.value.trim() : ''; if (!n) return toast('Bitte einen Namen für die Spalte eingeben'); if (i) { i.value = ''; i.blur(); } saveCols(colsDef().concat([{ id: 'c' + Date.now().toString(36), name: n }])); toast('Spalte „' + n + '“ hinzugefügt'); },
     kmcoldel: (e) => { const k = colsDef().find((x) => x.id === e.dataset.col); if (!k || !confirm('Die Spalte „' + k.name + '“ samt allen zugehörigen Einträgen in allen Geschichte-Klassen löschen?')) return; saveCols(colsDef().filter((x) => x.id !== k.id)); Object.keys(S.settings).filter((n) => n.startsWith('kmr_')).forEach((n) => { const d = S.settings[n]; if (d && Array.isArray(d.items) && d.items.some((it) => it.col === k.id)) put('settings', Object.assign({}, d, { id: n, items: d.items.filter((it) => it.col !== k.id) })); }); },
     kmauto: () => { saveCfg({ manual: false, order: [], div: null }); toast('Reihenfolge wird automatisch gebildet'); },
+    kmnameedit: (e) => { U.stuNameEdit = e.dataset.id || null; render(); if (U.stuNameEdit) setTimeout(() => { const i = document.getElementById('kmvn'); if (i) { i.focus(); i.select(); } }, 30); },
+    kmnamesave: (e) => {
+      const nn = ((document.getElementById('kmnn') || {}).value || '').trim(), vn = ((document.getElementById('kmvn') || {}).value || '').trim(); if (!nn || !vn) return toast('Bitte Nachname und Vorname eintragen');
+      const G0 = groups().find((g) => g.slug === e.dataset.slug), x0 = G0 && (cinfo(G0.slug).students || []).find((q) => q.id === e.dataset.id); if (!x0) return;
+      const oldKey = skey(x0), nw = nn + '|' + vn; if (oldKey === nw.toLowerCase() && x0.nn === nn && x0.vn === vn) { U.stuNameEdit = null; return render(); }
+      groups().forEach((g) => { const ci = cinfo(g.slug); if (!Array.isArray(ci.students) || !ci.students.some((q) => skey(q) === oldKey)) return; put('settings', Object.assign({}, ci, { id: 'cn_' + g.slug, students: ci.students.map((q) => (skey(q) === oldKey ? Object.assign({}, q, { nn, vn }) : q)) })); });
+      const newKey = skey({ nn, vn }), ph = cfg().cphoto;
+      if (ph && newKey !== oldKey) { const a = JSON.parse(JSON.stringify(ph)); Object.values(a).forEach((m) => { (m.photos || [m]).forEach((p) => (p.faces || []).forEach((f) => { if (f.sid === oldKey) f.sid = newKey; })); }); saveCfg({ cphoto: a }); }
+      U.stuNameEdit = null; toast('Name geändert'); render();
+    },
     kmstu: (e) => setView('schueler-' + e.dataset.slug + '--' + e.dataset.id),
     prngf: (e) => { const p = U.prn && U.prn[e.dataset.slug]; if (!p) return; p.gf = e.dataset.g; render(); },
   });
@@ -761,6 +772,7 @@ html{overflow-y:scroll;scrollbar-gutter:stable}
 .kmno{color:var(--muted);text-align:right;font-size:13px}.kmnm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.kmcl{color:var(--muted);font-size:13px}.kmpc{text-align:center}
 .kmav{width:30px;height:30px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:inline-grid;place-items:center;font:700 11px var(--font-body)}
 .kmp{text-align:center;font-weight:700;font-size:14px}.kmp.ak{color:var(--good)}.kmp.pa{color:var(--warn)}.kmp.ab{color:var(--bad)}
+.kmnmed{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}.kmnmed .f{min-width:150px}.kmnmed .kminp{width:100%}
 .kmprofile{display:flex;gap:16px;align-items:center}.kmavbig{width:84px;height:84px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font:700 28px var(--font-body);flex:none}
 
 .kmcolh{display:flex;align-items:center;justify-content:center;gap:5px;cursor:grab;border-radius:7px;padding:3px 4px;text-transform:none}.kmcolh:hover{background:var(--accent-soft)}.kmcolh.drag{opacity:.4}.kmcolh.over{outline:2px dashed var(--accent);outline-offset:-2px}
