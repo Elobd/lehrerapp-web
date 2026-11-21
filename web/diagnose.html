@@ -12,7 +12,7 @@ async function f(u,o){try{const r=await fetch(u,Object.assign({credentials:'same
 document.getElementById('go').onclick=async()=>{
   out.innerHTML='';v.innerHTML='';
   const ver=await f('/version.txt');row(ver.s===200,'Oberfläche (Update-Dienst)',ver.s===200?'Stand: '+ver.t.trim():'version.txt nicht gefunden');
-  const ses=await f('/api/session');row(ses.s===200,'Anmeldung',ses.s===200?'angemeldet':'Bitte zuerst in der App anmelden und diese Seite danach öffnen.');
+  const ses=await f('/api/session');row(ses.s===200,'Verbindung zum Server',ses.s===200?'angemeldet, Server antwortet':ses.s===0?'KEINE VERBINDUNG zum Server ('+ses.err+'). Die Seite stammt nur aus dem Browser-Zwischenspeicher. Der Container lehrerapp oder Tailscale läuft nicht, oder dieses Gerät ist nicht mit Tailscale verbunden.':ses.s===401?'Nicht angemeldet. Bitte in der App anmelden.':'Unerwartete Antwort: '+ses.s);
   if(ses.s!==200)return;
   const sv=await f('/api/version');const newSrv=sv.s===200;
   row(newSrv,'Server-Programm (server.js)',newSrv?'neue Version läuft ('+sv.j.version+')':'ALTE Version läuft. Die neue server.js ist auf der NAS nicht aktiv.');
