@@ -509,6 +509,7 @@ const KM = (() => {
     v = String(v || ''); let m;
     if (/^mappe-/.test(v) && (m = v.match(/^mappe-(.*)-([igs])(?:-[^-]+)?$/))) { const c = classes().find((k) => k.key === m[1]); return 'Klassenmappe ' + (c ? esc(c.label) : '') + ' · ' + ({ i: 'Allgemein', g: 'Geschichte', s: 'Sport' }[m[2]]); }
     if (/^mappe/.test(v)) return 'Klassenmappen';
+    if (m = v.match(/^tests-(.+)$/)) { const g = groups().find((q) => q.slug === m[1]); return 'Testübersicht' + (g ? ' · ' + esc(g.label) : ''); }
     if (m = v.match(/^klasse-(.+)$/)) { const g = groups().find((q) => q.slug === m[1]); return 'Stunden, Themen und Notizen' + (g ? ' · ' + esc(g.label) : ''); }
     if (m = v.match(/^stunde-(.+?)--(.+)$/)) { const e2 = (cinfo(m[1]).log || []).find((x) => x.id === m[2]); return 'Stundenplanung' + (e2 ? ' · ' + esc(dshort(e2.date)) : ''); }
     if (m = v.match(/^schueler-(.+?)--(.+)$/)) { const s2 = (cinfo(m[1]).students || []).find((x) => x.id === m[2]); return s2 ? esc(s2.nn + ' ' + s2.vn) : 'Schülerseite'; }
@@ -1051,7 +1052,7 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
      Klassenseite (neu): Stunden, Tests, Schüler, Notizen – im Stil der Klassenmappen
      ==================================================================== */
   Object.assign(ICON, { n: { fill: false, d: '<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>' } });
-  const CTABS = { s: 'Stunden', t: 'Tests', u: 'Schüler', n: 'Notizen' }, CICON = { s: 'p', t: 'r', u: 'u', n: 'n' };
+  const CTABS = { s: 'Stunden', u: 'Schüler', n: 'Notizen' }, CICON = { s: 'p', u: 'u', n: 'n' };
   const clsState = () => (U.cls = U.cls || {});
   function classPage(slug) {
     const G = groups().find((g) => g.slug === slug);
@@ -1151,7 +1152,7 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
     tsadd: (e) => { const slug = e.dataset.slug, G = groups().find((g) => g.slug === slug), d = (document.getElementById('td') || {}).value, k = (document.getElementById('tk') || {}).value || 'test', ti = ((document.getElementById('tt') || {}).value || '').trim(); if (!G || !d) return toast('Bitte ein Datum wählen'); const nn = grpTests(G).filter((q) => q.kind === k).length + 1, id = uid('t'); put('tests', { id, cls: G.label, kind: k, date: d, title: String(nn).padStart(2, '0') + '. ' + (KINDS[k] || 'Test'), status: 'geplant' }); tsState()[slug] = id; toast('Test eingetragen'); },
     tsdel: (e) => { if (!confirm('Diesen Test samt Ergebnissen löschen?')) return; del('tests', e.dataset.id); if (tsState()[e.dataset.slug] === e.dataset.id) delete tsState()[e.dataset.slug]; toast('Test gelöscht'); },
     tsmiss: (e) => { const t = S.tests[e.dataset.tid]; if (!t) return; const o = Object.assign({}, t), l = new Set(Array.isArray(t.miss) ? t.miss : []); l.has(e.dataset.sid) ? l.delete(e.dataset.sid) : l.add(e.dataset.sid); o.miss = [...l]; put('tests', o); },
-    kmtests: (e) => { if (e.preventDefault) e.preventDefault(); clsState()[e.dataset.slug] = 't'; setView('klasse-' + e.dataset.slug); },
+    kmtests: (e) => { if (e.preventDefault) e.preventDefault(); setView('tests-' + e.dataset.slug); },
   });
   Object.assign(C, {
     tspart: (e) => { const st0 = tsState(), p = Object.assign({}, tsParts()); p[e.dataset.k] = !!e.checked; st0.parts = p; },
@@ -1173,9 +1174,16 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
   document.addEventListener('dragend', () => { tsDrag = null; document.querySelectorAll('.tsz').forEach((x) => x.classList.remove('over', 'lsarm')); });
   document.addEventListener('keydown', (ev) => { const t1 = ev.target; if (!t1 || !t1.classList || !t1.classList.contains('tsin')) return; const up = ev.key === 'ArrowUp', dn = ev.key === 'ArrowDown' || ev.key === 'Enter'; if (!up && !dn) return; ev.preventDefault(); const all = [...document.querySelectorAll('.tsin:not([disabled])')], i = all.indexOf(t1), nx = all[i + (up ? -1 : 1)]; if (nx) { nx.focus(); nx.select(); } else if (!up) t1.blur(); });
 
+  function testPage(slug) {
+    const G = groups().find((g) => g.slug === slug);
+    if (!G) return `<div class="kmh"><a class="kmmore" href="#mappe" data-act="go" data-v="mappe">‹ Zu den Klassenmappen</a></div><section class="card"><p class="muted">Diese Klasse ist im aktuellen Stundenplan nicht mehr vorhanden.</p></section>`;
+    const c = classes().find((k) => k.groups.some((g) => g.slug === G.slug)), kd = kind(G), back = c ? route(c.key, kd === 'gpb' ? 'g' : kd === 'bspk' ? 's' : 'i') : 'klassen', ci = cinfoV(G.slug);
+    const head = `<div class="kmh">${backLink(back, c ? 'Klassenmappe ' + esc(c.label) : 'Klassenmappe', 'margin:0 0 6px')}<h1>Testübersicht<span class="kmsep kmh1">I</span><span class="muted" style="font-weight:500">${c ? 'Klasse ' + disp(c) : esc(G.label)} · ${SUBJ[kd] || esc(G.subject)}</span></h1></div>`;
+    return `<div class="km">${head}<section class="kmmain">${testsPage(G, c, ci)}</section></div>`;
+  }
   Object.assign(A, { clstab: (e) => { clsState()[e.dataset.slug] = e.dataset.t; render(); } });
 
-  return { view, studentPage, sorted, classes, lessonPage, classPage };
+  return { view, studentPage, sorted, classes, lessonPage, classPage, testPage };
 })();
 render();
 /* Stand der Programmdateien anzeigen (schreibt der Update-Dienst der NAS) */
