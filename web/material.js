@@ -25,6 +25,15 @@ const MAT = (() => {
   /* ---------- YouTube-Infos ---------- */
   const isYt = (u) => /^(https?:\/\/)?((www|m|music)\.)?(youtube\.com|youtu\.be|youtube-nocookie\.com)\//i.test(String(u || '').trim());
   const dur = (sec) => { sec = +sec; if (!(sec >= 0)) return ''; const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60; return (h ? h + ':' + pad2(m) : m) + ':' + pad2(s) + (h ? ' Std' : ' Min'); };
+  const durIn = (sec) => { sec = +sec; if (!(sec >= 0) || sec !== sec) return ''; const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = Math.round(sec % 60); return h ? h + ':' + pad2(m) + ':' + pad2(s) : m + ':' + pad2(s); };
+  const parseDur = (t) => {
+    t = String(t || '').trim().toLowerCase().replace(',', '.'); if (!t) return null; let m;
+    if ((m = /^(\d+):(\d{1,2}):(\d{1,2})$/.exec(t))) return +m[1] * 3600 + +m[2] * 60 + +m[3];
+    if ((m = /^(\d+):(\d{1,2})$/.exec(t))) return +m[1] * 60 + +m[2];
+    if ((m = /^(?:(\d+)\s*(?:std|h)\.?)?\s*(?:(\d+)\s*(?:min|m)\.?)?\s*(?:(\d+)\s*(?:sek|s)\.?)?$/.exec(t)) && (m[1] || m[2] || m[3])) return (+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0);
+    if (/^\d+(\.\d+)?$/.test(t)) return Math.round(parseFloat(t) * 60);
+    return NaN;
+  };
   async function ytFetch(u) {
     const r = await fetch('/api/yt?url=' + encodeURIComponent(u), { credentials: 'same-origin' });
     const j = await r.json().catch(() => ({}));
@@ -523,7 +532,7 @@ const MAT = (() => {
       if (d.kind === 'pdf') await readPdf(d, f);
       else if (d.kind === 'epub') await readEpub(d, f);
       else if (d.kind === 'ppt') await readPptx(d, f);
-      else if (d.kind === 'video') { const v = await videoMeta(f); d.seconds = v.seconds; d.thumbBlob = v.thumb; d.meta = [['Dauer', v.seconds != null ? dur(v.seconds) : 'unbekannt'], ['Dateigröße', mb(f.size)], ['Datei', f.name]]; }
+      else if (d.kind === 'video') { const v = await videoMeta(f); d.seconds = v.seconds; d.f.dur = durIn(v.seconds); d.thumbBlob = v.thumb; d.meta = [['Dauer', v.seconds != null ? dur(v.seconds) : 'unbekannt'], ['Dateigröße', mb(f.size)], ['Datei', f.name]]; }
       else if (d.kind === 'bild') {
         const Tess = await loadOcr(); d.thumbBlob = d.files[0];
         for (let i = 0; i < d.files.length; i++) { d.prog = 'Texterkennung Bild ' + (i + 1) + ' von ' + d.files.length; render(); const r = await Tess.recognize(d.files[i], 'deu'); d.pages.push({ p: i + 1, t: (r.data.text || '').replace(/-\n/g, '').replace(/\s*\n\s*/g, ' ').replace(/\s+/g, ' ').trim() }); }
@@ -533,7 +542,7 @@ const MAT = (() => {
         d.pages.push({ p: 1, t: raw.replace(/\u0000/g, '').replace(/\s+/g, ' ').trim() }); d.meta = [['Wörter', String(d.pages[0].t.split(' ').length)], ['Dateigröße', mb(f.size)], ['Datei', f.name]];
       } else if (d.kind === 'datei') { d.mode = 'file'; d.meta = [['Dateigröße', mb(f.size)], ['Datei', f.name]]; d.warn = 'Dieses Format kenne ich nicht. Es wird als Datei abgelegt (nicht durchsuchbar), oder du wählst „Als Text lesen“.'; }
       else if (d.kind === 'yt') {
-        const i = await ytFetch(d.u); Object.assign(d.f, { title: i.title || d.u, channel: i.channel || '', channelUrl: i.channelUrl || '', url: i.url }); d.desc = i.description || ''; d.seconds = i.seconds; d.dl = true; d.vid = ytVid(i.url);
+        const i = await ytFetch(d.u); Object.assign(d.f, { title: i.title || d.u, channel: i.channel || '', channelUrl: i.channelUrl || '', url: i.url }); d.desc = i.description || ''; d.seconds = i.seconds; d.f.dur = durIn(i.seconds); d.dl = true; d.vid = ytVid(i.url);
         d.meta = [['Dauer', i.seconds != null ? dur(i.seconds) : 'unbekannt']];
       } else if (d.kind === 'link') { let t = d.u; try { const x = new URL(d.u); t = x.hostname.replace(/^www\./, '') + (x.pathname.length > 1 ? x.pathname.slice(0, 40) : ''); } catch (e) { /* */ } d.f.title = t; d.f.url = d.u; }
       if (d.thumbBlob && !d.thumbUrl) d.thumbUrl = URL.createObjectURL(d.thumbBlob); if (d.cover && !d.thumbUrl) d.thumbUrl = URL.createObjectURL(d.cover.blob);
@@ -570,6 +579,7 @@ const MAT = (() => {
       const f = d.f, tagFix = { epoche: d.ep, tags: d.tg, keys: d.keys };
       const type = d.kind === 'pdf' ? 'pdf' : d.kind === 'epub' ? 'buch' : d.kind === 'yt' || d.kind === 'video' ? 'video' : 'sonst';
       const extra = { lock: true, tpos: d.tpos || null, cls: d.cls || {}, kind: d.art || artOf(d), auto: tagFix, author: f.author || '', publisher: f.publisher || '', lang: f.lang || '', year: f.year || '', fileName: d.name || '', size: d.file ? d.file.size : 0 };
+      if (d.kind === 'yt' || d.kind === 'video') { const ps = parseDur(f.dur); if (ps != null && !Number.isNaN(ps)) d.seconds = ps; else if (!String(f.dur || '').trim()) d.seconds = null; }
       let id;
       if (d.kind === 'yt') { id = newSrc(f.title, 'video', Object.assign(extra, { url: f.url, vtitle: f.title, channel: f.channel, channelUrl: f.channelUrl, seconds: d.seconds == null ? null : d.seconds, desc: d.desc || '' })); }
       else if (d.kind === 'link') id = newSrc(f.title, 'sonst', Object.assign(extra, { url: f.url }));
@@ -622,7 +632,8 @@ const MAT = (() => {
     if (k === 'epub') rows.push(fld(d, 'author', 'Autor'), fld(d, 'publisher', 'Verlag'), fld(d, 'lang', 'Sprache'), fld(d, 'year', 'Jahr'));
     if (k === 'yt') rows.push(ro('Kanal', d.f.channel || '–', d.f.channelUrl), ro('Video', d.f.url, d.f.url));
     if (k === 'link') rows.push(ro('Adresse', d.f.url, d.f.url));
-    d.meta.forEach(([a, b]) => { if (a !== 'Datei') rows.push(ro(a, b)); });
+    if (k === 'yt' || k === 'video') rows.push(fld(d, 'dur', 'Länge', 'mm:ss oder h:mm:ss'));
+    d.meta.forEach(([a, b]) => { if (a !== 'Datei' && !((k === 'yt' || k === 'video') && a === 'Dauer')) rows.push(ro(a, b)); });
     const allTg = TAGS.map((t) => t[0]).filter((x) => !EPOCHS.includes(x)), rest = allTg.filter((x) => !d.tg.includes(x));
     const hasPic = !!ths && !d.noThumb;
     return `<section class="card matdraft" tabindex="-1" data-d="${did}">${head}
@@ -723,7 +734,7 @@ const MAT = (() => {
       ${thumbBlock(s, id)}
       ${row('Art', `<span class="chips">${kindsOrdered().map(([k, n]) => `<button class="mattag sel matkindchip${kindOf(s) === k ? ' on' : ''}" draggable="true" data-k="${k}" title="Ziehen zum Verschieben" data-act="matkind" data-id="${id}" data-v="${k}">${n}</button>`).join('')}</span>`)}
       ${clsRows(s.cls, 'matcls', 'data-id="' + id + '"')}
-      ${row('Titel', `<input class="matin" data-ch="matttl" data-id="${id}" value="${esc(s.vtitle || s.title)}">`)}${yt}${ang}
+      ${row('Titel', `<input class="matin" data-ch="matttl" data-id="${id}" value="${esc(s.vtitle || s.title)}">`)}${kindOf(s) === 'video' ? row('Länge', `<input class="matin" data-ch="matdurin" data-id="${id}" value="${esc(durIn(s.seconds))}" placeholder="mm:ss oder h:mm:ss" style="width:160px"> <span class="muted sm">z. B. 12:34 oder 1:05:20</span>`) : ''}${yt.replace(/<div class="kmkvr"><span class="kmk">Dauer<\/span>[\s\S]*?<\/div>/, '')}${ang}
       ${s.file ? row('Öffnen', `<a href="${url(s.file, /\.pdf$/i.test(s.file) ? '&inline=1' : '')}" target="_blank">${/\.pdf$/i.test(s.file) ? 'PDF ansehen' : 'Datei öffnen'}</a>`) : ''}
       ${isYt(s.url) ? `<div class="kmkvr"><span class="kmk">Video-Datei</span><span class="kmv">${videoBlock(s, id).replace('margin-top:10px', 'margin-top:0')}</span></div>` : ''}
       <div class="kmkvr"><span class="kmk">Epoche</span><span class="kmv chips">${tog(EPOCHS, t.epoche, true)}</span></div>
@@ -743,7 +754,7 @@ const MAT = (() => {
     const view = m.view || 'liste';
     const rows = shown.map((s, i) => {
       const id = s.id.replace(/^mat_/, ''), on = m.open === id;
-      return `<div class="kmrow kmgo${on ? ' matsel' : ''}" data-act="matpop" data-id="${id}" tabindex="0" role="link"><span class="kmno">${i + 1}</span><span class="matth2">${thumbOf(s)}</span><span class="kmnm">${m.editT === id ? `<input class="matin matte" id="mat-ti-${id}" data-act="matnop" data-ch="mattitlein" data-id="${id}" value="${esc(s.vtitle || s.title)}">` : `<b class="mattitle" data-act="mattitleclick" data-id="${id}" title="Klick: öffnen · Doppelklick: umbenennen">${esc(s.vtitle || s.title)}</b>`}<small class="muted"> ${esc(s.channel || s.author || '')}</small></span><span class="matc matpick" data-act="matkindmenu" data-id="${id}" title="Art ändern">${esc((KINDS.find(([k]) => k === kindOf(s)) || [0, ''])[1])}${s.dl && s.dl.state === 'done' ? ' <b class="matnas2">NAS</b>' : ''}</span><span class="matc chips2 matpick" data-act="matepmenu" data-id="${id}" title="Epoche ändern">${epTags(s)}</span>${groups().map((g) => `<span class="matc matpick" data-act="matclsmenu" data-id="${id}" data-g="${g.id}" title="${esc(g.name)} ändern">${((s.cls || {})[g.id] || []).map((x) => `<span class="mattag mini">${esc(x)}</span>`).join('') || '<span class="muted sm">–</span>'}</span>`).join('')}<span class="matc">${esc(umfang(s))}</span><button class="matedit2" data-act="matopen" data-id="${id}" aria-expanded="${on}" aria-label="Bearbeiten" title="Bearbeiten"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button></div>`;
+      return `<div class="kmrow kmgo${on ? ' matsel' : ''}" data-act="matpop" data-id="${id}" tabindex="0" role="link"><span class="kmno">${i + 1}</span><span class="matth2">${thumbOf(s)}</span><span class="kmnm">${m.editT === id ? `<input class="matin matte" id="mat-ti-${id}" data-act="matnop" data-ch="mattitlein" data-id="${id}" value="${esc(s.vtitle || s.title)}">` : `<b class="mattitle" data-act="mattitleclick" data-id="${id}" title="Klick: öffnen · Doppelklick: umbenennen">${esc(s.vtitle || s.title)}</b>`}<small class="muted"> ${esc(s.channel || s.author || '')}</small></span><span class="matc matpick" data-act="matkindmenu" data-id="${id}" title="Art ändern">${esc((KINDS.find(([k]) => k === kindOf(s)) || [0, ''])[1])}${s.dl && s.dl.state === 'done' ? ' <b class="matnas2">NAS</b>' : ''}</span><span class="matc chips2 matpick" data-act="matepmenu" data-id="${id}" title="Epoche ändern">${epTags(s)}</span>${groups().map((g) => `<span class="matc matpick" data-act="matclsmenu" data-id="${id}" data-g="${g.id}" title="${esc(g.name)} ändern">${((s.cls || {})[g.id] || []).map((x) => `<span class="mattag mini">${esc(x)}</span>`).join('') || '<span class="muted sm">–</span>'}</span>`).join('')}${kindOf(s) === 'video' ? `<span class="matc matpick" data-act="matdurmenu" data-id="${id}" title="Länge des Videos eintragen">${s.seconds != null ? esc(umfang(s)) : '<span class="muted sm">Länge eintragen</span>'}</span>` : `<span class="matc">${esc(umfang(s))}</span>`}<button class="matedit2" data-act="matopen" data-id="${id}" aria-expanded="${on}" aria-label="Bearbeiten" title="Bearbeiten"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button></div>`;
     }).join('');
     const tile = (s) => { const id = s.id.replace(/^mat_/, ''), on = m.open === id, e0 = tagsOf(s).epoche[0]; return `<div class="mattile${on ? ' on' : ''}${e0 ? ' hasep' : ''}"${epS(e0)}><button class="matmain" data-act="matpop" data-id="${id}" title="Öffnen: ${esc(s.title)}"><span class="matth">${thumbOf(s, true)}${s.dl && s.dl.state === 'done' ? '<b class="matnas" title="Video liegt auf der NAS">NAS</b>' : ''}${s.seconds != null ? `<b class="matdur">${esc(dur(s.seconds).replace(/ (Min|Std)$/, ''))}</b>` : ''}</span><span class="matti">${esc(s.vtitle || s.title)}</span><span class="matsub">${epTags(s)}</span></button><button class="matedit" data-act="matopen" data-id="${id}" aria-expanded="${on}" aria-label="Bearbeiten" title="Bearbeiten"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button></div>`; };
     const body = !list.length ? '<p class="muted" style="margin:0">Noch keine Quellen. Ziehe oben ein PDF, ein Video oder einen YouTube-Link hinein.</p>'
@@ -797,6 +808,7 @@ const MAT = (() => {
       m.tclk = { id, t: now, timer: setTimeout(() => { m.tclk = null; popup(id); }, 330) };
     },
     matclsmenu: (e) => { const id = e.dataset.id, s = srcOf(id), g = groups().find((x) => x.id === e.dataset.g); if (!s || !g) return; const cur = (s.cls || {})[g.id] || []; openMenu(e, `<div class="matmt">${esc(g.name)}</div>${g.items.map((x) => `<button class="matmi${cur.includes(x) ? ' on' : ''}" data-pick="${esc(x)}">${esc(x)}${cur.includes(x) ? ' ✓' : ''}</button>`).join('') || '<div class="muted sm" style="padding:6px 10px">Noch keine Felder. In der Bearbeitung mit „+ neu“ anlegen.</div>'}`, (x) => { put('settings', Object.assign({}, srcOf(id), { cls: clsToggle(srcOf(id).cls, g.id, x) })); render(); }); },
+    matdurmenu: (e) => { const id = e.dataset.id, s = srcOf(id); if (!s) return; openMenu(e, `<div class="matmt">Länge des Videos</div><div style="padding:4px 8px 8px"><input class="matin" value="${esc(durIn(s.seconds))}" placeholder="mm:ss oder h:mm:ss" style="width:180px"><div class="muted sm" style="margin:4px 0">z. B. 12:34 oder 1:05:20</div><button class="matmi" data-pick="ok" style="justify-content:center;background:var(--accent-soft)">Speichern</button></div>`, (x, v) => { const ps = parseDur(v); if (Number.isNaN(ps)) return toast('Das Format kenne ich nicht. Bitte so eingeben: 12:34 oder 1:05:20'); put('settings', Object.assign({}, srcOf(id), { seconds: ps })); render(); }); },
     matkindmenu: (e) => { const id = e.dataset.id, s = srcOf(id); if (!s) return; openMenu(e, `<div class="matmt">Art ändern</div>${kindsOrdered().map(([k, n]) => `<button class="matmi${kindOf(s) === k ? ' on' : ''}" data-pick="${k}">${esc(n)}</button>`).join('')}`, (k) => { put('settings', Object.assign({}, srcOf(id), { kind: k })); render(); }); },
     matepmenu: (e) => { const id = e.dataset.id, s = srcOf(id); if (!s) return; const cur = tagsOf(s).epoche; openMenu(e, `<div class="matmt">Epoche wählen</div>${EPOCHS.map((x) => `<button class="matmi${cur.includes(x) ? ' on' : ''}" data-pick="${esc(x)}"><i class="matdot" style="background:${EPCOL[x]}"></i>${esc(x)}${cur.includes(x) ? ' ✓' : ''}</button>`).join('')}`, (x) => A.mattoggle({ dataset: { id, t: x } })); },
     matkind: (e) => { const s = srcOf(e.dataset.id); if (s) { put('settings', Object.assign({}, s, { kind: e.dataset.v })); render(); } },
@@ -863,6 +875,7 @@ const MAT = (() => {
     matgnew: (e) => { const v = e.value.trim(); if (!v) return; const g = groups().map((x) => Object.assign({}, x, { items: x.items.slice() })), gr = g.find((x) => x.id === e.dataset.g); if (!gr) return; if (!gr.items.includes(v)) gr.items.push(v); saveGroups(g); e.value = ''; render(); },
     matakey: (e) => { const v = e.value.trim(); if (!v) return; const s = srcOf(e.dataset.id); if (!s) return; put('settings', Object.assign({}, s, { mankeys: [...new Set((s.mankeys || []).concat(v))], hid: (s.hid || []).filter((x) => x !== v) })); e.value = ''; render(); },
     mdkey: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d), v = e.value.trim(); if (!d || !v) return; if (!d.keys.includes(v)) d.keys.push(v); e.value = ''; render(); },
+    matdurin: (e) => { const s = srcOf(e.dataset.id); if (!s) return; const ps = parseDur(e.value); if (Number.isNaN(ps)) return toast('Das Format kenne ich nicht. Bitte so eingeben: 12:34 oder 1:05:20'); put('settings', Object.assign({}, s, { seconds: ps })); render(); },
     matttl: (e) => { const s = srcOf(e.dataset.id); if (!s) return; const v = e.value.trim(); if (v) put('settings', Object.assign({}, s, s.vtitle ? { vtitle: v, title: v } : { title: v })); render(); },
     matnote: (e) => { const s = srcOf(e.dataset.id); if (s) put('settings', Object.assign({}, s, { notes: e.value })); },
     matsel: (e) => { const x = M().sel[+e.dataset.i]; if (x) x.t = e.value; },
@@ -923,8 +936,10 @@ const MAT = (() => {
     if (menuSkip && menuSkip === keyOf(el)) { menuSkip = ''; return; }
     closeMenu(); const r = el.getBoundingClientRect(), m = document.createElement('div'); m.className = 'matmenu'; m.innerHTML = html;
     m.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 240)) + 'px'; m.style.top = Math.min(r.bottom + 4, window.innerHeight - 300) + 'px';
-    m.addEventListener('click', (ev) => { const b = ev.target.closest('[data-pick]'); if (b) { const v = b.dataset.pick; closeMenu(); pick(v); } });
-    document.body.appendChild(m); menuEl = m; menuKey = keyOf(el);
+    const fire = (v) => { const inp = m.querySelector('input'), iv = inp ? inp.value : ''; closeMenu(); pick(v, iv); };
+    m.addEventListener('click', (ev) => { const b = ev.target.closest('[data-pick]'); if (b) fire(b.dataset.pick); });
+    m.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && m.querySelector('input')) { ev.preventDefault(); fire('ok'); } });
+    document.body.appendChild(m); menuEl = m; menuKey = keyOf(el); const fi = m.querySelector('input'); if (fi) setTimeout(() => { fi.focus(); fi.select(); }, 20);
   }
   document.addEventListener('click', (e) => { if (menuEl && !menuEl.contains(e.target)) { const a = e.target.closest && e.target.closest('[data-act]'); if (a && keyOf(a) === menuKey) { menuSkip = menuKey; setTimeout(() => { menuSkip = ''; }, 0); } closeMenu(); } }, true);
   /* Klick außerhalb der Bearbeiten-Karte schließt sie */
