@@ -321,7 +321,7 @@ const KM = (() => {
   /* Semesternoten: mit gedrückter Maustaste mehrere Felder markieren, Entf löscht alle markierten */
   { let ds = null, sel = [], swallow = 0;
     document.addEventListener('click', (e) => { if (Date.now() - swallow < 300) { e.stopPropagation(); e.preventDefault(); } }, true);
-    const clearSel = () => { sel.forEach((x) => x.classList.remove('kmsel')); sel = []; };
+    const clearSel = () => { sel.forEach((x) => x.classList.remove('kmsel')); sel = []; if (ta && document.activeElement === ta) ta.blur(); };
     const inRect = (a, b) => { const r1 = a.getBoundingClientRect(), r2 = b.getBoundingClientRect(), x0 = Math.min(r1.left, r2.left), x1 = Math.max(r1.right, r2.right), y0 = Math.min(r1.top, r2.top), y1 = Math.max(r1.bottom, r2.bottom); return [...document.querySelectorAll('.kmsmi')].filter((x) => { const r = x.getBoundingClientRect(), cx = (r.left + r.right) / 2, cy = (r.top + r.bottom) / 2; return cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1; }); };
     document.addEventListener('pointerdown', (e) => { const t = e.target; if (e.button === 0 && t.classList && t.classList.contains('kmsmi') && e.pointerType === 'mouse') ds = { el: t, multi: false }; else { ds = null; if (!(t.closest && t.closest('.kmsel'))) clearSel(); } }, true);
     document.addEventListener('pointermove', (e) => {
@@ -329,7 +329,13 @@ const KM = (() => {
       if (!ds.multi) { if (!t || t === ds.el) return; ds.multi = true; if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); document.body.style.userSelect = 'none'; const sl = window.getSelection && window.getSelection(); if (sl) sl.removeAllRanges(); }
       e.preventDefault(); if (t) { clearSel(); sel = inRect(ds.el, t); sel.forEach((x) => x.classList.add('kmsel')); }
     }, true);
-    document.addEventListener('pointerup', () => { if (ds && ds.multi) { document.body.style.userSelect = ''; swallow = Date.now(); const k = document.querySelector('.kmsel'); if (k) toast(sel.length + ' Felder markiert · Entf löscht sie'); } ds = null; }, true);
+    document.addEventListener('pointerup', () => { if (ds && ds.multi) { document.body.style.userSelect = ''; swallow = Date.now(); if (sel.length) { grab(); toast(sel.length + ' Felder markiert · Strg+C kopiert, Entf löscht'); } } ds = null; }, true);
+    const tsv = () => { const rows = []; sel.forEach((x) => { const r = x.closest('.kmrow'); if (r && !rows.includes(r)) rows.push(r); }); const cols = [...new Set(sel.map((x) => x.dataset.s))].sort(); return rows.map((r) => cols.map((c) => { const x = sel.find((y) => y.dataset.s === c && y.closest('.kmrow') === r); return x ? x.value : ''; }).join('\t')).join('\n'); };
+    let ta = null; const grab = () => { if (!ta) { ta = document.createElement('textarea'); ta.setAttribute('aria-hidden', 'true'); ta.tabIndex = -1; ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0'; document.body.appendChild(ta); } ta.value = tsv(); ta.focus({ preventScroll: true }); ta.select(); };
+    document.addEventListener('copy', (e) => {
+      if (!sel.length || !e.clipboardData) return;
+      e.clipboardData.setData('text/plain', tsv()); e.preventDefault(); toast(sel.length + ' Felder kopiert');
+    }, true);
     document.addEventListener('keydown', (ev) => {
       if (!sel.length) return;
       if (ev.key === 'Escape') { clearSel(); return; }
