@@ -621,9 +621,9 @@ const MAT = (() => {
     m.dedupBusy = false;
     if (drop.length) { toast(drop.length === 1 ? 'Ein Duplikat („' + (drop[0].s.vtitle || drop[0].s.title) + '“) wurde automatisch gelöscht.' : drop.length + ' Duplikate wurden automatisch gelöscht.'); render(); }
   }
-  async function intake(files, text) {
+  async function intake(files, text, att) {
     const m = M(); note(); const imgs = [];
-    const push = (d) => { m.drafts.push(d); return d; };
+    const push = (d) => { d.attach = att === undefined ? m.attach || null : att; m.drafts.push(d); return d; };
     const todo = [];
     const skipped = [];
     for (const f of files || []) {
@@ -658,6 +658,7 @@ const MAT = (() => {
       const f = d.f, tagFix = { epoche: d.ep, tags: d.tg, keys: d.keys };
       const type = d.kind === 'pdf' ? 'pdf' : d.kind === 'epub' ? 'buch' : d.kind === 'yt' || d.kind === 'video' ? 'video' : 'sonst';
       const extra = { lock: true, hash: d.hash || textHash(d), tpos: d.tpos || null, cls: d.cls || {}, kind: d.art || artOf(d), auto: tagFix, author: f.author || '', publisher: f.publisher || '', lang: f.lang || '', year: f.year || '', fileName: d.name || '', size: d.file ? d.file.size : 0 };
+      if (d.attach) { extra.pending = true; extra.pfrom = { slug: d.attach.slug, lid: d.attach.lid, date: d.attach.date || '', label: d.attach.label || '' }; }
       if (d.kind === 'yt' || d.kind === 'video') { const ps = parseDur(f.dur); if (ps != null && !Number.isNaN(ps)) d.seconds = ps; else if (!String(f.dur || '').trim()) d.seconds = null; }
       let id;
       if (d.kind === 'yt') { id = newSrc(f.title, 'video', Object.assign(extra, { url: f.url, vtitle: f.title, channel: f.channel, channelUrl: f.channelUrl, seconds: d.seconds == null ? null : d.seconds, desc: d.desc || '' })); }
@@ -682,7 +683,7 @@ const MAT = (() => {
       if (d.kind === 'yt' && d.dl) startDownload(id);
       if (!d.noThumb && !d.thumbBlob && !d.cover && d.kind !== 'yt' && d.kind !== 'ppt') autoThumb(id, false);
       if (d.thumbUrl && d.thumbUrl.startsWith('blob:')) URL.revokeObjectURL(d.thumbUrl);
-      m.drafts = m.drafts.filter((x) => x.id !== d.id); m.open = null; toast('Angelegt und auf der NAS gespeichert'); if (m.attach) document.dispatchEvent(new CustomEvent('matcreated', { detail: { id, attach: m.attach } }));
+      m.drafts = m.drafts.filter((x) => x.id !== d.id); m.open = null; toast('Angelegt und auf der NAS gespeichert'); if (d.attach) document.dispatchEvent(new CustomEvent('matcreated', { detail: { id, attach: d.attach } }));
     } catch (e) { d.status = 'ready'; d.err = e.message || String(e); if (/Failed to fetch|NetworkError|Load failed/i.test(d.err)) d.err = 'Keine Verbindung zum Server auf der NAS (Container lehrerapp oder Tailscale läuft nicht, oder die Datei ist zu groß).'; note('err', 'Anlegen fehlgeschlagen: ' + d.err); }
     render();
   }
@@ -838,6 +839,7 @@ const MAT = (() => {
   function quellen() {
     const m = M(), list = sources(), f = filterOf(), shown = list.filter(matches), act = f.q || f.e || f.a || f.t.length;
     const { zone, drafts } = addParts(); m.attach = null;
+    const pend = list.filter((x) => x.pending), pendCard = pend.length ? `<section class="card matpend"><div class="row" style="align-items:center;gap:10px;margin-bottom:8px"><h2 style="margin:0">Während der Stundenplanung hinzugefügt (${pend.length})</h2><span class="muted sm">Bitte prüfen und bestätigen</span><span style="flex:1"></span>${pend.length > 1 ? '<button class="btn sm good" data-act="matconfirmall">Alle bestätigen</button>' : ''}</div>${pend.map((x) => { const id = x.id.replace(/^mat_/, ''), pf = x.pfrom || {}; return `<div class="kmli matpendr"><span class="matth2">${thumbOf(x)}</span><span style="flex:1;min-width:0"><b>${esc(x.vtitle || x.title || 'Quelle')}</b><br><small class="muted">${pf.date ? 'Stunde ' + esc(String(pf.date).split('-').reverse().slice(0, 2).join('.')) + '.' : 'Stundenplanung'}${pf.label ? ' · ' + esc(pf.label) : ''}</small></span><button class="btn sm" data-act="matpop" data-id="${id}">Ansehen</button><button class="btn sm" data-act="matpedit" data-id="${id}">Bearbeiten</button><button class="btn sm good" data-act="matconfirm" data-id="${id}">Bestätigen</button></div>`; }).join('')}</section>` : '';
     const cnt = {}; list.forEach((x) => { const t = tagsOf(x); t.tags.forEach((y) => { cnt[y] = (cnt[y] || 0) + 1; }); });
     const tg = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a] || a.localeCompare(b, 'de')), top = tg.slice(0, 12), more = tg.slice(12);
     const tgb = (x) => `<button class="mattag tg sel${f.t.includes(x) ? ' on' : ''}" data-act="matft" data-v="${esc(x)}">${esc(x)}<small> ${cnt[x]}</small></button>`;
@@ -861,7 +863,7 @@ const MAT = (() => {
       ${tg.length ? `<div class="chips" style="margin-bottom:12px"><span class="muted sm">Themen:</span>${top.map(tgb).join('')}${more.length ? `<details class="matmore"><summary class="mattag">Weitere ▾</summary><div>${more.map(tgb).join('')}</div></details>` : ''}</div>` : ''}
       ${body}</section>` : '';
     const open = list.find((x) => x.id.replace(/^mat_/, '') === m.open);
-    return zone + drafts + lib + (open ? editCard(open) : '');
+    return zone + pendCard + drafts + lib + (open ? editCard(open) : '');
   }
   function suche() {
     const m = M();
@@ -889,6 +891,9 @@ const MAT = (() => {
     matai: (e) => toast(e.dataset.k + ': Dafür brauche ich den KI-Schlüssel. Das schalten wir in der nächsten Stufe frei, die Auswahl bleibt erhalten.'),
     matnote0: () => { note(); render(); },
     matrmkey: (e) => { const s = srcOf(e.dataset.id); if (!s) return; const t = e.dataset.t, mk = (s.mankeys || []).filter((x) => x !== t), hid = (s.hid || []).slice(); if (!(s.mankeys || []).includes(t) && !hid.includes(t)) hid.push(t); put('settings', Object.assign({}, s, { mankeys: mk, hid })); render(); },
+    matconfirm: (e) => { const s0 = srcOf(e.dataset.id); if (s0) put('settings', Object.assign({}, s0, { pending: false })); },
+    matconfirmall: () => { sources().filter((x) => x.pending).forEach((x) => put('settings', Object.assign({}, x, { pending: false }))); },
+    matpedit: (e) => openEdit(e.dataset.id),
     mdrmkey: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d); if (d) { d.keys = d.keys.filter((x) => x !== e.dataset.v); render(); } },
     mdcls: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d); if (d) { d.cls = clsToggle(d.cls, e.dataset.g, e.dataset.v); render(); } },
     matcls: (e) => { const s = srcOf(e.dataset.id); if (s) { put('settings', Object.assign({}, s, { cls: clsToggle(s.cls, e.dataset.g, e.dataset.v) })); render(); } },
@@ -1269,6 +1274,7 @@ const MAT = (() => {
 .kmkvr.rd{position:relative}.matgrip{position:absolute;left:-14px;top:8px;cursor:grab;color:var(--muted);opacity:.35;font:700 13px/1 var(--font-body);letter-spacing:-2px;user-select:none;padding:2px}.kmkvr.rd:hover .matgrip{opacity:1}.kmkvr.rowdrag{opacity:.4}.kmkvr.rowover{box-shadow:inset 0 3px 0 var(--brand,var(--accent))}
 .matgi{cursor:grab;padding-right:4px}.matgi .matgl{border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;padding:0}.matgx{border:0;background:transparent;color:inherit;opacity:.45;cursor:pointer;font:700 13px/1 var(--font-body);padding:0 2px}.matgx:hover{opacity:1;color:var(--bad)}.matgi.drag{opacity:.35}.matgi.over{box-shadow:inset 3px 0 0 var(--brand,var(--accent))}.matgrpx{margin-left:4px}
 .mattag.mini{margin:0 0 0 6px;font-size:10px;padding:0 6px;background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.matpendr{display:flex;align-items:center;gap:10px;padding:6px 0}.matpend{border-color:var(--accent)}
 .matdz{display:flex;gap:16px;align-items:center;border:2px dashed var(--line);cursor:pointer;padding:22px 24px}.matdz:hover,.matdz.over,.matdz:focus{border-color:var(--brand,var(--accent));background:var(--accent-soft);outline:none}.matdzi{font-size:34px;line-height:1;color:var(--muted)}
 .matask{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:3000;display:grid;place-items:center;padding:16px}.matbox{background:var(--surface);color:var(--ink);border-radius:14px;padding:20px;max-width:520px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.35)}
 .mattag{display:inline-flex;align-items:center;gap:3px;border-radius:7px;padding:3px 10px;font:600 12px var(--font-body);margin:0 4px 4px 0;border:1px solid var(--line);background:var(--surface2);color:var(--ink)}.mattag button{border:0;background:transparent;color:inherit;cursor:pointer;font:700 14px/1 var(--font-body);padding:0 0 0 2px}
@@ -1327,5 +1333,5 @@ html:root .kmchip.matep{padding:3px 10px;font-size:12.5px;gap:4px;background:var
   if (!document.getElementById('matedcss')) { const st2 = document.createElement('style'); st2.id = 'matedcss'; st2.textContent = '.matedov{position:fixed;inset:0;z-index:8000;background:rgba(10,12,8,.65);display:flex;align-items:flex-start;justify-content:center;padding:3vh 2vw;overflow:auto}.matedbox{background:var(--bg,#f4f6ef);border-radius:14px;max-width:980px;width:100%;padding:12px 14px;position:relative}.matedx{position:absolute;right:14px;top:12px;z-index:2}.matedbox>.card{margin-top:0;padding-top:34px}'; document.head.appendChild(st2); }
   /* Schnittstelle für die Stundenseite: Quellen auflisten und anzeigen */
   const list = () => sources().map((s) => ({ id: s.id.replace(/^mat_/, ''), title: s.vtitle || s.title || 'Quelle', file: dlPath(s), url: s.url || '', kind: kindOf(s), kindLabel: (KINDS.find(([k]) => k === kindOf(s)) || [0, ''])[1], thumb: thumbOf(s), ep: tagsOf(s).epoche, hay: norm([s.title, s.vtitle, s.channel, s.author, ...tagsOf(s).epoche, ...tagsOf(s).tags, ...tagsOf(s).keys].join(' ')) }));
-  return { view, picker, adder, list, edit: openEdit, epochs: EPOCHS, epS, makeTest };
+  return { view, picker, adder, take: (files, text, att) => intake(files, text, att), list, edit: openEdit, epochs: EPOCHS, epS, makeTest };
 })();
