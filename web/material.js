@@ -928,6 +928,12 @@ const MAT = (() => {
     document.body.appendChild(m); menuEl = m;
   }
   document.addEventListener('click', (e) => { if (menuEl && !menuEl.contains(e.target)) closeMenu(); }, true);
+  /* Klick außerhalb der Bearbeiten-Karte schließt sie */
+  document.addEventListener('click', (e) => {
+    const m = U.mat; if (!m || !m.open || U.view !== 'material') return; const t = e.target; if (!t || !t.closest) return;
+    if (t.closest('#matdetail, .matmenu, .matask, .matedit, .matedit2, .matpick, .mattitle, .matte') || !document.contains(t)) return;
+    const was = m.open; setTimeout(() => { if (U.mat && U.mat.open === was) { U.mat.open = null; render(); } }, 0);
+  }, true);
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeMenu();
     if (e.target && e.target.classList && e.target.classList.contains('matte')) { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } if (e.key === 'Escape') { M().editT = null; render(); } }
