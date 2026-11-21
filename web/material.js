@@ -1390,14 +1390,20 @@ html:root .kmchip.matep{padding:3px 10px;font-size:12.5px;gap:4px;background:var
           const rr = await fetch('/api/convert', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ src: cur.file, dst }) }); if (!rr.ok) throw new Error(((await rr.json().catch(() => ({}))).error) || 'Fehler ' + rr.status);
           put('settings', { id: 'mat_' + pid, title, type: 'pdf', kind: 'pdf', url: '', added: Date.now(), pages: 0, file: dst, fileName: slugify(cur.vtitle || cur.title) + '.pdf', ao: cur.ao || '', auto: cur.auto, man: cur.man, hid: cur.hid, pdfFrom: wid, pdfAt: Date.now(), pending: cur.pending || false, pfrom: cur.pfrom, lock: true });
           const o4 = Object.assign({}, srcOf(wid)); delete o4.needPdf; put('settings', o4); n++; toast('PDF „' + title + '“ automatisch erstellt');
-        } catch (e) { SY.err[w.id] = Date.now(); toast('PDF konnte nicht erstellt werden: ' + (e.message || e)); }
+        } catch (e) { if (!SY.err[w.id]) toast('PDF konnte nicht erstellt werden: ' + (e.message || e)); SY.err[w.id] = Date.now(); }
       }
       const links = sources().filter((p) => p.pdfFrom && p.file && (!onlyId || p.id === 'mat_' + onlyId)).map((p) => ({ p, w: srcOf(p.pdfFrom) })).filter((x) => x.w && x.w.file);
       if (!links.length) return 0;
       const r = await fetch('/api/files?dir=Material', { credentials: 'same-origin' }); if (!r.ok) return 0; const mt = {}; ((await r.json()).files || []).forEach((f) => { mt[f.path] = f.mtime; });
       for (const { p, w } of links) {
-        if (!mt[w.file]) continue; if (!force && (mt[p.file] || 0) >= mt[w.file] - 1000) continue; if (!force && SY.err[p.id] && Date.now() - SY.err[p.id] < 600000) continue;
-        try { const rr = await fetch('/api/convert', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ src: w.file, dst: p.file }) }); if (!rr.ok) throw new Error(((await rr.json().catch(() => ({}))).error) || 'Fehler ' + rr.status); delete SY.err[p.id]; SY.msg[p.id] = ''; n++; put('settings', Object.assign({}, srcOf(p.id.replace(/^mat_/, '')), { pdfAt: Date.now() })); toast('PDF „' + (p.vtitle || p.title) + '“ aus der Word-Datei aktualisiert'); }
+        const wm = mt[w.file]; if (!wm) continue; const pid = p.id.replace(/^mat_/, ''), done = +p.pdfWm || 0;
+        /* Nur umwandeln, wenn sich die Word-Datei seit der letzten Umwandlung geändert hat (gemerkt an der Datei-Zeit der Word-Datei) */
+        if (!force) {
+          if (done && Math.abs(wm - done) < 1500) continue;
+          if (!done && (mt[p.file] || 0) >= wm - 1000) { put('settings', Object.assign({}, srcOf(pid), { pdfWm: wm })); continue; }
+          if (SY.err[p.id] && Date.now() - SY.err[p.id] < 600000) continue;
+        }
+        try { const rr = await fetch('/api/convert', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ src: w.file, dst: p.file }) }); if (!rr.ok) throw new Error(((await rr.json().catch(() => ({}))).error) || 'Fehler ' + rr.status); delete SY.err[p.id]; SY.msg[p.id] = ''; n++; put('settings', Object.assign({}, srcOf(pid), { pdfAt: Date.now(), pdfWm: wm })); if (force) toast('PDF „' + (p.vtitle || p.title) + '“ aus der Word-Datei aktualisiert'); }
         catch (e) { SY.err[p.id] = Date.now(); SY.msg[p.id] = e.message || String(e); }
       }
     } finally { /* */ } return n;
@@ -1474,8 +1480,11 @@ html:root .kmchip.matep{padding:3px 10px;font-size:12.5px;gap:4px;background:var
       const nb = o.querySelector('.matedbox'); if (nb) { place(nb); nb.scrollTop = top; }
     };
     /* Popup direkt über (sonst unter) der angeklickten Kachel */
+    let lastR = null;
     const place = (nb) => {
-      if (!anchor || !document.body.contains(anchor)) return; const r = anchor.getBoundingClientRect(), vw = window.innerWidth, vh = window.innerHeight, w = Math.min(760, vw - 24), above = r.top - 14, below = vh - r.bottom - 14;
+      const live = document.querySelector('.mataot[data-aok="' + String(key).replace(/"/g, '\\"') + '"]'); if (live) anchor = live;
+      let r = null; if (anchor && document.body.contains(anchor)) { const q = anchor.getBoundingClientRect(); r = { top: q.top, bottom: q.bottom, left: q.left }; lastR = r; } else r = lastR;
+      if (!r) return; const vw = window.innerWidth, vh = window.innerHeight, w = Math.min(760, vw - 24), above = r.top - 14, below = vh - r.bottom - 14;
       nb.style.width = w + 'px'; nb.style.left = Math.max(12, Math.min(r.left, vw - w - 12)) + 'px';
       if (above >= 300 || above >= below) { nb.style.top = 'auto'; nb.style.bottom = (vh - r.top + 8) + 'px'; nb.style.maxHeight = Math.max(160, above - 8) + 'px'; }
       else { nb.style.bottom = 'auto'; nb.style.top = (r.bottom + 8) + 'px'; nb.style.maxHeight = Math.max(160, below - 8) + 'px'; }
@@ -1515,5 +1524,5 @@ html:root .kmchip.matep{padding:3px 10px;font-size:12.5px;gap:4px;background:var
   if (!document.getElementById('matedcss')) { const st2 = document.createElement('style'); st2.id = 'matedcss'; st2.textContent = '.matedov{position:fixed;inset:0;z-index:8000;background:rgba(10,12,8,.65);display:flex;align-items:flex-start;justify-content:center;padding:3vh 2vw;overflow:auto}.matedbox{background:var(--bg,#f4f6ef);border-radius:14px;max-width:980px;width:100%;padding:12px 14px;position:relative}.matedx{position:absolute;right:14px;top:12px;z-index:2}.matedbox>.card{margin-top:0;padding-top:34px}'; document.head.appendChild(st2); }
   /* Schnittstelle für die Stundenseite: Quellen auflisten und anzeigen */
   const list = () => sources().map((s) => ({ id: s.id.replace(/^mat_/, ''), title: s.vtitle || s.title || 'Quelle', file: dlPath(s), url: s.url || '', kind: kindOf(s), kindLabel: (KINDS.find(([k]) => k === kindOf(s)) || [0, ''])[1], thumb: thumbOf(s), ep: tagsOf(s).epoche, ao: aoOf(s), hay: norm([s.title, s.vtitle, s.channel, s.author, aoOf(s), ...tagsOf(s).epoche, ...tagsOf(s).tags, ...tagsOf(s).keys].join(' ')) }));
-  return { view, picker, adder, take: (files, text, att) => intake(files, text, att), list, edit: openEdit, epochs: EPOCHS, epS, makeTest };
+  return { view, picker, adder, sync: (f, id) => syncPdfs(f, id), take: (files, text, att) => intake(files, text, att), list, edit: openEdit, epochs: EPOCHS, epS, makeTest };
 })();
