@@ -932,15 +932,17 @@ const MAT = (() => {
   const panEnd = () => { if (!pan) return; const p = pan; pan = null; p.box.classList.remove('panning'); if (p.id) { const s = srcOf(p.id); if (s) put('settings', Object.assign({}, s, { tpos: p.pos })); render(); } else if (p.did) { const d = M().drafts.find((x) => x.id === p.did); if (d) d.tpos = p.pos; } };
   document.addEventListener('pointerup', panEnd); document.addEventListener('pointercancel', panEnd);
   /* kleines Auswahlmenü an einer Zelle (Art, Epoche) */
-  let menuEl = null;
-  const closeMenu = () => { if (menuEl) { menuEl.remove(); menuEl = null; } };
+  let menuEl = null, menuKey = '', menuSkip = '';
+  const closeMenu = () => { if (menuEl) { menuEl.remove(); menuEl = null; menuKey = ''; } };
+  const keyOf = (el) => (el && el.dataset ? [el.dataset.act, el.dataset.id, el.dataset.g].join('|') : '');
   function openMenu(el, html, pick) {
+    if (menuSkip && menuSkip === keyOf(el)) { menuSkip = ''; return; }
     closeMenu(); const r = el.getBoundingClientRect(), m = document.createElement('div'); m.className = 'matmenu'; m.innerHTML = html;
     m.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 240)) + 'px'; m.style.top = Math.min(r.bottom + 4, window.innerHeight - 300) + 'px';
     m.addEventListener('click', (ev) => { const b = ev.target.closest('[data-pick]'); if (b) { const v = b.dataset.pick; closeMenu(); pick(v); } });
-    document.body.appendChild(m); menuEl = m;
+    document.body.appendChild(m); menuEl = m; menuKey = keyOf(el);
   }
-  document.addEventListener('click', (e) => { if (menuEl && !menuEl.contains(e.target)) closeMenu(); }, true);
+  document.addEventListener('click', (e) => { if (menuEl && !menuEl.contains(e.target)) { const a = e.target.closest && e.target.closest('[data-act]'); if (a && keyOf(a) === menuKey) { menuSkip = menuKey; setTimeout(() => { menuSkip = ''; }, 0); } closeMenu(); } }, true);
   /* Klick außerhalb der Bearbeiten-Karte schließt sie */
   document.addEventListener('click', (e) => {
     const m = U.mat; if (!m || !m.open || U.view !== 'material') return; const t = e.target; if (!t || !t.closest) return;
