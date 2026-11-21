@@ -682,7 +682,7 @@ const MAT = (() => {
       if (d.kind === 'yt' && d.dl) startDownload(id);
       if (!d.noThumb && !d.thumbBlob && !d.cover && d.kind !== 'yt' && d.kind !== 'ppt') autoThumb(id, false);
       if (d.thumbUrl && d.thumbUrl.startsWith('blob:')) URL.revokeObjectURL(d.thumbUrl);
-      m.drafts = m.drafts.filter((x) => x.id !== d.id); m.open = null; toast('Angelegt und auf der NAS gespeichert');
+      m.drafts = m.drafts.filter((x) => x.id !== d.id); m.open = null; toast('Angelegt und auf der NAS gespeichert'); if (m.attach) document.dispatchEvent(new CustomEvent('matcreated', { detail: { id, attach: m.attach } }));
     } catch (e) { d.status = 'ready'; d.err = e.message || String(e); if (/Failed to fetch|NetworkError|Load failed/i.test(d.err)) d.err = 'Keine Verbindung zum Server auf der NAS (Container lehrerapp oder Tailscale läuft nicht, oder die Datei ist zu groß).'; note('err', 'Anlegen fehlgeschlagen: ' + d.err); }
     render();
   }
@@ -826,11 +826,18 @@ const MAT = (() => {
       ${row('Notiz', `<input class="matin" data-ch="matnote" data-id="${id}" value="${esc(s.notes || '')}" placeholder="Notiz zur Quelle">`)}
       <div class="matfoot"><button class="btn sm" data-act="matretag" data-id="${id}" title="Epoche, Themen und Schlagwörter aus Titel und Text neu bestimmen">Tags neu berechnen</button><button class="btn sm bad" data-act="matdel" data-id="${id}">Löschen</button></div></section>`;
   }
-  function quellen() {
-    const m = M(), list = sources(), f = filterOf(), shown = list.filter(matches), act = f.q || f.e || f.a || f.t.length;
-    const zone = `<section class="card"><h2>Neue Quelle</h2><div class="matdz" id="matdz" tabindex="0" role="button" aria-label="Dateien oder Links hineinziehen"><div class="matdzi">⬇</div><div><b>Alles hierher ziehen</b><div class="muted sm">PDF, EPUB, Video, YouTube-Link, Word, Textdatei, Screenshot oder Internetadresse. Darunter erscheinen die Angaben zum Prüfen. Klicken oder Strg+V geht auch.</div></div><input type="file" id="matdzf" multiple hidden></div></section>`;
+  function addParts() {
+    const m = M();
+    const zoneBare = `<div class="matdz" id="matdz" tabindex="0" role="button" aria-label="Dateien oder Links hineinziehen"><div class="matdzi">⬇</div><div><b>Alles hierher ziehen</b><div class="muted sm">PDF, EPUB, Video, YouTube-Link, Word, Textdatei, Screenshot oder Internetadresse. Darunter erscheinen die Angaben zum Prüfen. Klicken oder Strg+V geht auch.</div></div><input type="file" id="matdzf" multiple hidden></div>`;
+    const zone = `<section class="card"><h2>Neue Quelle</h2>${zoneBare}</section>`;
     const ready = m.drafts.filter((x) => x.status === 'ready').length;
     const drafts = m.drafts.length ? `${ready > 1 ? `<div class="row" style="justify-content:flex-end;margin:12px 0 0"><button class="btn good" data-act="mdall">Alle ${ready} anlegen</button></div>` : ''}${m.drafts.map(draftCard).join('')}` : '';
+    return { zone, zoneBare, drafts };
+  }
+  const adder = (att) => { M().attach = att || null; return addParts(); };
+  function quellen() {
+    const m = M(), list = sources(), f = filterOf(), shown = list.filter(matches), act = f.q || f.e || f.a || f.t.length;
+    const { zone, drafts } = addParts(); m.attach = null;
     const cnt = {}; list.forEach((x) => { const t = tagsOf(x); t.tags.forEach((y) => { cnt[y] = (cnt[y] || 0) + 1; }); });
     const tg = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a] || a.localeCompare(b, 'de')), top = tg.slice(0, 12), more = tg.slice(12);
     const tgb = (x) => `<button class="mattag tg sel${f.t.includes(x) ? ' on' : ''}" data-act="matft" data-v="${esc(x)}">${esc(x)}<small> ${cnt[x]}</small></button>`;
@@ -1128,7 +1135,7 @@ const MAT = (() => {
     document.addEventListener('keydown', esc1); document.body.appendChild(o);
     if (kind === 'ppt' && s.file && /\.(pptx|ppsx|pptm)$/i.test(s.file)) showPptx(o, s, id);    if (kind === 'epub' && s.epub) showEpub(o, s, id);
   }
-  const inView = () => U.view === 'material';
+  const inView = () => U.view === 'material' || !!document.getElementById('matdz');
   /* Symbole der Seitenleiste per Drag-and-Drop anordnen (wird auf allen Geräten gespeichert) */
   /* Vorschaubild im Rahmen mit gedrückter Maustaste verschieben */
   let pan = null;
@@ -1320,5 +1327,5 @@ html:root .kmchip.matep{padding:3px 10px;font-size:12.5px;gap:4px;background:var
   if (!document.getElementById('matedcss')) { const st2 = document.createElement('style'); st2.id = 'matedcss'; st2.textContent = '.matedov{position:fixed;inset:0;z-index:8000;background:rgba(10,12,8,.65);display:flex;align-items:flex-start;justify-content:center;padding:3vh 2vw;overflow:auto}.matedbox{background:var(--bg,#f4f6ef);border-radius:14px;max-width:980px;width:100%;padding:12px 14px;position:relative}.matedx{position:absolute;right:14px;top:12px;z-index:2}.matedbox>.card{margin-top:0;padding-top:34px}'; document.head.appendChild(st2); }
   /* Schnittstelle für die Stundenseite: Quellen auflisten und anzeigen */
   const list = () => sources().map((s) => ({ id: s.id.replace(/^mat_/, ''), title: s.vtitle || s.title || 'Quelle', file: dlPath(s), url: s.url || '', kind: kindOf(s), kindLabel: (KINDS.find(([k]) => k === kindOf(s)) || [0, ''])[1], thumb: thumbOf(s), ep: tagsOf(s).epoche, hay: norm([s.title, s.vtitle, s.channel, s.author, ...tagsOf(s).epoche, ...tagsOf(s).tags, ...tagsOf(s).keys].join(' ')) }));
-  return { view, picker, list, edit: openEdit, epochs: EPOCHS, epS, makeTest };
+  return { view, picker, adder, list, edit: openEdit, epochs: EPOCHS, epS, makeTest };
 })();
