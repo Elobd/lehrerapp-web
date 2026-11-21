@@ -1263,7 +1263,18 @@ html:root .kmchip.matep{padding:3px 10px;font-size:12.5px;gap:4px;background:var
   document.head.appendChild(st);
   const pickerFiles = () => { const m = M(); return `<section class="card" style="margin-top:12px"><div class="row" style="align-items:center;gap:10px"><h2 style="margin:0">Erstellte Dateien und Word-Vorlage</h2><span style="flex:1"></span><button class="btn sm" data-act="matshowf">${m.showFiles ? 'Ausblenden' : 'Anzeigen'}</button></div>${m.showFiles ? ordner() : '<div class="muted sm" style="margin-top:6px">Hier liegen die fertigen Arbeitsblätter (Word und PDF) und deine Vorlage.</div>'}</section>`; };
   const picker = () => `<div class="kmh" style="margin:24px 0 10px"><h1 style="font-size:22px">Material suchen und auswählen</h1><div class="muted sm">Durchsucht alle Quellen (PDF, EPUB, Videos, Texte). Aus der Auswahl kannst du Material erstellen.</div></div>${suche()}${pickerFiles()}`;
+  /* Bearbeiten-Fenster einer Quelle (zum Beispiel von der Stundenseite aus) */
+  function openEdit(id) {
+    if (document.getElementById('matedov')) return; const first = srcOf(id); if (!first) return;
+    const o = document.createElement('div'); o.id = 'matedov'; o.className = 'matedov'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); document.body.appendChild(o);
+    const paint = () => { const s2 = srcOf(id); if (!s2) return close(); const keep = o.querySelector('.matedbox'), top = keep ? keep.scrollTop : 0; o.innerHTML = `<div class="matedbox"><button class="btn sm matedx" data-edx aria-label="Schließen">Schließen ✕</button>${editCard(s2).replace(' style="margin-top:14px"', '')}</div>`; const nb = o.querySelector('.matedbox'); if (nb) nb.scrollTop = top; };
+    const close = () => { o.remove(); document.removeEventListener('keydown', onK); render(); }, onK = (e) => { if (e.key === 'Escape' && !document.querySelector('.matask, .matpop')) close(); };
+    const later = () => { setTimeout(() => { const a = document.activeElement; if (!document.body.contains(o)) return; if (a && o.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return; paint(); }, 150); };
+    o.addEventListener('click', (e) => { if (e.target === o || e.target.closest('[data-edx]')) return close(); const sv = e.target.closest('[data-act="matopen"]'); if (sv) { e.stopPropagation(); return close(); } later(); });
+    o.addEventListener('change', later); document.addEventListener('keydown', onK); paint();
+  }
+  if (!document.getElementById('matedcss')) { const st2 = document.createElement('style'); st2.id = 'matedcss'; st2.textContent = '.matedov{position:fixed;inset:0;z-index:8000;background:rgba(10,12,8,.65);display:flex;align-items:flex-start;justify-content:center;padding:3vh 2vw;overflow:auto}.matedbox{background:var(--bg,#f4f6ef);border-radius:14px;max-width:980px;width:100%;padding:12px 14px;position:relative}.matedx{position:absolute;right:14px;top:12px;z-index:2}.matedbox>.card{margin-top:0;padding-top:34px}'; document.head.appendChild(st2); }
   /* Schnittstelle für die Stundenseite: Quellen auflisten und anzeigen */
   const list = () => sources().map((s) => ({ id: s.id.replace(/^mat_/, ''), title: s.vtitle || s.title || 'Quelle', kind: kindOf(s), kindLabel: (KINDS.find(([k]) => k === kindOf(s)) || [0, ''])[1], thumb: thumbOf(s), ep: tagsOf(s).epoche, hay: norm([s.title, s.vtitle, s.channel, s.author, ...tagsOf(s).epoche, ...tagsOf(s).tags, ...tagsOf(s).keys].join(' ')) }));
-  return { view, picker, list };
+  return { view, picker, list, edit: openEdit };
 })();
