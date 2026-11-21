@@ -153,9 +153,9 @@ const MAT = (() => {
   }
   async function takeImage(pz, dt) {
     const blob = await pickImage(dt); if (!blob) return toast('Dieses Bild konnte nicht übernommen werden. Rechtsklick auf das Bild, „Bild kopieren“, dann hier Strg+V.');
-    if (pz.dataset.pzd) { const d = M().drafts.find((x) => x.id === pz.dataset.pzd); if (d) { if (d.thumbUrl && d.thumbUrl.startsWith('blob:')) URL.revokeObjectURL(d.thumbUrl); d.thumbBlob = blob; d.cover = null; d.vid = null; d.noThumb = false; d.thumbUrl = URL.createObjectURL(blob); d.thumbSrc = 'Internet (eigene Auswahl)'; } return render(); }
+    if (pz.dataset.pzd) { const d = M().drafts.find((x) => x.id === pz.dataset.pzd); if (d) { if (d.thumbUrl && d.thumbUrl.startsWith('blob:')) URL.revokeObjectURL(d.thumbUrl); d.thumbBlob = blob; d.cover = null; d.vid = null; d.noThumb = false; d.tpos = null; d.thumbUrl = URL.createObjectURL(blob); d.thumbSrc = 'Internet (eigene Auswahl)'; } return render(); }
     const id = pz.dataset.pz, s = srcOf(id); if (!s) return;
-    try { const nm = QDIR + '/' + id + '-thumb.jpg'; await fput(nm, blob); put('settings', Object.assign({}, srcOf(id), { noThumb: false, thumb: { file: nm, src: 'Internet (eigene Auswahl)', v: Date.now() } })); toast('Vorschaubild gesetzt'); } catch (e) { toast('Fehler: ' + (e.message || e)); }
+    try { const nm = QDIR + '/' + id + '-thumb.jpg'; await fput(nm, blob); put('settings', Object.assign({}, srcOf(id), { noThumb: false, tpos: null, thumb: { file: nm, src: 'Internet (eigene Auswahl)', v: Date.now() } })); toast('Vorschaubild gesetzt'); } catch (e) { toast('Fehler: ' + (e.message || e)); }
     render();
   }
   const pzHtml = (attr) => `<div class="matpz" tabindex="0" ${attr} title="Bild hierher ziehen oder anklicken und Strg+V drücken">Gefundenes Bild: hier anklicken und <b>Strg+V</b> drücken, oder hineinziehen</div>`;
@@ -560,7 +560,7 @@ const MAT = (() => {
     try {
       const f = d.f, tagFix = { epoche: d.ep, tags: d.tg, keys: d.keys };
       const type = d.kind === 'pdf' ? 'pdf' : d.kind === 'epub' ? 'buch' : d.kind === 'yt' || d.kind === 'video' ? 'video' : 'sonst';
-      const extra = { lock: true, cls: d.cls || {}, kind: d.art || artOf(d), auto: tagFix, author: f.author || '', publisher: f.publisher || '', lang: f.lang || '', year: f.year || '', fileName: d.name || '', size: d.file ? d.file.size : 0 };
+      const extra = { lock: true, tpos: d.tpos || null, cls: d.cls || {}, kind: d.art || artOf(d), auto: tagFix, author: f.author || '', publisher: f.publisher || '', lang: f.lang || '', year: f.year || '', fileName: d.name || '', size: d.file ? d.file.size : 0 };
       let id;
       if (d.kind === 'yt') { id = newSrc(f.title, 'video', Object.assign(extra, { url: f.url, vtitle: f.title, channel: f.channel, channelUrl: f.channelUrl, seconds: d.seconds == null ? null : d.seconds, desc: d.desc || '' })); }
       else if (d.kind === 'link') id = newSrc(f.title, 'sonst', Object.assign(extra, { url: f.url }));
@@ -617,7 +617,7 @@ const MAT = (() => {
     const allTg = TAGS.map((t) => t[0]).filter((x) => !EPOCHS.includes(x)), rest = allTg.filter((x) => !d.tg.includes(x));
     const hasPic = !!ths && !d.noThumb;
     return `<section class="card matdraft" tabindex="-1" data-d="${did}">${head}
-      <div class="matdgrid">${true ? `<div>${hasPic ? `<div class="matdpic"><img src="${esc(ths)}" alt="" referrerpolicy="no-referrer"></div>` : `<div class="matdpic matnopic">${d.noThumb ? 'Vorschaubild gelöscht' : 'Kein Vorschaubild'}</div>`}<div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap"><button class="btn sm" data-act="mdnothumb" data-d="${did}">${d.noThumb ? 'Wieder verwenden' : 'Löschen'}</button><button class="btn sm" data-act="mdgoogle" data-d="${did}">Bild im Internet suchen</button></div>${pzHtml('data-pzd="' + did + '"')}</div>` : ''}<div>${rows.join('')}${k === 'yt' ? `<label class="matchk"><input type="checkbox" data-ch="mddl" data-d="${did}" ${d.dl ? 'checked' : ''}> Video zusätzlich auf die NAS herunterladen</label>` : ''}</div></div>
+      <div class="matdgrid">${true ? `<div>${hasPic ? `<div class="matdpic matpan" data-pand="${did}" title="Mit gedrückter Maustaste verschieben"><img src="${esc(ths)}" alt="" referrerpolicy="no-referrer" draggable="false"${posS(d.tpos)}></div><div class="muted" style="font-size:11px;margin-top:3px">Bild mit gedrückter Maustaste verschieben</div>` : `<div class="matdpic matnopic">${d.noThumb ? 'Vorschaubild gelöscht' : 'Kein Vorschaubild'}</div>`}<div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap"><button class="btn sm" data-act="mdnothumb" data-d="${did}">${d.noThumb ? 'Wieder verwenden' : 'Löschen'}</button><button class="btn sm" data-act="mdgoogle" data-d="${did}">Bild im Internet suchen</button></div>${pzHtml('data-pzd="' + did + '"')}</div>` : ''}<div>${rows.join('')}${k === 'yt' ? `<label class="matchk"><input type="checkbox" data-ch="mddl" data-d="${did}" ${d.dl ? 'checked' : ''}> Video zusätzlich auf die NAS herunterladen</label>` : ''}</div></div>
       ${d.warn ? `<div class="matnote warn"><span>${esc(d.warn)}</span></div>` : ''}
       ${k === 'datei' ? `<div class="kmkvr"><span class="kmk">Behandeln als</span><span class="kmv"><button class="mattag sel${d.mode === 'file' ? ' on' : ''}" data-act="mdmode" data-d="${did}" data-v="file">Datei ablegen</button><button class="mattag sel${d.mode === 'text' ? ' on' : ''}" data-act="mdmode" data-d="${did}" data-v="text">Als Text lesen</button></span></div>` : ''}
       <div class="kmkvr"><span class="kmk">Art</span><span class="kmv chips">${kindsOrdered().map(([kk, n]) => `<button class="mattag sel matkindchip${(d.art || artOf(d)) === kk ? ' on' : ''}" draggable="true" data-k="${kk}" title="Ziehen zum Verschieben" data-act="mdkind" data-d="${did}" data-v="${kk}">${n}</button>`).join('')}</span></div>
@@ -668,7 +668,8 @@ const MAT = (() => {
   function thumbBlock(s, id) {
     const th = s.thumb, has = !s.noThumb && (isYt(s.url) || th);
     const info = isYt(s.url) ? (has ? 'YouTube' : 'keines') : th && !s.noThumb ? esc(th.src || '') + (th.lic ? ` · ${esc(th.by || 'unbekannt')} · ${esc(th.lic)} · <a href="${esc(th.page || '#')}" target="_blank" rel="noopener">Quelle</a>` : '') : 'keines';
-    return `<div class="sm" style="margin-top:10px"><span class="muted">Vorschaubild:</span> ${info} ${has ? `<button class="btn sm bad" data-act="matthumbdel" data-id="${id}" title="Vorschaubild entfernen">Löschen</button>` : ''}${isYt(s.url) && s.noThumb ? ` <button class="btn sm" data-act="matthumbdel" data-id="${id}" data-back="1">Wieder anzeigen</button>` : ''} <button class="btn sm" data-act="matgoogle" data-id="${id}" title="Google-Bildersuche in einem Fenster öffnen">Bild im Internet suchen</button>${!isYt(s.url) ? ` <button class="btn sm" data-act="matthumb" data-id="${id}" title="Freie Bilder von Wikimedia Commons">Freie Bilder (Wikimedia)</button>` : ''}<div style="margin-top:6px">${pzHtml('data-pz="' + id + '"')}</div></div>`;
+    const pan = has ? `<div class="matpan matpanbig" data-pan="${id}" title="Mit gedrückter Maustaste verschieben">${thumbOf(s)}</div><div class="muted" style="font-size:11px;margin:3px 0 8px">Bild mit gedrückter Maustaste im Rahmen verschieben</div>` : '';
+    return `${pan}<div class="sm" style="margin-top:10px"><span class="muted">Vorschaubild:</span> ${info} ${has ? `<button class="btn sm bad" data-act="matthumbdel" data-id="${id}" title="Vorschaubild entfernen">Löschen</button>` : ''}${isYt(s.url) && s.noThumb ? ` <button class="btn sm" data-act="matthumbdel" data-id="${id}" data-back="1">Wieder anzeigen</button>` : ''} <button class="btn sm" data-act="matgoogle" data-id="${id}" title="Google-Bildersuche in einem Fenster öffnen">Bild im Internet suchen</button>${!isYt(s.url) ? ` <button class="btn sm" data-act="matthumb" data-id="${id}" title="Freie Bilder von Wikimedia Commons">Freie Bilder (Wikimedia)</button>` : ''}<div style="margin-top:6px">${pzHtml('data-pz="' + id + '"')}</div></div>`;
   }
   function tagBlock(s, id) {
     const t = tagsOf(s), chip = (x, k) => `<span class="mattag ${k}"${k === 'ep' ? epS(x) : ''}>${esc(x)}<button data-act="matrm" data-id="${id}" data-t="${esc(x)}" aria-label="Entfernen">×</button></span>`;
@@ -693,10 +694,11 @@ const MAT = (() => {
       ${eps.length ? `<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px"><span class="muted sm">Epoche:</span>${eps.map((e) => `<button class="mattag ep sel${f.e === e ? ' on' : ''}"${epS(e)} data-act="matfe" data-v="${esc(e)}">${esc(e)}</button>`).join('')}</div>` : ''}
       ${tg.length ? `<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px"><span class="muted sm">Tags:</span>${tg.map((x) => `<button class="mattag tg sel${f.t.includes(x) ? ' on' : ''}" data-act="matft" data-v="${esc(x)}">${esc(x)}<small> ${cnt[x]}</small></button>`).join('')}</div>` : ''}</div>`;
   }
+  const posS = (p) => (p && (p.x != null) ? ` style="object-position:${p.x}% ${p.y}%"` : '');
   function thumbOf(s, big) {
     const vid = s.noThumb ? null : ytVid(s.url), th = s.noThumb ? null : s.thumb, k = kindOf(s);
-    if (vid) return `<img src="https://i.ytimg.com/vi/${vid}/hqdefault.jpg" alt="" loading="lazy" referrerpolicy="no-referrer">`;
-    if (th && (th.file || th.url)) return `<img src="${th.file ? url(th.file, '&inline=1' + (th.v ? '&v=' + th.v : '')) : esc(th.url)}" alt="" loading="lazy" referrerpolicy="no-referrer">${th.lic ? '<b class="matcc">CC</b>' : ''}`;
+    if (vid) return `<img src="https://i.ytimg.com/vi/${vid}/hqdefault.jpg" alt="" loading="lazy" referrerpolicy="no-referrer" draggable="false"${posS(s.tpos)}>`;
+    if (th && (th.file || th.url)) return `<img src="${th.file ? url(th.file, '&inline=1' + (th.v ? '&v=' + th.v : '')) : esc(th.url)}" alt="" loading="lazy" referrerpolicy="no-referrer" draggable="false"${posS(s.tpos)}>${th.lic ? '<b class="matcc">CC</b>' : ''}`;
     return `<div class="matph t-${esc(s.type || 'sonst')}"><span>${big ? esc(TYPES[s.type] || 'Quelle') : esc(((KINDS.find(([x]) => x === k) || [0, ''])[1] || '').split(' ')[0].slice(0, 5))}</span></div>`;
   }
   const epTags = (s) => tagsOf(s).epoche.map((e) => `<span class="mattag ep on"${epS(e)}>${esc(e)}</span>`).join('') || '<span class="muted sm">–</span>';
@@ -902,6 +904,20 @@ const MAT = (() => {
   }
   const inView = () => U.view === 'material';
   /* Symbole der Seitenleiste per Drag-and-Drop anordnen (wird auf allen Geräten gespeichert) */
+  /* Vorschaubild im Rahmen mit gedrückter Maustaste verschieben */
+  let pan = null;
+  document.addEventListener('pointerdown', (e) => {
+    const box = e.target.closest && e.target.closest('.matpan'); if (!box || e.button) return; const img = box.querySelector('img'); if (!img || !img.naturalWidth) return;
+    const id = box.dataset.pan, did = box.dataset.pand, src = id ? srcOf(id) : null, d = did ? M().drafts.find((x) => x.id === did) : null, cur = (src && src.tpos) || (d && d.tpos) || { x: 50, y: 50 };
+    pan = { box, img, id, did, x0: e.clientX, y0: e.clientY, px: cur.x, py: cur.y, pos: { x: cur.x, y: cur.y } }; box.setPointerCapture && box.setPointerCapture(e.pointerId); box.classList.add('panning'); e.preventDefault();
+  });
+  document.addEventListener('pointermove', (e) => {
+    if (!pan) return; const { box, img } = pan, cw = box.clientWidth, ch = box.clientHeight, sc = Math.max(cw / img.naturalWidth, ch / img.naturalHeight), ox = img.naturalWidth * sc - cw, oy = img.naturalHeight * sc - ch;
+    const nx = ox > 1 ? Math.max(0, Math.min(100, pan.px - (e.clientX - pan.x0) / ox * 100)) : pan.px, ny = oy > 1 ? Math.max(0, Math.min(100, pan.py - (e.clientY - pan.y0) / oy * 100)) : pan.py;
+    pan.pos = { x: Math.round(nx), y: Math.round(ny) }; img.style.objectPosition = pan.pos.x + '% ' + pan.pos.y + '%';
+  });
+  const panEnd = () => { if (!pan) return; const p = pan; pan = null; p.box.classList.remove('panning'); if (p.id) { const s = srcOf(p.id); if (s) put('settings', Object.assign({}, s, { tpos: p.pos })); render(); } else if (p.did) { const d = M().drafts.find((x) => x.id === p.did); if (d) d.tpos = p.pos; } };
+  document.addEventListener('pointerup', panEnd); document.addEventListener('pointercancel', panEnd);
   /* kleines Auswahlmenü an einer Zelle (Art, Epoche) */
   let menuEl = null;
   const closeMenu = () => { if (menuEl) { menuEl.remove(); menuEl = null; } };
@@ -985,7 +1001,8 @@ const MAT = (() => {
     if (!files.length && !text.trim()) return; e.preventDefault(); intake(files, text);
   });
   const st = document.createElement('style');
-  st.textContent = `.matpick{cursor:pointer;border-radius:6px;padding:2px 4px;margin:-2px -4px}.matpick:hover{background:var(--accent-soft)}.mattitle{cursor:pointer}.mattitle:hover{text-decoration:underline}.matte{width:100%!important;font:700 14px var(--font-body)}.imgover{outline:2px dashed var(--brand,var(--accent));outline-offset:-2px;background:var(--accent-soft)}
+  st.textContent = `.matpan{cursor:grab;touch-action:none;user-select:none}.matpan.panning{cursor:grabbing;outline:2px solid var(--brand,var(--accent))}.matpan img{pointer-events:none;-webkit-user-drag:none}.matpanbig{width:240px;aspect-ratio:16/9;overflow:hidden;border-radius:10px;background:var(--surface2);border:1px solid var(--line)}.matpanbig img{width:100%;height:100%;object-fit:cover;display:block}
+.matpick{cursor:pointer;border-radius:6px;padding:2px 4px;margin:-2px -4px}.matpick:hover{background:var(--accent-soft)}.mattitle{cursor:pointer}.mattitle:hover{text-decoration:underline}.matte{width:100%!important;font:700 14px var(--font-body)}.imgover{outline:2px dashed var(--brand,var(--accent));outline-offset:-2px;background:var(--accent-soft)}
 .matmenu{position:fixed;z-index:3500;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 36px rgba(0,0,0,.25);padding:6px;min-width:200px;max-height:70vh;overflow:auto}.matmt{font:700 11px var(--font-head);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:4px 8px}.matmi{display:flex;align-items:center;width:100%;text-align:left;border:0;background:transparent;color:inherit;border-radius:8px;padding:7px 10px;font:600 14px var(--font-body);cursor:pointer}.matmi:hover{background:var(--accent-soft)}.matmi.on{background:var(--accent-soft);color:var(--accent)}
 .kmkvr.rd{position:relative}.matgrip{position:absolute;left:-14px;top:8px;cursor:grab;color:var(--muted);opacity:.35;font:700 13px/1 var(--font-body);letter-spacing:-2px;user-select:none;padding:2px}.kmkvr.rd:hover .matgrip{opacity:1}.kmkvr.rowdrag{opacity:.4}.kmkvr.rowover{box-shadow:inset 0 3px 0 var(--brand,var(--accent))}
 .matgi{cursor:grab;padding-right:4px}.matgi .matgl{border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;padding:0}.matgx{border:0;background:transparent;color:inherit;opacity:.45;cursor:pointer;font:700 13px/1 var(--font-body);padding:0 2px}.matgx:hover{opacity:1;color:var(--bad)}.matgi.drag{opacity:.35}.matgi.over{box-shadow:inset 3px 0 0 var(--brand,var(--accent))}.matgrpx{margin-left:4px}
