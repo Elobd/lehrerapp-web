@@ -132,7 +132,7 @@ const MAT = (() => {
     return skip ? out.filter((x) => !skip.includes(x.url)) : out;
   }
   async function autoThumb(id, force, query) {
-    const s = srcOf(id); if (!s || isYt(s.url) || (!force && (s.noThumb || s.thumb || s.type === 'pdf' || s.type === 'buch' || /^Screenshots /.test(s.title || '')))) return;
+    const s = srcOf(id); if (!s || isYt(s.url) || (!force && (s.noThumb || s.thumb || s.kind === 'ppt' || s.type === 'pdf' || s.type === 'buch' || /^Screenshots /.test(s.title || '')))) return;
     const t = tagsOf(s), q = query || (t.tags[0] ? t.tags[0] + (t.epoche[0] ? ' ' + t.epoche[0] : '') : t.epoche[0] || s.title);
     if (!q || /^Screenshots /.test(q)) return;
     try { const c = await commonsFind(q, force && s.thumb ? [s.thumb.url] : null); if (c[0] && (force || !(srcOf(id) || {}).thumb)) setThumb(id, c[0]); } catch (e) { /* offline */ }
@@ -451,6 +451,48 @@ const MAT = (() => {
     d.meta = [['Abschnitte', String(d.pages.length)], ['Dateigröße', mb(f.size)], ['Datei', f.name]];
     d.cover = await epubCover(z, opf, bs);
   }
+  /* erste Folie als Bild: bevorzugt die in der Datei gespeicherte Vorschau, sonst vereinfachte Darstellung (Hintergrund, Bilder, Formen, Texte) */
+  async function slide1Image(z, first) {
+    try {
+      const P = new DOMParser(), rd = async (n) => { const f = z.file(n); return f ? f.async('string') : null; };
+      const pres = (await rd('ppt/presentation.xml')) || ''; let W = 9144000, H = 5143500; const mm = pres.match(/<p:sldSz[^>]*?cx="(\d+)"[^>]*?cy="(\d+)"/); if (mm) { W = +mm[1]; H = +mm[2]; }
+      const sx = await rd(first); if (!sx) return null; const doc = P.parseFromString(sx, 'application/xml'), cv = document.createElement('canvas'), SC = 960 / W; cv.width = 960; cv.height = Math.round(H * SC);
+      const ctx = cv.getContext('2d'), rels = {}, relP = first.replace('slides/', 'slides/_rels/') + '.rels', rx = (await rd(relP)) || '';
+      [...rx.matchAll(/<Relationship[^>]*?Id="([^"]+)"[^>]*?Target="([^"]+)"/g)].forEach((m) => { rels[m[1]] = m[2]; }); [...rx.matchAll(/<Relationship[^>]*?Target="([^"]+)"[^>]*?Id="([^"]+)"/g)].forEach((m) => { rels[m[2]] = m[1]; });
+      const lay = Object.values(rels).find((t) => /slideLayouts\//.test(t)), layX = lay ? await rd('ppt/slideLayouts/' + lay.split('/').pop()) : '', layDoc = layX ? P.parseFromString(layX, 'application/xml') : null;
+      const bgOf = (x) => { const m = x && x.match(/<p:bg>[\s\S]*?<a:srgbClr val="([0-9A-Fa-f]{6})"/); return m ? '#' + m[1] : null; };
+      const masterX = (await rd('ppt/slideMasters/slideMaster1.xml')) || '', bg = bgOf(sx) || bgOf(layX) || bgOf(masterX) || '#ffffff';
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, cv.width, cv.height);
+      const lum = (h) => { const n = parseInt(h.slice(1), 16); return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255; }, dark = lum(bg) < 0.5;
+      const xf = (el) => { const x = el.getElementsByTagNameNS('*', 'xfrm')[0]; if (!x) return null; const o = x.getElementsByTagNameNS('*', 'off')[0], e = x.getElementsByTagNameNS('*', 'ext')[0]; return o && e ? { x: +o.getAttribute('x'), y: +o.getAttribute('y'), w: +e.getAttribute('cx'), h: +e.getAttribute('cy') } : null; };
+      const phX = (sp) => { const ph = sp.getElementsByTagNameNS('*', 'ph')[0]; if (!ph || !layDoc) return null; const ty = ph.getAttribute('type'), ix = ph.getAttribute('idx'); const c = [...layDoc.getElementsByTagNameNS('*', 'sp')].find((l) => { const p2 = l.getElementsByTagNameNS('*', 'ph')[0]; return p2 && ((ix && p2.getAttribute('idx') === ix) || (!ix && p2.getAttribute('type') === ty)); }); return c ? xf(c) : null; };
+      const tree = doc.getElementsByTagNameNS('*', 'spTree')[0]; let drew = false;
+      for (const el of tree ? [...tree.children] : []) {
+        const ln = el.localName;
+        if (ln === 'pic') {
+          const bl = el.getElementsByTagNameNS('*', 'blip')[0], id = bl && (bl.getAttribute('r:embed') || bl.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'embed')), t = id && rels[id], b = xf(el); if (!t || !b) continue;
+          const fp = 'ppt/media/' + t.split('/').pop(), fl = z.file(fp); if (!fl) continue;
+          try { const bmp = await createImageBitmap(await fl.async('blob')); ctx.drawImage(bmp, b.x * SC, b.y * SC, b.w * SC, b.h * SC); drew = true; } catch (e) { /* Format nicht darstellbar */ }
+        } else if (ln === 'sp') {
+          const b = xf(el) || phX(el) || { x: W * 0.06, y: H * 0.06, w: W * 0.88, h: H * 0.88 };
+          const fillM = el.getElementsByTagNameNS('*', 'spPr')[0] && el.getElementsByTagNameNS('*', 'spPr')[0].innerHTML ? el.getElementsByTagNameNS('*', 'spPr')[0].innerHTML.match(/<a:solidFill>\s*<a:srgbClr val="([0-9A-Fa-f]{6})"/) : null;
+          if (fillM) { ctx.fillStyle = '#' + fillM[1]; ctx.fillRect(b.x * SC, b.y * SC, b.w * SC, b.h * SC); drew = true; }
+          const paras = [...el.getElementsByTagNameNS('*', 'p')].map((p) => ({ t: [...p.getElementsByTagNameNS('*', 't')].map((x) => x.textContent).join(''), r: p.getElementsByTagNameNS('*', 'rPr')[0] || p.getElementsByTagNameNS('*', 'endParaRPr')[0] })).filter((p) => p.t.trim());
+          if (!paras.length) continue;
+          const ph = el.getElementsByTagNameNS('*', 'ph')[0], isTitle = ph && /title/i.test(ph.getAttribute('type') || ''); let y = b.y * SC + 6;
+          for (const p of paras) {
+            const sz = p.r && p.r.getAttribute('sz') ? +p.r.getAttribute('sz') / 100 : isTitle ? 40 : 20, px = Math.max(9, sz * 12700 * SC), cm = p.r && p.r.innerHTML.match(/<a:srgbClr val="([0-9A-Fa-f]{6})"/);
+            ctx.font = `${p.r && p.r.getAttribute('b') === '1' || isTitle ? 'bold ' : ''}${px}px sans-serif`; ctx.fillStyle = cm ? '#' + cm[1] : fillM ? (lum('#' + fillM[1]) < 0.5 ? '#fff' : '#222') : dark ? '#fff' : '#222'; ctx.textBaseline = 'top';
+            const maxW = b.w * SC - 12; let line = '';
+            for (const w of p.t.split(/\s+/)) { const t = line ? line + ' ' + w : w; if (ctx.measureText(t).width > maxW && line) { if (y + px > (b.y + b.h) * SC) break; ctx.fillText(line, b.x * SC + 6, y); y += px * 1.2; line = w; } else line = t; }
+            if (line && y + px <= (b.y + b.h) * SC + px) { ctx.fillText(line, b.x * SC + 6, y); y += px * 1.5; drew = true; }
+          }
+        }
+      }
+      if (!drew) return null;
+      return await new Promise((ok) => cv.toBlob(ok, 'image/jpeg', 0.85));
+    } catch (e) { return null; }
+  }
   async function readPptx(d, f) {
     const Z = await loadZip(); let z; try { z = await Z.loadAsync(await f.arrayBuffer()); } catch (e) { z = null; }
     d.meta = [['Dateigröße', mb(f.size)]];
@@ -463,7 +505,8 @@ const MAT = (() => {
     }
     const core = z.file('docProps/core.xml'); if (core) { const c = await core.async('string'), t = (c.match(/<dc:title>([^<]*)<\/dc:title>/) || [])[1], a = (c.match(/<dc:creator>([^<]*)<\/dc:creator>/) || [])[1]; if (t && t.trim()) d.f.title = t.trim(); if (a) d.f.author = a.trim(); }
     d.meta = [['Folien', String(slides.length)], ['Dateigröße', mb(f.size)], ['Datei', f.name]];
-    const th = z.file('docProps/thumbnail.jpeg') || z.file('docProps/thumbnail.jpg') || z.file('docProps/thumbnail.png'); if (th) d.thumbBlob = await th.async('blob');
+    const th = z.file('docProps/thumbnail.jpeg') || z.file('docProps/thumbnail.jpg') || z.file('docProps/thumbnail.png'); if (th) d.thumbBlob = await th.async('blob'); else { const b1 = await slide1Image(z, slides[0]); if (b1) d.thumbBlob = b1; }
+    d.thumbSrc = 'Erste Folie';
   }
   async function readDraft(d) {
     const f = d.file;
@@ -539,7 +582,7 @@ const MAT = (() => {
       else if (d.thumbBlob) { const nm = QDIR + '/' + id + '-thumb.jpg'; await fput(nm, d.thumbBlob); setS({ thumb: { file: nm, src: d.thumbSrc || (d.kind === 'ppt' ? 'Präsentation' : d.kind === 'pdf' ? 'PDF, Seite 1' : d.kind === 'bild' ? 'Screenshot' : 'Video') } }); }
       else if (d.cover) { const nm = QDIR + '/' + id + '-thumb.' + d.cover.ext; await fput(nm, d.cover.blob); setS({ thumb: { file: nm, src: 'EPUB-Titelbild' } }); }
       if (d.kind === 'yt' && d.dl) startDownload(id);
-      if (!d.noThumb && !d.thumbBlob && !d.cover && d.kind !== 'yt') autoThumb(id, false);
+      if (!d.noThumb && !d.thumbBlob && !d.cover && d.kind !== 'yt' && d.kind !== 'ppt') autoThumb(id, false);
       if (d.thumbUrl && d.thumbUrl.startsWith('blob:')) URL.revokeObjectURL(d.thumbUrl);
       m.drafts = m.drafts.filter((x) => x.id !== d.id); m.open = id; toast('Angelegt und auf der NAS gespeichert');
     } catch (e) { d.status = 'ready'; d.err = e.message || String(e); note('err', 'Anlegen fehlgeschlagen: ' + d.err); }
