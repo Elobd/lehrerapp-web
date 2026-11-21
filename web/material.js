@@ -639,7 +639,7 @@ const MAT = (() => {
       if (!d.noThumb && !d.thumbBlob && !d.cover && d.kind !== 'yt' && d.kind !== 'ppt') autoThumb(id, false);
       if (d.thumbUrl && d.thumbUrl.startsWith('blob:')) URL.revokeObjectURL(d.thumbUrl);
       m.drafts = m.drafts.filter((x) => x.id !== d.id); m.open = null; toast('Angelegt und auf der NAS gespeichert');
-    } catch (e) { d.status = 'ready'; d.err = e.message || String(e); note('err', 'Anlegen fehlgeschlagen: ' + d.err); }
+    } catch (e) { d.status = 'ready'; d.err = e.message || String(e); if (/Failed to fetch|NetworkError|Load failed/i.test(d.err)) d.err = 'Keine Verbindung zum Server auf der NAS (Container lehrerapp oder Tailscale läuft nicht, oder die Datei ist zu groß).'; note('err', 'Anlegen fehlgeschlagen: ' + d.err); }
     render();
   }
   const fld = (d, key, label, ph) => `<div class="kmkvr"><span class="kmk">${label}</span><span class="kmv"><input class="matin" id="dr-${d.id}-${key}" data-ch="mdf" data-d="${d.id}" data-k="${key}" value="${esc(d.f[key] || '')}" placeholder="${esc(ph || '')}" autocomplete="off"></span></div>`;
@@ -699,7 +699,7 @@ const MAT = (() => {
     if (sources().some((x) => x.dl && (x.dl.state === 'running' || x.dl.state === 'queued'))) poll();
     const m = M(), list = sources(), f = filterOf();
     if (m.ddN !== list.length) { m.ddN = list.length; setTimeout(dedupe, 600); }
-    const banner = `${m.busy ? `<div class="muted sm" style="margin-bottom:8px">⏳ ${esc(m.busy)}</div>` : ''}${m.note ? `<div class="matnote ${m.note.k}" role="status"><span>${esc(m.note.t)}${/server\.js|Unbekannte API|Verbindung/.test(m.note.t) ? ' <a href="/diagnose.html" style="color:inherit;text-decoration:underline">Diagnose öffnen</a>' : ''}</span><button data-act="matnote0" aria-label="Schließen">×</button></div>` : ''}`;
+    const banner = `${m.busy ? `<div class="muted sm" style="margin-bottom:8px">⏳ ${esc(m.busy)}</div>` : ''}${m.note ? `<div class="matnote ${m.note.k}" role="status"><span>${esc(m.note.t)}${/server\.js|Unbekannte API|Verbindung|Keine Verbindung/.test(m.note.t) ? ' <a href="/diagnose.html" style="color:inherit;text-decoration:underline">Diagnose öffnen</a>' : ''}</span><button data-act="matnote0" aria-label="Schließen">×</button></div>` : ''}`;
     const kinds = kindsOrdered();
     const side = `<nav class="kmside" aria-label="Art"><div class="kmsidet">Art</div><button class="kmicon${!f.a ? ' on' : ''}" data-act="matfa" data-v="">${ico('all')}<small>Alle ${list.length}</small></button>${kinds.map(([k, n]) => `<button class="kmicon${f.a === k ? ' on' : ''}${list.some((x) => kindOf(x) === k) ? '' : ' zero'}" draggable="true" data-k="${k}" title="Ziehen zum Verschieben" data-act="matfa" data-v="${k}">${ico(k)}<small>${esc(n.split(' ')[0])} ${list.filter((x) => kindOf(x) === k).length}</small></button>`).join('')}</nav>`;
     const artName = (KINDS.find(([k]) => k === f.a) || [0, 'Alle Quellen'])[1];
