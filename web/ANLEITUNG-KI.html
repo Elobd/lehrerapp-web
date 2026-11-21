@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>KI-Tests freischalten</title>
+<style>body{font:16px/1.55 system-ui,sans-serif;max-width:780px;margin:24px auto;padding:0 16px;color:#1a2410}h1{font-size:26px}h2{font-size:18px;margin:26px 0 6px}.box{background:#f4f7ec;border-radius:12px;padding:12px 16px;margin:14px 0}code{background:#eef0e6;border-radius:5px;padding:1px 6px}ol{padding-left:22px}li{margin:6px 0}.warn{background:#fdecea;color:#7a1c14}a{color:#1d4ed8}</style></head><body>
+<h1>KI-Tests freischalten</h1>
+<p>Die App kann Tests mit echten Fragen (Multiple-Choice, Richtig/Falsch, Lückensätze, offene Fragen) aus deinen Unterrichtsmaterialien erstellen. Dafür braucht die NAS einen <b>Schlüssel</b> (API-Schlüssel) von Anthropic. Du brauchst das nur einmal einzurichten.</p>
+<div class="box"><b>Was kostet das?</b> Du bezahlst nur, was du nutzt. Ein Test kostet in der Regel wenige Cent. Du kannst unter <i>Billing</i> ein monatliches Limit setzen. Das ist ein eigenes Konto und hat nichts mit deinem Chat-Abo zu tun.<br><b>Was wird gesendet?</b> Nur die Texte der Materialien, die du in „Stoff für den Test verwenden“ gelegt hast. Es werden keine Schülerdaten, Namen oder Noten übertragen.</div>
+<h2>1. Konto und Guthaben</h2>
+<ol><li>Öffne <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a> und registriere dich mit deiner E-Mail-Adresse.</li>
+<li>Öffne dort <b>Settings → Billing</b> (Abrechnung) und lade etwas Guthaben auf, zum Beispiel 5 US-Dollar. Optional: ein monatliches Ausgabenlimit setzen.</li></ol>
+<h2>2. Schlüssel erstellen</h2>
+<ol><li>Öffne <b>Settings → API Keys</b> und klicke <b>Create Key</b>.</li>
+<li>Name zum Beispiel „Lehrer-App“, dann erstellen.</li>
+<li>Der Schlüssel beginnt mit <code>sk-ant-</code>. Er wird <b>nur einmal angezeigt</b>. Kopiere ihn gleich.</li></ol>
+<div class="box warn"><b>Wichtig:</b> Gib den Schlüssel niemandem weiter. Schreib ihn nicht in einen Chat, in eine E-Mail oder auf GitHub. Wer ihn hat, kann auf deine Kosten die KI nutzen.</div>
+<h2>3. Neue Server-Datei einspielen (einmalig)</h2>
+<ol><li>Öffne im Windows-Explorer deinen Projektordner auf der NAS (dort, wo die <code>docker-compose.yml</code> liegt).</li>
+<li>Ersetze die Datei <code>server/server.js</code> durch die neue <code>server.js</code>, die ich dir im Chat gegeben habe.</li></ol>
+<h2>4. Schlüssel auf der NAS eintragen</h2>
+<ol><li>Öffne auf der NAS den <b>Container Manager → Projekt → lehrerapp</b>.</li>
+<li>Klicke <b>Aktion → Bearbeiten</b>. In der Datei steht im Abschnitt <code>lehrerapp</code> die Zeile<br><code>ANTHROPIC_API_KEY: ""</code></li>
+<li>Füge deinen Schlüssel zwischen die Anführungszeichen ein: <code>ANTHROPIC_API_KEY: "sk-ant-…"</code></li>
+<li>Speichern und das Projekt <b>neu erstellen</b> beziehungsweise <b>neu starten</b>. Danach läuft der Dienst mit dem Schlüssel.</li></ol>
+<h2>5. Prüfen</h2>
+<ol><li>Lade die App mit <b>Strg+F5</b> neu.</li>
+<li>Öffne <b>Klassenmappe → Tests verwalten</b>, wähle einen Test und ziehe Material in „Stoff für den Test verwenden“.</li>
+<li>Dort erscheint jetzt der Knopf <b>„Test mit KI erstellen“</b> mit der Auswahl kurz, mittel oder lang. Er legt Word und PDF mit Lösungsseite an.</li></ol>
+<p class="box">Siehst du den Knopf nicht, steht in der Ansicht weiter der Hinweis auf diese Anleitung. Dann läuft der Dienst noch ohne Schlüssel oder mit der alten <code>server.js</code>. Prüfe, ob die Datei ersetzt und der Container neu gestartet wurde.</p>
+</body></html>

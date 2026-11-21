@@ -415,7 +415,32 @@ const MAT = (() => {
 
   /* ---------- Test erstellen aus ausgewählten Quellen (ohne KI) ---------- */
   const pickText = (full) => { const sents = sentences(full); if (!sents.length) return ''; const keys = keyWords(full, 14).map((k) => k.toLowerCase()), sc = sents.map((s, i) => ({ s, i, v: keys.reduce((a, k) => a + (s.toLowerCase().includes(k) ? 1 : 0), 0) })); return sc.sort((a, b) => b.v - a.v || a.i - b.i).slice(0, 16).sort((a, b) => a.i - b.i).map((x) => x.s).join(' ').slice(0, 2600); };
+  /* ---------- Test mit KI erstellen (braucht ANTHROPIC_API_KEY auf dem Server) ---------- */
+  async function makeTestAi(ids, o) {
+    const mats = []; let total = 0;
+    for (const id of ids) { const s = srcOf(id); if (!s) continue; const t = await textOf(id), full = (t.pages || []).map((p) => p.t).join(' ').replace(/\s+/g, ' ').trim(); if (!full) continue; const cut = full.length > 9000 ? pickText(full) + ' ' + full.slice(0, 5000) : full; mats.push({ ref: s.vtitle || s.title, t: cut.slice(0, 9500) }); total += cut.length; if (total > 30000) break; }
+    if (!mats.length) throw new Error('In den gewählten Materialien wurde kein lesbarer Text gefunden (Bilder oder Scans haben keinen Text).');
+    const n = o.n || 10, pts = +o.max > 0 ? +o.max : 40;
+    const prompt = `Du bist Lehrkraft für Geschichte (Oberstufe, österreichische AHS) und erstellst einen schriftlichen Test. Verwende ausschließlich den Stoff aus den folgenden Unterrichtsmaterialien, erfinde nichts dazu. Der Test heißt "${o.title || 'Test'}" und hat insgesamt ${pts} Punkte. Erstelle ${n} abwechslungsreiche Aufgaben (Mix aus "mc" = Multiple-Choice mit 4 Optionen und genau einer richtigen, "richtigfalsch" = Aussage mit Begründung, "luecke" = Lückensatz, "offen" = offene Frage mit Erwartungshorizont). Verteile die Punkte so, dass sie genau ${pts} ergeben. Schreibe Deutsch (Österreich).\n\nAntworte als JSON in dieser Form:\n{"titel":"...","aufgaben":[{"typ":"mc|richtigfalsch|luecke|offen","frage":"...","optionen":["...","...","...","..."],"loesung":"...","punkte":4}]}\n"optionen" nur bei "mc". Bei "mc" steht in "loesung" der Buchstabe und die richtige Antwort.\n\nUNTERRICHTSMATERIALIEN:\n` + mats.map((x, i) => '[' + (i + 1) + '] ' + x.ref + ':\n' + x.t).join('\n\n');
+    const r = await fetch('/api/ai', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt, max_tokens: 7000 }) });
+    const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Die KI hat nicht geantwortet (' + r.status + ')');
+    const res = j.result, tasks = res && Array.isArray(res.aufgaben) ? res.aufgaben : []; if (!tasks.length) throw new Error('Die KI hat keine Aufgaben geliefert. Bitte noch einmal versuchen.');
+    const title = o.title || res.titel || 'Test', b = head(title).concat([{ t: 'p', x: 'Maximale Punkte: ' + pts + '      Erreichte Punkte: ______      Note: ______' }, { t: 'sp' }]), sol = [{ t: 'h2', x: 'Lösungen und Erwartungshorizont' }];
+    tasks.forEach((a, i) => {
+      const k = i + 1, p = +a.punkte ? ' (' + a.punkte + (+a.punkte === 1 ? ' Punkt)' : ' Punkte)') : '';
+      b.push({ t: 'h2', x: 'Aufgabe ' + k + p }, { t: 'p', x: String(a.frage || '') });
+      if (a.typ === 'mc' && Array.isArray(a.optionen)) a.optionen.forEach((op, j) => b.push({ t: 'li', x: 'ABCD'[j] + ')  ' + String(op).replace(/^[A-D][).]\s*/, '') }));
+      else if (a.typ === 'richtigfalsch') b.push({ t: 'p', x: '☐ richtig     ☐ falsch      Begründung: ________________________________' }, { t: 'p', x: '________________________________________________________________' });
+      else if (a.typ === 'luecke') b.push({ t: 'p', x: '________________________________________________________________' });
+      else b.push({ t: 'p', x: '________________________________________________________________' }, { t: 'p', x: '________________________________________________________________' }, { t: 'p', x: '________________________________________________________________' });
+      b.push({ t: 'sp' }); sol.push({ t: 'li', x: 'Aufgabe ' + k + ': ' + String(a.loesung || '–') });
+    });
+    b.push({ t: 'small', x: 'Quellen: ' + mats.map((x) => x.ref).join('; ') }, { t: 'pb' }, { t: 'h2', x: 'Lösung' }, ...sol);
+    return await deliver('Test KI', title, b);
+  }
+
   async function makeTest(ids, o) {
+    if (o.ai) return makeTestAi(ids, o);
     const m = M(), keep = m.sel, parts = o.parts || { gaps: true, terms: true, questions: true, cross: false };
     try {
       const sel = []; for (const id of ids) { const s = srcOf(id); if (!s) continue; const t = await textOf(id), full = (t.pages || []).map((p) => p.t).join(' '), pk = pickText(full); if (pk) sel.push({ ref: s.vtitle || s.title, t: pk }); }
