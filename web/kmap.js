@@ -171,6 +171,30 @@ const KM = (() => {
     c.groups.forEach((G) => { const ci = cinfo(G.slug); if (!Array.isArray(ci.students) || !ci.students.some((x) => skey(x) === key)) return; put('settings', Object.assign({}, ci, { id: 'cn_' + G.slug, students: ci.students.map((x) => (skey(x) === key ? Object.assign({}, x, patch) : x)) })); });
   }
   const phPath = (key) => 'Schuelerfotos/' + key.replace(/[^a-z0-9äöüß]+/gi, '_') + '.jpg';
+  /* Namen unter den Einzelbildern einer Foto-Collage lesen (Texterkennung lokal im Browser) und den Schülern zuordnen */
+  const loadOcr = () => (window.Tesseract ? Promise.resolve(window.Tesseract) : new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.0.5/tesseract.min.js'; sc.onload = () => ok(window.Tesseract); sc.onerror = () => no(new Error('Die Texterkennung konnte nicht geladen werden (Internetverbindung nötig)')); document.head.appendChild(sc); }));
+  const nrm = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ß/g, 'ss').replace(/[^a-z]+/g, ' ').trim();
+  const lev = (a, b) => { const d = Array.from({ length: a.length + 1 }, (_, i) => [i]); for (let j = 1; j <= b.length; j++) d[0][j] = j; for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[a.length][b.length]; };
+  const wsim = (a, b) => 1 - lev(a, b) / Math.max(a.length, b.length);
+  function nameScore(text, st) {
+    const words = nrm(text).split(' ').filter((w) => w.length > 2), toks = (nrm(st.vn) + ' ' + nrm(st.nn)).split(' ').filter((t) => t.length > 1); if (!words.length || !toks.length) return 0;
+    let sc = 0; toks.forEach((t) => { let best = 0; words.forEach((w) => { best = Math.max(best, wsim(t, w)); }); if (best >= (t.length <= 3 ? 0.99 : 0.76)) sc += best; }); return sc / toks.length;
+  }
+  async function ocrNames(img, fs, idxs, prog) {
+    const T = await loadOcr(), wk = await T.createWorker('deu'); try { await wk.setParameters({ tessedit_pageseg_mode: '6' }); } catch (e) { /* */ }
+    const W = img.naturalWidth, H = img.naturalHeight, out = [];
+    try {
+      for (let k = 0; k < idxs.length; k++) {
+        prog(k + 1, idxs.length); const f = fs[idxs[k]], fx = f.x * W, fy = f.y * H, fw = f.w * W, fh = f.h * H, cx = fx + fw / 2, cy = fy + fh / 2;
+        const same = fs.filter((g, j) => j !== idxs[k] && Math.abs((g.y + g.h / 2) * H - cy) < fh * 0.7), dist = same.map((g) => Math.abs((g.x + g.w / 2) * W - cx)).filter((d) => d > fw * 0.5), half = dist.length ? Math.max(fw * 0.8, Math.min(fw * 2, Math.min(...dist) / 2)) : fw * 1.3;
+        const below = fs.filter((g) => g.y * H > fy + fh + fh * 0.4 && Math.abs((g.x + g.w / 2) * W - cx) < half * 1.2).map((g) => g.y * H), y0 = Math.min(H - 2, fy + fh), y1 = Math.min(H, below.length ? Math.min(...below) : H, fy + fh + fh * 2.6), x0 = Math.max(0, cx - half), x1 = Math.min(W, cx + half);
+        if (y1 - y0 < 8 || x1 - x0 < 8) { out.push(''); continue; }
+        const sc = Math.min(4, Math.max(1, 150 / (y1 - y0))), cv = document.createElement('canvas'); cv.width = Math.round((x1 - x0) * sc); cv.height = Math.round((y1 - y0) * sc); const cc = cv.getContext('2d'); cc.fillStyle = '#fff'; cc.fillRect(0, 0, cv.width, cv.height); cc.drawImage(img, x0, y0, x1 - x0, y1 - y0, 0, 0, cv.width, cv.height);
+        const r = await wk.recognize(cv); out.push((r.data.text || '').replace(/\s+/g, ' ').trim());
+      }
+    } finally { await wk.terminate(); }
+    return out;
+  }
   async function openPhoto(key, autoDetect) {
     if (document.getElementById('kmphov')) return;
     const getC = () => classes().find((k) => k.key === key); if (!getC() || !cphoto(key)) return;
@@ -186,11 +210,29 @@ const KM = (() => {
       if (sid) { try { const cv = cropFace(st.img, fs[i], 256), blob = await new Promise((ok) => cv.toBlob(ok, 'image/jpeg', 0.88)), path = phPath(sid); await putFile(path, blob); patchStudent(c, sid, { photo: path, pv: Date.now(), pfrom: 'klassenfoto' }); st.msg = 'Profilfoto gespeichert.'; } catch (e) { st.msg = e.message || 'Profilfoto konnte nicht gespeichert werden.'; } }
       setFaces(fs); paint();
     }
+    async function names() {
+      const c = getC(), sts = studentsOf(c), fs = faces().map((f) => Object.assign({}, f)), idxs = fs.map((f, i) => i).filter((i) => !fs[i].sid);
+      if (!idxs.length) { st.msg = 'Alle Gesichter sind schon zugeordnet.'; return paint(); }
+      if (!sts.length) { st.msg = 'In dieser Klasse gibt es noch keine Schüler, denen Namen zugeordnet werden könnten.'; return paint(); }
+      st.busy = true; st.msg = 'Namen unter den Bildern werden gelesen …'; paint();
+      try {
+        const texts = await ocrNames(st.img, fs, idxs, (k, n) => { st.msg = 'Namen lesen … ' + k + ' von ' + n; const m = o.querySelector('.kmphmsg'); if (m) m.textContent = st.msg; });
+        idxs.forEach((i, k) => { fs[i].t = (texts[k] || '').slice(0, 70); });
+        const used = new Set(fs.map((f) => f.sid).filter(Boolean)), cand = [];
+        idxs.forEach((i) => { const sc = sts.filter((x) => !used.has(skey(x))).map((x) => ({ i, key: skey(x), sc: nameScore(fs[i].t, x) })).sort((a, b) => b.sc - a.sc); if (sc[0] && sc[0].sc >= 0.45 && (!sc[1] || sc[1].sc < sc[0].sc - 0.2 || sc[0].sc >= 0.95)) cand.push(sc[0]); });
+        cand.sort((a, b) => b.sc - a.sc); const pick = [], taken = new Set(); cand.forEach((x) => { if (!taken.has(x.key)) { taken.add(x.key); pick.push(x); } });
+        setFaces(fs); st.thumbs = {};
+        for (const x of pick) await assign(x.i, x.key);
+        st.msg = pick.length ? pick.length + ' von ' + idxs.length + ' Namen automatisch zugeordnet. Bitte kontrolliere die Zuordnung und ergänze den Rest.' : 'Es konnten keine Namen sicher zugeordnet werden. Unter jedem Gesicht steht, was gelesen wurde.';
+      } catch (e) { st.msg = 'Die Namen konnten nicht gelesen werden: ' + (e.message || e); }
+      st.busy = false; paint();
+    }
     async function run() {
       st.busy = true; st.msg = 'Gesichter werden gesucht … (läuft nur auf diesem Gerät, beim ersten Mal wird das Modell geladen)'; paint();
       try {
-        const found = await detectFaces(st.img), keep = faces().filter((f) => f.sid), add = found.filter((b) => !keep.some((k) => iou(k, b) > 0.25)), fs = sortFaces(add.concat(keep).map((f) => ({ x: f.x, y: f.y, w: f.w, h: f.h, sid: f.sid || '' })));
-        setFaces(fs); st.msg = found.length ? found.length + ' Gesichter erkannt. Wähle rechts bei jedem Gesicht den Namen.' : 'Es wurden keine Gesichter erkannt. Nutze „Gesicht markieren“ und ziehe einen Rahmen um das Gesicht.';
+        const found = await detectFaces(st.img), keep = faces().filter((f) => f.sid), add = found.filter((b) => !keep.some((k) => iou(k, b) > 0.25)), fs = sortFaces(add.concat(keep).map((f) => ({ x: f.x, y: f.y, w: f.w, h: f.h, sid: f.sid || '', t: f.t || '' })));
+        setFaces(fs); st.msg = found.length ? found.length + ' Gesichter erkannt.' : 'Es wurden keine Gesichter erkannt. Nutze „Gesicht markieren“ und ziehe einen Rahmen um das Gesicht.';
+        if (found.length) { st.busy = false; paint(); return names(); }
       } catch (e) { st.msg = 'Die Erkennung ist fehlgeschlagen: ' + (e.message || e) + ' Du kannst Gesichter mit „Gesicht markieren“ von Hand einzeichnen.'; }
       st.busy = false; paint();
     }
@@ -198,8 +240,8 @@ const KM = (() => {
       const c = getC(), m = cphoto(key); if (!c || !m) return close();
       const fs = faces(), sts = studentsOf(c).slice().sort((a, b) => (a.nn + a.vn).localeCompare(b.nn + b.vn, 'de')), used = new Set(fs.map((f) => f.sid).filter(Boolean));
       const boxes = fs.map((f, i) => `<div class="kmfx${f.sid ? ' ok' : ''}${st.hot === i ? ' hot' : ''}" data-i="${i}" style="left:${f.x * 100}%;top:${f.y * 100}%;width:${f.w * 100}%;height:${f.h * 100}%"><b>${i + 1}</b></div>`).join('');
-      const rows = fs.map((f, i) => { if (!st.thumbs[i + '|' + f.x + f.y + f.w]) { try { st.thumbs[i + '|' + f.x + f.y + f.w] = cropFace(st.img, f, 72).toDataURL('image/jpeg', 0.8); } catch (e) { /* */ } } return `<div class="kmfcr${st.hot === i ? ' hot' : ''}" data-i="${i}"><img src="${st.thumbs[i + '|' + f.x + f.y + f.w] || ''}" alt=""><b>${i + 1}</b><select data-i="${i}" aria-label="Name zu Gesicht ${i + 1}"><option value="">– wer ist das? –</option>${sts.filter((x) => !used.has(skey(x)) || skey(x) === f.sid).map((x) => `<option value="${esc(skey(x))}"${skey(x) === f.sid ? ' selected' : ''}>${esc(x.nn + ' ' + x.vn)}</option>`).join('')}</select><button class="kmfd" data-del="${i}" title="Gesicht entfernen" aria-label="Gesicht entfernen">×</button></div>`; }).join('');
-      o.innerHTML = `<div class="kmphbox"><div class="kmphtop"><h3>Klassenfoto ${disp(c)}</h3><span style="flex:1"></span><button class="btn sm good" data-x="run"${st.busy ? ' disabled' : ''}>Gesichter erkennen</button><button class="btn sm${st.draw ? ' good' : ''}" data-x="draw" title="Ziehe auf dem Foto einen Rahmen um ein Gesicht">${st.draw ? 'Rahmen ziehen …' : 'Gesicht markieren'}</button><button class="btn sm" data-x="rep">Foto ersetzen</button><button class="btn sm bad" data-x="del">Foto löschen</button><button class="btn sm" data-x="close">Schließen ✕</button><input type="file" accept="image/*" id="kmphrep" hidden></div>
+      const rows = fs.map((f, i) => { if (!st.thumbs[i + '|' + f.x + f.y + f.w]) { try { st.thumbs[i + '|' + f.x + f.y + f.w] = cropFace(st.img, f, 72).toDataURL('image/jpeg', 0.8); } catch (e) { /* */ } } return `<div class="kmfcr${st.hot === i ? ' hot' : ''}" data-i="${i}"><img src="${st.thumbs[i + '|' + f.x + f.y + f.w] || ''}" alt=""><b>${i + 1}</b><div style="min-width:0"><select data-i="${i}" aria-label="Name zu Gesicht ${i + 1}"><option value="">– wer ist das? –</option>${sts.filter((x) => !used.has(skey(x)) || skey(x) === f.sid).map((x) => `<option value="${esc(skey(x))}"${skey(x) === f.sid ? ' selected' : ''}>${esc(x.nn + ' ' + x.vn)}</option>`).join('')}</select>${f.t && !f.sid ? `<small class="muted" style="display:block;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="Gelesener Text unter dem Bild">gelesen: ${esc(f.t)}</small>` : ''}</div><button class="kmfd" data-del="${i}" title="Gesicht entfernen" aria-label="Gesicht entfernen">×</button></div>`; }).join('');
+      o.innerHTML = `<div class="kmphbox"><div class="kmphtop"><h3>Klassenfoto ${disp(c)}</h3><span style="flex:1"></span><button class="btn sm good" data-x="run"${st.busy ? ' disabled' : ''}>Gesichter erkennen</button><button class="btn sm" data-x="names" title="Liest die Namen unter den Einzelbildern der Collage und ordnet sie zu"${st.busy ? ' disabled' : ''}>Namen lesen</button><button class="btn sm${st.draw ? ' good' : ''}" data-x="draw" title="Ziehe auf dem Foto einen Rahmen um ein Gesicht">${st.draw ? 'Rahmen ziehen …' : 'Gesicht markieren'}</button><button class="btn sm" data-x="rep">Foto ersetzen</button><button class="btn sm bad" data-x="del">Foto löschen</button><button class="btn sm" data-x="close">Schließen ✕</button><input type="file" accept="image/*" id="kmphrep" hidden></div>
         <div class="kmphmsg muted sm" role="status">${esc(st.msg || (fs.length ? '' : 'Noch keine Gesichter. Klicke auf „Gesichter erkennen“.'))}</div>
         <div class="kmphbody"><div class="kmphimgw"><div class="kmphimg${st.draw ? ' drawing' : ''}" id="kmphimg"><img src="${fileUrl(m.file, m.v)}" alt="Klassenfoto" draggable="false">${boxes}</div></div><div class="kmphside"><div class="muted sm" style="margin-bottom:6px">${fs.filter((f) => f.sid).length} von ${sts.length} Schülern zugeordnet</div>${rows || '<div class="muted sm">Noch keine Gesichter.</div>'}</div></div></div>`;
     }
@@ -208,7 +250,7 @@ const KM = (() => {
       if (d) { const fs = faces().slice(), f = fs[+d.dataset.del]; if (f && f.sid) { const c = getC(), os = studentsOf(c).find((x) => skey(x) === f.sid); if (os && os.pfrom === 'klassenfoto') patchStudent(c, f.sid, { photo: '', pfrom: '' }); } fs.splice(+d.dataset.del, 1); st.thumbs = {}; setFaces(fs); return paint(); }
       if (bx && !st.draw) { const r = o.querySelector('.kmfcr[data-i="' + bx.dataset.i + '"]'); if (r) { r.scrollIntoView({ block: 'nearest' }); const s = r.querySelector('select'); if (s) s.focus(); } return; }
       if (!b) return; const a = b.dataset.x;
-      if (a === 'close') close(); else if (a === 'run') run(); else if (a === 'draw') { st.draw = !st.draw; paint(); }
+      if (a === 'close') close(); else if (a === 'run') run(); else if (a === 'names') names(); else if (a === 'draw') { st.draw = !st.draw; paint(); }
       else if (a === 'rep') o.querySelector('#kmphrep').click();
       else if (a === 'del') { if (!confirm('Klassenfoto löschen? Bereits gespeicherte Profilfotos bleiben erhalten.')) return; const m = cphoto(key); try { await fetch('/api/file?path=' + encodeURIComponent(m.file), { method: 'DELETE', credentials: 'same-origin' }); } catch (e2) { /* */ } saveCph(key, null); close(); }
     });
