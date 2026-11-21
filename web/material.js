@@ -844,7 +844,7 @@ const MAT = (() => {
   function quellen() {
     const m = M(), list = sources(), f = filterOf(), shown = list.filter(matches), act = f.q || f.e || f.a || f.t.length;
     const { zone, drafts } = addParts(); m.attach = null;
-    const pend = list.filter((x) => x.pending), pendCard = pend.length ? `<section class="card matpend"><div class="row" style="align-items:center;gap:10px;margin-bottom:8px"><h2 style="margin:0">Während der Stundenplanung hinzugefügt (${pend.length})</h2><span class="muted sm">Bitte prüfen und bestätigen</span><span style="flex:1"></span>${pend.length > 1 ? '<button class="btn sm good" data-act="matconfirmall">Alle bestätigen</button>' : ''}</div>${pend.map((x) => { const id = x.id.replace(/^mat_/, ''), pf = x.pfrom || {}; return `<div class="kmli matpendr"><span class="matth2">${thumbOf(x)}</span><span style="flex:1;min-width:0"><b>${esc(x.vtitle || x.title || 'Quelle')}</b><br><small class="muted">${pf.date ? 'Stunde ' + esc(String(pf.date).split('-').reverse().slice(0, 2).join('.')) + '.' : 'Stundenplanung'}${pf.label ? ' · ' + esc(pf.label) : ''}</small></span><button class="btn sm" data-act="matpop" data-id="${id}">Ansehen</button><button class="btn sm" data-act="matpedit" data-id="${id}">Bearbeiten</button><button class="btn sm good" data-act="matconfirm" data-id="${id}">Bestätigen</button></div>`; }).join('')}</section>` : '';
+    const pend = list.filter((x) => x.pending), pendCard = pend.length ? `<section class="card matpend"><div class="row" style="align-items:center;gap:10px;margin-bottom:8px"><h2 style="margin:0">Während der Stundenplanung hinzugefügt (${pend.length})</h2><span class="muted sm">Bitte prüfen und bestätigen</span><span style="flex:1"></span>${pend.length > 1 ? '<button class="btn sm good" data-act="matconfirmall">Alle bestätigen</button>' : ''}</div>${pend.map((x) => { const id = x.id.replace(/^mat_/, ''), pf = x.pfrom || {}; return `<div class="kmli matpendr"><span class="matth2">${thumbOf(x)}</span><span style="flex:1;min-width:0"><b>${esc(x.vtitle || x.title || 'Quelle')}</b><br><small class="muted">${pf.date ? 'Stunde ' + esc(String(pf.date).split('-').reverse().slice(0, 2).join('.')) + '.' : 'Stundenplanung'}${pf.label ? ' · ' + esc(pf.label) : ''}</small></span><button class="btn sm" data-act="matpop" data-id="${id}">Ansehen</button><button class="btn sm" data-act="matpedit" data-id="${id}">Bearbeiten</button><button class="btn sm bad" data-act="matdiscard" data-id="${id}" title="Material wieder löschen">Verwerfen</button><button class="btn sm good" data-act="matconfirm" data-id="${id}">Bestätigen</button></div>`; }).join('')}</section>` : '';
     const cnt = {}; list.forEach((x) => { const t = tagsOf(x); t.tags.forEach((y) => { cnt[y] = (cnt[y] || 0) + 1; }); });
     const tg = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a] || a.localeCompare(b, 'de')), top = tg.slice(0, 12), more = tg.slice(12);
     const tgb = (x) => `<button class="mattag tg sel${f.t.includes(x) ? ' on' : ''}" data-act="matft" data-v="${esc(x)}">${esc(x)}<small> ${cnt[x]}</small></button>`;
@@ -906,6 +906,16 @@ const MAT = (() => {
     matai: (e) => toast(e.dataset.k + ': Dafür brauche ich den KI-Schlüssel. Das schalten wir in der nächsten Stufe frei, die Auswahl bleibt erhalten.'),
     matnote0: () => { note(); render(); },
     matrmkey: (e) => { const s = srcOf(e.dataset.id); if (!s) return; const t = e.dataset.t, mk = (s.mankeys || []).filter((x) => x !== t), hid = (s.hid || []).slice(); if (!(s.mankeys || []).includes(t) && !hid.includes(t)) hid.push(t); put('settings', Object.assign({}, s, { mankeys: mk, hid })); render(); },
+    matdiscard: async (e) => {
+      const id = e.dataset.id, s0 = srcOf(id); if (!s0) return; const kids = sources().filter((x) => x.pdfFrom === id && x.pending).map((x) => x.id.replace(/^mat_/, '')), all = [id].concat(kids);
+      if (!confirm('„' + (s0.vtitle || s0.title) + '“' + (kids.length ? ' und die daraus erzeugte PDF' : '') + ' verwerfen? Die Dateien werden von der NAS gelöscht und aus den Stunden entfernt.')) return;
+      for (const x of all) {
+        Object.values(S.settings).filter((d) => d && /^cn_/.test(d.id || '') && Array.isArray(d.log) && d.log.some((l) => (l.mats || []).includes(x) || (l.smats || []).includes(x))).forEach((d) => put('settings', Object.assign({}, d, { log: d.log.map((l) => Object.assign({}, l, l.mats ? { mats: l.mats.filter((m) => m !== x) } : {}, l.smats ? { smats: l.smats.filter((m) => m !== x) } : {})) })));
+        Object.values(S.tests || {}).filter((t) => t && t.mid === x && !(t.pts && Object.keys(t.pts).length)).forEach((t) => del('tests', t.id));
+        await removeSource(x);
+      }
+      toast('Verworfen'); render();
+    },
     matconfirm: (e) => { const s0 = srcOf(e.dataset.id); if (s0) put('settings', Object.assign({}, s0, { pending: false })); },
     matconfirmall: () => { sources().filter((x) => x.pending).forEach((x) => put('settings', Object.assign({}, x, { pending: false }))); },
     matpedit: (e) => openEdit(e.dataset.id),
