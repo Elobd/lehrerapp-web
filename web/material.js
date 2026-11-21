@@ -908,13 +908,13 @@ const MAT = (() => {
     matrmkey: (e) => { const s = srcOf(e.dataset.id); if (!s) return; const t = e.dataset.t, mk = (s.mankeys || []).filter((x) => x !== t), hid = (s.hid || []).slice(); if (!(s.mankeys || []).includes(t) && !hid.includes(t)) hid.push(t); put('settings', Object.assign({}, s, { mankeys: mk, hid })); render(); },
     matdiscard: async (e) => {
       const id = e.dataset.id, s0 = srcOf(id); if (!s0) return; const kids = sources().filter((x) => x.pdfFrom === id && x.pending).map((x) => x.id.replace(/^mat_/, '')), all = [id].concat(kids);
-      if (!confirm('„' + (s0.vtitle || s0.title) + '“' + (kids.length ? ' und die daraus erzeugte PDF' : '') + ' verwerfen? Die Dateien werden von der NAS gelöscht und aus den Stunden entfernt.')) return;
+      const verb = e.dataset.verb || 'verwerfen'; if (!confirm('„' + (s0.vtitle || s0.title) + '“' + (kids.length ? ' und die daraus erzeugte PDF' : '') + ' ' + verb + '? Die Dateien werden von der NAS gelöscht und aus den Stunden entfernt.')) return;
       for (const x of all) {
         Object.values(S.settings).filter((d) => d && /^cn_/.test(d.id || '') && Array.isArray(d.log) && d.log.some((l) => (l.mats || []).includes(x) || (l.smats || []).includes(x))).forEach((d) => put('settings', Object.assign({}, d, { log: d.log.map((l) => Object.assign({}, l, l.mats ? { mats: l.mats.filter((m) => m !== x) } : {}, l.smats ? { smats: l.smats.filter((m) => m !== x) } : {})) })));
         Object.values(S.tests || {}).filter((t) => t && t.mid === x && !(t.pts && Object.keys(t.pts).length)).forEach((t) => del('tests', t.id));
         await removeSource(x);
       }
-      toast('Verworfen'); render();
+      toast(e.dataset.verb === 'löschen' ? 'Gelöscht' : 'Verworfen'); render();
     },
     matconfirm: (e) => { const s0 = srcOf(e.dataset.id); if (s0) put('settings', Object.assign({}, s0, { pending: false })); },
     matconfirmall: () => { sources().filter((x) => x.pending).forEach((x) => put('settings', Object.assign({}, x, { pending: false }))); },
@@ -1418,7 +1418,7 @@ html:root .kmchip.matep{padding:3px 10px;font-size:12.5px;gap:4px;background:var
         <div class="kmkvr"><span class="kmk">Name</span><span class="kmv"><input class="matin" id="mataoname" value="${esc(name)}" aria-label="Name des Arbeitsauftrags"></span></div>
         <div class="kmkvr"><span class="kmk">Epoche</span><span class="kmv chips">${EPOCHS.map((x) => `<button class="mattag ep sel${eps.has(x) ? ' on' : ''}"${epS(x)} data-aoep="${esc(x)}">${esc(x)}</button>`).join('')}<small class="muted" style="align-self:center">gilt für alle Dateien</small></span></div>
         <div class="muted sm" style="margin:12px 0 4px">Dateien (${items.length})</div>
-        ${items.map((x) => { const id = x.id.replace(/^mat_/, ''); return `<div class="kmli matpendr"><span class="matth2${/^(buch|pdf|epub)$/.test(kindOf(x)) ? ' matportrait' : ''}">${thumbOf(x)}</span><span style="flex:1;min-width:0"><b>${esc(x.vtitle || x.title)}</b><br><small class="muted">${esc((KINDS.find(([kk]) => kk === kindOf(x)) || [0, ''])[1])}${isWord(x) ? ' · Word' : ''}${x.pdfFrom ? ' · aus Word erzeugt' : ''}</small></span><button class="btn sm" data-act="matpop" data-id="${id}">Ansehen</button><button class="btn sm" data-act="matpedit" data-id="${id}">Bearbeiten</button></div>`; }).join('')}
+        ${items.map((x) => { const id = x.id.replace(/^mat_/, ''); return `<div class="kmli matpendr"><span class="matth2${/^(buch|pdf|epub)$/.test(kindOf(x)) ? ' matportrait' : ''}">${thumbOf(x)}</span><span style="flex:1;min-width:0"><b>${esc(x.vtitle || x.title)}</b><br><small class="muted">${esc((KINDS.find(([kk]) => kk === kindOf(x)) || [0, ''])[1])}${isWord(x) ? ' · Word' : ''}${x.pdfFrom ? ' · aus Word erzeugt' : ''}</small></span><button class="btn sm" data-act="matpop" data-id="${id}">Ansehen</button><button class="btn sm" data-act="matpedit" data-id="${id}">Bearbeiten</button><button class="btn sm bad" data-act="matdiscard" data-verb="löschen" data-id="${id}" title="Datei löschen">Löschen</button></div>`; }).join('')}
         ${wp}</div>`;
       const nb = o.querySelector('.matedbox'); if (nb) { place(nb); nb.scrollTop = top; }
     };
@@ -1436,6 +1436,7 @@ html:root .kmchip.matep{padding:3px 10px;font-size:12.5px;gap:4px;background:var
       const ul = e.target.closest('[data-aounlink]'); if (ul) { const p = srcOf(ul.dataset.aounlink); if (p) { const o2 = Object.assign({}, p); delete o2.pdfFrom; put('settings', o2); } return setTimeout(paint, 150); }
       const sy = e.target.closest('[data-aosync]'); if (sy) { toast('PDF wird erstellt …'); const n = await syncPdfs(true, sy.dataset.aosync); if (!n) toast('Nicht aktualisiert: ' + (SY.msg['mat_' + sy.dataset.aosync] || 'Server nicht erreichbar oder LibreOffice fehlt')); return paint(); }
       setTimeout(() => { if (document.getElementById('mataomod')) paint(); }, 250);
+      if (e.target.closest('[data-verb]')) setTimeout(() => { if (document.getElementById('mataomod')) paint(); }, 1200);
     });
     o.addEventListener('change', async (e) => {
       const rp = e.target.closest && e.target.closest('[data-aorep]'); if (rp && rp.files[0]) { const f = rp.files[0]; rp.value = ''; toast('Word-Datei wird hochgeladen …'); try { await replaceWord(rp.dataset.aorep, f); const l = sources().find((x) => x.pdfFrom === rp.dataset.aorep); if (l) await syncPdfs(true, l.id.replace(/^mat_/, '')); } catch (er) { toast('Fehler: ' + (er.message || er)); } return paint(); }
