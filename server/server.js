@@ -83,7 +83,7 @@ function runNext() {
   const done = (code) => {
     jobs.delete('_run');
     const files = fs.readdirSync(dir).filter((f) => f.startsWith(j.id + '.')), mp4 = files.find((f) => /\.(mp4|mkv|webm)$/.test(f)), vtt = files.find((f) => /\.vtt$/.test(f));
-    if (code === 0 && mp4) { j.state = 'done'; j.file = 'Material/Videos/' + mp4; j.size = fs.statSync(path.join(dir, mp4)).size; j.transcript = vtt ? vttText(fs.readFileSync(path.join(dir, vtt), 'utf8')) : ''; j.msg = 'fertig'; }
+    if (code === 0 && mp4) { j.state = 'done'; j.file = 'Material/Videos/' + mp4; j.size = fs.statSync(path.join(dir, mp4)).size; j.transcript = vtt ? vttText(fs.readFileSync(path.join(dir, vtt), 'utf8')) : ''; j.msg = 'fertig'; files.filter((f) => /\.vtt$/.test(f)).forEach((f) => { try { fs.unlinkSync(path.join(dir, f)); } catch { /* */ } }); }
     else { j.state = 'error'; j.msg = (err.split('\n').filter(Boolean).pop() || 'Download fehlgeschlagen').slice(0, 300); }
     runNext();
   };
@@ -279,6 +279,7 @@ const server = http.createServer(async (req, res) => {
         }
         if (req.method === 'DELETE') {
           if (fs.existsSync(abs) && fs.statSync(abs).isFile()) fs.unlinkSync(abs);
+          const mv = /^Material\/Videos\/([\w-]+)\.[^/]+$/.exec(rel); if (mv) { const vd = path.join(FILES_DIR, 'Material', 'Videos'); try { fs.readdirSync(vd).filter((f) => f.startsWith(mv[1] + '.') && /\.(vtt|part|ytdl)$/.test(f)).forEach((f) => fs.unlinkSync(path.join(vd, f))); } catch { /* */ } }
           return json(res, 200, { ok: true });
         }
       }

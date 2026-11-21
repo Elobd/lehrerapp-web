@@ -1,0 +1,1 @@
+pptx-preview 1.0.7 (npm: pptx-preview). Laut README des Pakets frei nutzbar (privat und gewerblich). Quelle: https://www.npmjs.com/package/pptx-preview

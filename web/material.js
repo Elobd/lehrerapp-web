@@ -949,12 +949,31 @@ const MAT = (() => {
     if (id && srcOf(id)) { e.preventDefault(); A.matdel({ dataset: { id } }); }
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target && e.target.id === 'matq') { e.preventDefault(); A.matsearch(); } });
+  /* PowerPoint-Präsentation im Fenster abspielen (Folie für Folie) */
+  async function showPptx(o, s, id) {
+    const view = o.querySelector('.matpptv'), cnt = o.querySelector('[data-ppn]');
+    const fallback = async (why) => { const t = await textOf(id); view.innerHTML = `<div style="padding:18px 22px;text-align:left;overflow:auto;height:100%;color:var(--ink);background:var(--surface)"><p class="muted sm">Die Folien lassen sich hier nicht darstellen (${esc(why)}). Der Text der Präsentation:</p>${t.pages.map((p) => `<h3 style="margin:14px 0 4px;font-size:15px">${esc(p.h || 'Folie ' + p.p)}</h3><p style="margin:0;white-space:pre-wrap">${esc(p.t)}</p>`).join('')}</div>`; cnt.textContent = ''; };
+    try {
+      await loadScript('/vendor/pptx-preview.umd.js', 'pptxPreview');
+      const buf = await (await fetch(url(s.file), { credentials: 'same-origin' })).arrayBuffer(); let W = 4, H = 3;
+      try { const Z = await loadZip(), z = await Z.loadAsync(buf), px = await z.file('ppt/presentation.xml').async('string'), m = px.match(/<p:sldSz[^>]*?cx="(\d+)"[^>]*?cy="(\d+)"/); if (m) { W = +m[1]; H = +m[2]; } } catch (e) { /* 16:9 annehmen */ }
+      const bw = view.clientWidth || 900, bh = view.clientHeight || 500, w = Math.max(320, Math.min(bw - 16, (bh - 16) * W / H)), h = Math.round(w * H / W);
+      view.innerHTML = ''; const host = document.createElement('div'); host.style.cssText = 'width:' + Math.round(w) + 'px;height:' + h + 'px;margin:auto;position:relative'; view.appendChild(host);
+      const pv = window.pptxPreview.init(host, { width: Math.round(w), height: h, mode: 'slide' }); await pv.preview(buf);
+      const upd = () => { cnt.textContent = 'Folie ' + (pv.currentIndex + 1) + ' von ' + pv.slideCount; }; upd();
+      const go = (d) => { if (d > 0) pv.renderNextSlide(); else pv.renderPreSlide(); upd(); };
+      o.querySelector('.matpdftb').addEventListener('click', (e) => { const b = e.target.closest('[data-pp]'); if (!b) return; if (b.dataset.pp === 'fs') { const el = view; (el.requestFullscreen || el.webkitRequestFullscreen || (() => {})).call(el); } else go(b.dataset.pp === '+' ? 1 : -1); });
+      const key = (e) => { if (!document.body.contains(o)) return document.removeEventListener('keydown', key); if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') { e.preventDefault(); go(1); } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); go(-1); } };
+      document.addEventListener('keydown', key);
+    } catch (e) { await fallback(e.message || 'Fehler'); }
+  }
   /* Doppelklick auf eine Kachel: Quelle als Pop-up öffnen */
   async function popup(id) {
     const s = srcOf(id); if (!s) return;
     const o = document.createElement('div'); o.className = 'matask'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true');
     const kind = kindOf(s); let body = '';
     if (kind === 'video' && s.file && !(s.dl && s.dl.file) && /\.(mp4|m4v|mov|webm|mkv)$/i.test(s.file)) body = `<video controls autoplay src="${url(s.file, '&inline=1')}" style="width:100%;height:100%;background:#000"></video>`;
+    else if (kind === 'ppt' && s.file && /\.(pptx|ppsx|pptm)$/i.test(s.file)) body = `<div class="matppt"><div class="matpdftb"><button class="btn sm" data-pp="-" aria-label="Vorherige Folie">◀</button><span class="sm" data-ppn style="min-width:90px;text-align:center">…</span><button class="btn sm" data-pp="+" aria-label="Nächste Folie">▶</button><button class="btn sm" data-pp="fs" style="margin-left:8px">Vollbild</button><span style="flex:1"></span><a class="btn sm" href="${url(s.file)}" download>Herunterladen</a></div><div class="matpptv"><span class="muted">⏳ Präsentation wird geladen …</span></div></div>`;
     else if (kind === 'pdf' && s.file) body = `<iframe class="matpdfv" title="${esc(s.title)}" src="/pdfjs/web/viewer.html?file=${encodeURIComponent(url(s.file, '&inline=1'))}#zoom=page-width&pagemode=none&locale=de" style="width:100%;height:100%;border:0;background:#fff"></iframe>`;
     else if (kind === 'video' && s.dl && s.dl.state === 'done' && s.dl.file) body = `<video controls autoplay src="${url(s.dl.file, '&inline=1')}" style="width:100%;height:100%;background:#000"></video>`;
     else {
@@ -968,6 +987,7 @@ const MAT = (() => {
     const esc1 = (e) => { if (e.key === 'Escape') close(); };
     o.addEventListener('click', (e) => { if (e.target === o || e.target.closest('[data-x]')) close(); });
     document.addEventListener('keydown', esc1); document.body.appendChild(o);
+    if (kind === 'ppt' && s.file && /\.(pptx|ppsx|pptm)$/i.test(s.file)) showPptx(o, s, id);
   }
   const inView = () => U.view === 'material';
   /* Symbole der Seitenleiste per Drag-and-Drop anordnen (wird auf allen Geräten gespeichert) */
@@ -1112,6 +1132,7 @@ const MAT = (() => {
 .matnote{display:flex;gap:10px;align-items:flex-start;border-radius:10px;padding:10px 14px;margin:-4px 0 12px;font:600 14px var(--font-body)}.matnote.err{background:var(--bad-soft);color:var(--bad)}.matnote.ok{background:var(--good-soft);color:var(--good)}.matnote span{flex:1}.matnote button{border:0;background:transparent;color:inherit;font:700 18px/1 var(--font-body);cursor:pointer}
 .matinw{position:relative;display:block}.matinw input{padding-right:30px!important}.matclr{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:var(--surface2);color:var(--muted);width:22px;height:22px;border-radius:50%;cursor:pointer;font:700 15px/1 var(--font-body);display:grid;place-items:center;padding:0}.matclr:hover{background:var(--bad-soft);color:var(--bad)}
 .mattag.hq{padding:0 2px 0 4px}.mattag.hq button:first-child{padding:2px 6px 2px 4px;font:600 12px var(--font-body)}.mattag.hq button{color:inherit}
+.matppt{display:flex;flex-direction:column;height:100%}.matpptv{flex:1;overflow:auto;background:#374151;display:grid;place-items:center;padding:8px}.matpptv:fullscreen{background:#000}
 .matpdf{display:flex;flex-direction:column;height:100%}.matpdftb{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--line);background:var(--surface2)}.matpdfs{flex:1;overflow:auto;background:#6b7280;padding:12px;text-align:center;color:#fff}.matpdfpg{margin:0 auto 12px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.35)}.matpdfpg canvas{display:block}
 .matbig{max-width:1100px;width:96vw;height:88vh;display:flex;flex-direction:column}.matview{flex:1;min-height:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
 .matcc{position:absolute;left:6px;top:6px;background:rgba(255,255,255,.9);color:#222;border-radius:5px;padding:0 5px;font:700 10px var(--font-body)}
