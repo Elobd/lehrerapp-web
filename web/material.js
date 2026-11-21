@@ -964,6 +964,14 @@ const MAT = (() => {
       const upd = () => { cnt.textContent = 'Folie ' + (pv.currentIndex + 1) + ' von ' + pv.slideCount; }; upd();
       const go = (d) => { if (d > 0) pv.renderNextSlide(); else pv.renderPreSlide(); upd(); };
       o.querySelector('.matpdftb').addEventListener('click', (e) => { const b = e.target.closest('[data-pp]'); if (!b) return; if (b.dataset.pp === 'fs') { const el = view; (el.requestFullscreen || el.webkitRequestFullscreen || (() => {})).call(el); } else go(b.dataset.pp === '+' ? 1 : -1); });
+      const isFs = () => document.fullscreenElement === view || document.webkitFullscreenElement === view;
+      const fit = () => {
+        if (!document.body.contains(o)) { document.removeEventListener('fullscreenchange', fit); document.removeEventListener('webkitfullscreenchange', fit); window.removeEventListener('resize', fit); return; }
+        const f = isFs(); view.style.padding = f ? '0' : ''; view.style.overflow = f ? 'hidden' : ''; host.style.transformOrigin = 'center center';
+        host.style.transform = f ? 'scale(' + Math.min(view.clientWidth / w, view.clientHeight / h) + ')' : ''; view.style.cursor = f ? 'pointer' : '';
+      };
+      document.addEventListener('fullscreenchange', fit); document.addEventListener('webkitfullscreenchange', fit); window.addEventListener('resize', fit);
+      host.addEventListener('click', () => { if (isFs()) go(1); });
       const key = (e) => { if (!document.body.contains(o)) return document.removeEventListener('keydown', key); if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') { e.preventDefault(); go(1); } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); go(-1); } };
       document.addEventListener('keydown', key);
     } catch (e) { await fallback(e.message || 'Fehler'); }
