@@ -957,7 +957,7 @@ const MAT = (() => {
     matft: (e) => { const f = filterOf(), v = e.dataset.v; f.t = f.t.includes(v) ? f.t.filter((x) => x !== v) : f.t.concat(v); render(); },
     matfx: () => { M().f = newF(); setIn('matfq', ''); render(); },
     matpop: (e) => popup(e.dataset.id),
-    mataoopen: (e) => { openAo(e.dataset.k); },
+    mataoopen: (e) => { openAo(e.dataset.k, e.closest && e.closest('.mataot')); },
     matopen: (e) => { const m = M(), id = e.dataset.id; m.open = m.open === id ? null : id; render(); if (m.open) setTimeout(() => { const c = document.getElementById('matdetail'); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 50); },
     matshowf: () => { const m = M(); m.showFiles = !m.showFiles; if (m.showFiles) m.files = null; render(); },
     matyt: async (e) => {
@@ -1299,6 +1299,7 @@ const MAT = (() => {
 .kmkvr.rd{position:relative}.matgrip{position:absolute;left:-14px;top:8px;cursor:grab;color:var(--muted);opacity:.35;font:700 13px/1 var(--font-body);letter-spacing:-2px;user-select:none;padding:2px}.kmkvr.rd:hover .matgrip{opacity:1}.kmkvr.rowdrag{opacity:.4}.kmkvr.rowover{box-shadow:inset 0 3px 0 var(--brand,var(--accent))}
 .matgi{cursor:grab;padding-right:4px}.matgi .matgl{border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;padding:0}.matgx{border:0;background:transparent;color:inherit;opacity:.45;cursor:pointer;font:700 13px/1 var(--font-body);padding:0 2px}.matgx:hover{opacity:1;color:var(--bad)}.matgi.drag{opacity:.35}.matgi.over{box-shadow:inset 3px 0 0 var(--brand,var(--accent))}.matgrpx{margin-left:4px}
 .mattag.mini{margin:0 0 0 6px;font-size:10px;padding:0 6px;background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.mataoov{background:rgba(10,12,8,.18)!important;display:block!important;padding:0!important;overflow:hidden!important}.mataoov .matedbox{position:fixed;overflow:auto;box-shadow:0 16px 48px rgba(0,0,0,.35);max-width:none}
 .mataows{margin-top:14px;padding:12px;border:1px solid var(--accent);border-radius:10px;background:var(--surface2)}.aoover{outline:3px solid var(--accent);outline-offset:2px}.mataot.drag{opacity:.4}
 .mataog{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;grid-auto-flow:row dense}.mataonew{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:12px;display:flex;flex-direction:column;gap:8px}.mataonew .matin{width:100%}.mataodz{border:2px dashed var(--line);border-radius:10px;padding:14px 10px;text-align:center;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;min-height:110px;justify-content:center}.mataodz:hover,.mataodz.over,.mataodz:focus{border-color:var(--accent);background:var(--accent-soft)}
 .mataop{grid-column:1/-1;border:1px solid var(--accent);border-radius:12px;padding:10px 14px;background:var(--surface2)}.mataot.on{outline:2px solid var(--accent)}
@@ -1380,9 +1381,9 @@ html:root .kmchip.matep{padding:3px 10px;font-size:12.5px;gap:4px;background:var
     if (raw.length >= 20) { T[wid] = { pages: [{ p: 1, t: raw }] }; await fput(QDIR + '/' + wid + '.json', new Blob([JSON.stringify(T[wid])], { type: 'application/json' })); }
     toast('Word-Datei ersetzt');
   }
-  function openAo(k) {
+  function openAo(k, anchor) {
     if (document.getElementById('mataomod') || !aoMembers(k).length) return; const m = M(); m.aoOpen = k; let key = k;
-    const o = document.createElement('div'); o.id = 'mataomod'; o.className = 'matedov'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); document.body.appendChild(o);
+    const o = document.createElement('div'); o.id = 'mataomod'; o.className = 'matedov mataoov'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); document.body.appendChild(o);
     const close = () => { o.remove(); document.removeEventListener('keydown', onK); M().aoOpen = ''; render(); }, onK = (e) => { if (e.key === 'Escape' && !document.querySelector('.matask, .matpop, #matedov')) close(); };
     const paint = () => {
       const items = aoMembers(key); if (!items.length) return close(); const name = aoOf(items[0]), eps = new Set(); items.forEach((x) => tagsOf(x).epoche.forEach((e) => eps.add(e)));
@@ -1398,7 +1399,14 @@ html:root .kmchip.matep{padding:3px 10px;font-size:12.5px;gap:4px;background:var
         <div class="muted sm" style="margin:12px 0 4px">Dateien (${items.length})</div>
         ${items.map((x) => { const id = x.id.replace(/^mat_/, ''); return `<div class="kmli matpendr"><span class="matth2${/^(buch|pdf|epub)$/.test(kindOf(x)) ? ' matportrait' : ''}">${thumbOf(x)}</span><span style="flex:1;min-width:0"><b>${esc(x.vtitle || x.title)}</b><br><small class="muted">${esc((KINDS.find(([kk]) => kk === kindOf(x)) || [0, ''])[1])}${isWord(x) ? ' · Word' : ''}${x.pdfFrom ? ' · aus Word erzeugt' : ''}</small></span><button class="btn sm" data-act="matpop" data-id="${id}">Ansehen</button><button class="btn sm" data-act="matpedit" data-id="${id}">Bearbeiten</button></div>`; }).join('')}
         ${wp}</div>`;
-      const nb = o.querySelector('.matedbox'); if (nb) nb.scrollTop = top;
+      const nb = o.querySelector('.matedbox'); if (nb) { place(nb); nb.scrollTop = top; }
+    };
+    /* Popup direkt über (sonst unter) der angeklickten Kachel */
+    const place = (nb) => {
+      if (!anchor || !document.body.contains(anchor)) return; const r = anchor.getBoundingClientRect(), vw = window.innerWidth, vh = window.innerHeight, w = Math.min(760, vw - 24), above = r.top - 14, below = vh - r.bottom - 14;
+      nb.style.width = w + 'px'; nb.style.left = Math.max(12, Math.min(r.left, vw - w - 12)) + 'px';
+      if (above >= 300 || above >= below) { nb.style.top = 'auto'; nb.style.bottom = (vh - r.top + 8) + 'px'; nb.style.maxHeight = Math.max(160, above - 8) + 'px'; }
+      else { nb.style.bottom = 'auto'; nb.style.top = (r.bottom + 8) + 'px'; nb.style.maxHeight = Math.max(160, below - 8) + 'px'; }
     };
     o.addEventListener('click', async (e) => {
       if (e.target === o || e.target.closest('[data-edx]')) return close();
