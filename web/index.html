@@ -1234,7 +1234,7 @@ const C={
   jpplan:e=>{const ci=cinfo(e.dataset.slug),jp=Object.assign({},ci.jp&&typeof ci.jp==='object'?ci.jp:{});const v=e.value.trim();if(v)jp[e.dataset.d]=v;else delete jp[e.dataset.d];put('settings',Object.assign({},ci,{id:'cn_'+e.dataset.slug,jp}))},
   jpsub:e=>{const d=S.settings.jahresplan||{id:'jahresplan'},sub=Object.assign({},d.sub||{}),it=Object.assign({},sub[e.dataset.k]||{});it[e.dataset.f]=e.value;sub[e.dataset.k]=it;put('settings',Object.assign({},d,{id:'jahresplan',sub}))},
   jpstufe:e=>{const d=S.settings.jahresplan||{id:'jahresplan'};put('settings',Object.assign({},d,{id:'jahresplan',[e.dataset.k]:e.value}))},
-  lgfield:e=>{const k=e.dataset.k;saveLog(e.dataset.slug,log=>{const x=log.find(y=>y.id===e.dataset.id);if(x){x[k]=(k==='plan')?e.value:(k==='text'?e.value.trim()||x.text:e.value)}})},
+  lgfield:e=>{const k=e.dataset.k;saveLog(e.dataset.slug,log=>{const x=log.find(y=>y.id===e.dataset.id);if(x){x[k]=(k==='text')?e.value.trim():e.value}})},
   cnote:e=>{const slug=e.dataset.slug;put('settings',Object.assign({},cinfo(slug),{id:'cn_'+slug,notes:e.value}))},
   stug:e=>{const slug=e.dataset.slug,ci=cinfo(slug);put('settings',Object.assign({},ci,{id:'cn_'+slug,students:(ci.students||[]).map(x=>x.id===e.dataset.id?Object.assign({},x,{g:e.value}):x)}));render()},
   kvs:e=>{const slug=e.dataset.slug,ci=cinfo(slug),k=Object.assign({},ci.kvs||{});k[e.dataset.cl]=e.value.trim();put('settings',Object.assign({},ci,{id:'cn_'+slug,kvs:k}))},
