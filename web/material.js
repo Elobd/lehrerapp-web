@@ -1369,8 +1369,14 @@ html:root .kmchip.matep{padding:3px 10px;font-size:12.5px;gap:4px;background:var
   }
   const SY = { ok: null, busy: false, err: {}, msg: {} };
   async function convertOk() { if (SY.ok !== null) return SY.ok; try { const r = await fetch('/api/version', { credentials: 'same-origin' }); const j = await r.json(); SY.ok = !!j.convert; } catch { SY.ok = false; } return SY.ok; }
+  /* Läuft schon ein Durchgang, wird danach automatisch noch einer gemacht (sonst gehen Dateien verloren, die währenddessen dazukamen) */
   async function syncPdfs(force, onlyId) {
-    if (SY.busy) return 0; SY.busy = true; let n = 0;
+    if (SY.busy) { SY.again = true; return 0; } SY.busy = true; let total = 0;
+    try { do { SY.again = false; total += await syncRun(force, onlyId); } while (SY.again); } finally { SY.busy = false; }
+    return total;
+  }
+  async function syncRun(force, onlyId) {
+    let n = 0;
     try {
       const need = sources().filter((x) => x.needPdf && x.file && isWord(x) && !onlyId && !(SY.err[x.id] && Date.now() - SY.err[x.id] < 600000));
       if (need.length || true) { if (!(await convertOk())) { if (need.length && !SY.warned) { SY.warned = true; toast('PDF aus Word kann noch nicht erstellt werden: LibreOffice fehlt im Container (Anleitung: Dockerfile neu bauen).'); } return 0; } }
@@ -1392,7 +1398,7 @@ html:root .kmchip.matep{padding:3px 10px;font-size:12.5px;gap:4px;background:var
         try { const rr = await fetch('/api/convert', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ src: w.file, dst: p.file }) }); if (!rr.ok) throw new Error(((await rr.json().catch(() => ({}))).error) || 'Fehler ' + rr.status); delete SY.err[p.id]; SY.msg[p.id] = ''; n++; put('settings', Object.assign({}, srcOf(p.id.replace(/^mat_/, '')), { pdfAt: Date.now() })); toast('PDF „' + (p.vtitle || p.title) + '“ aus der Word-Datei aktualisiert'); }
         catch (e) { SY.err[p.id] = Date.now(); SY.msg[p.id] = e.message || String(e); }
       }
-    } finally { SY.busy = false; } return n;
+    } finally { /* */ } return n;
   }
   setTimeout(() => syncPdfs(false), 8000); setInterval(() => syncPdfs(false), 180000);
   async function replaceWord(wid, file) {
