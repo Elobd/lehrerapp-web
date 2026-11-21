@@ -144,7 +144,7 @@ const KM = (() => {
       const key = pkey(c, n), part = multi ? norm(n) : '', m = cphoto(key), nm = multi ? 'Klasse ' + esc(String(n).toUpperCase()) : 'der Klasse', nS = subStudents(c, part).length;
       if (!m) return `<div class="kmphone"><div class="kmphdz" data-key="${esc(key)}" tabindex="0" role="button" aria-label="Foto ${nm} hierher ziehen oder klicken"><b>Foto ${nm} hierher ziehen</b><span class="muted sm">oder klicken, um eine Datei zu wählen</span><input type="file" accept="image/*" class="kmphf" data-key="${esc(key)}" hidden></div></div>`;
       const done = (m.faces || []).filter((f) => f.sid).length;
-      return `<div class="kmphone">${multi ? `<div class="kmphlab">Klasse ${esc(String(n).toUpperCase())}</div>` : ''}<button class="kmphth" data-act="kmphopen" data-key="${esc(key)}" title="Klick zum Vergrößern und Zuordnen" aria-label="Klassenfoto vergrößern"><img src="${fileUrl(m.file, m.v)}" alt="Klassenfoto ${esc(String(n))}"></button><div class="muted sm" style="margin-top:6px">${done ? done + ' von ' + nS + ' Profilfotos zugeordnet' : 'Klick zum Vergrößern · Gesichter erkennen und Namen zuordnen'}</div></div>`;
+      return `<div class="kmphone">${multi ? `<div class="kmphlab">Klasse ${esc(String(n).toUpperCase())}</div>` : ''}<button class="kmphth" data-act="kmphview" data-key="${esc(key)}" title="Klick zum Vergrößern" aria-label="Klassenfoto vergrößern"><img src="${fileUrl(m.file, m.v)}" alt="Klassenfoto ${esc(String(n))}"></button><div class="row" style="gap:8px;align-items:center;margin-top:6px"><span class="muted sm" style="flex:1">${done ? done + ' von ' + nS + ' Profilfotos zugeordnet' : 'Noch keine Profilfotos zugeordnet'}</span><button class="btn sm" data-act="kmphopen" data-key="${esc(key)}" title="Gesichter erkennen und Namen zuordnen">✎ Bearbeiten</button></div></div>`;
     };
     return `<div class="card kmph"><h2>Klassenfoto</h2>${parts.map(one).join('')}</div>`;
   }
@@ -201,14 +201,79 @@ const KM = (() => {
     } finally { await wk.terminate(); }
     return out;
   }
+  /* Ganze Collage lesen: Wörter mit Position, dann Namen den Gesichtern über der Beschriftung zuordnen */
+  async function ocrWords(img) {
+    const T = await loadOcr(), wk = await T.createWorker('deu'); try { await wk.setParameters({ tessedit_pageseg_mode: '11' }); } catch (e) { /* */ }
+    const W = img.naturalWidth, H = img.naturalHeight, k = Math.min(3, Math.max(1, 2400 / Math.max(W, H))), cv = document.createElement('canvas'); cv.width = Math.round(W * k); cv.height = Math.round(H * k); const cc = cv.getContext('2d'); cc.fillStyle = '#fff'; cc.fillRect(0, 0, cv.width, cv.height); cc.drawImage(img, 0, 0, cv.width, cv.height);
+    try { const r = await wk.recognize(cv); return (r.data.words || []).filter((w) => w.text && w.confidence > 25).map((w) => ({ t: w.text, x0: w.bbox.x0 / k, y0: w.bbox.y0 / k, x1: w.bbox.x1 / k, y1: w.bbox.y1 / k })); } finally { await wk.terminate(); }
+  }
+  function matchLabels(words, sts, fs, W, H) {
+    const ws = words.map((w) => Object.assign({ n: nrm(w.t) }, w)).filter((w) => w.n.length > 2), labels = [], cx = (w) => (w.x0 + w.x1) / 2, cy = (w) => (w.y0 + w.y1) / 2;
+    sts.forEach((st0) => {
+      const tv = nrm(st0.vn).split(' ').filter((x) => x.length > 1), tn = nrm(st0.nn).split(' ').filter((x) => x.length > 1);
+      const hits = (toks) => { const a = []; ws.forEach((w) => toks.forEach((t) => { const sc = wsim(t, w.n); if (sc >= (t.length <= 3 ? 0.99 : 0.76)) a.push({ w, sc, t }); })); return a; };
+      const hv = hits(tv), hn = hits(tn); let any = false;
+      hv.forEach((a) => hn.forEach((b) => { if (a.w === b.w) return; const h = Math.max(a.w.y1 - a.w.y0, b.w.y1 - b.w.y0), dx = Math.max(0, Math.max(a.w.x0, b.w.x0) - Math.min(a.w.x1, b.w.x1)), dy = Math.abs(cy(a.w) - cy(b.w)); if (dx > h * 4 || dy > h * 2.4) return; any = true; labels.push({ key: skey(st0), sc: (a.sc + b.sc) / 2, x: (cx(a.w) + cx(b.w)) / 2, y: (cy(a.w) + cy(b.w)) / 2 }); }));
+      if (!any) hv.concat(hn).forEach((a) => { if (sts.some((o) => o !== st0 && nrm(o.vn + ' ' + o.nn).split(' ').some((t) => t.length > 1 && wsim(t, a.t) >= 0.85))) return; labels.push({ key: skey(st0), sc: a.sc * 0.55, x: cx(a.w), y: cy(a.w) }); });
+    });
+    const pairs = []; labels.forEach((L) => fs.forEach((f, i) => { if (f.sid) return; const fw = f.w * W, fh = f.h * H, fcx = (f.x + f.w / 2) * W, fb = (f.y + f.h) * H, dx = Math.abs(L.x - fcx) / fw, dy = (L.y - fb) / fh; if (dx > 1.4 || dy < -0.3 || dy > 3.6) return; pairs.push({ i, key: L.key, sc: L.sc, cost: dx + 0.3 * Math.max(0, dy) - (L.sc - 0.5) * 0.6 }); }));
+    pairs.sort((a, b) => a.cost - b.cost); const fu = new Set(), su = new Set(), out = [];
+    pairs.forEach((p) => { if (fu.has(p.i) || su.has(p.key)) return; fu.add(p.i); su.add(p.key); out.push(p); }); return out;
+  }
+  function viewPhoto(key) {
+    const m = cphoto(key); if (!m || document.getElementById('kmphview')) return;
+    const o = document.createElement('div'); o.id = 'kmphview'; o.className = 'kmphov kmphvw'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true');
+    o.innerHTML = `<button class="btn sm kmphvx" aria-label="Schließen">Schließen ✕</button><img src="${fileUrl(m.file, m.v)}" alt="Klassenfoto" draggable="false">`;
+    const close = () => { o.remove(); document.removeEventListener('keydown', onK); }, onK = (e) => { if (e.key === 'Escape') close(); };
+    o.addEventListener('click', close); document.addEventListener('keydown', onK); document.body.appendChild(o);
+  }
   async function openPhoto(key, autoDetect) {
     if (document.getElementById('kmphov')) return;
     const ck = key.split('::')[0], part = key.includes('::') ? key.split('::')[1] : '', getC = () => classes().find((k) => k.key === ck); if (!getC() || !cphoto(key)) return;
     const partName = () => { const c = getC(); return part && c ? (c.names.find((n) => norm(n) === part) || part) : ''; }, subs = () => subStudents(getC(), part);
     const o = document.createElement('div'); o.id = 'kmphov'; o.className = 'kmphov'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); document.body.appendChild(o);
-    const st = { img: null, hot: -1, draw: false, busy: false, msg: '', thumbs: {} };
+    const st = { img: null, act: -1, pend: null, pop: null, popEl: null, hot: -1, draw: false, busy: false, msg: '', thumbs: {} };
     const faces = () => (cphoto(key) || {}).faces || [], setFaces = (fs) => saveCph(key, Object.assign({}, cphoto(key), { faces: fs }));
-    const close = () => { o.remove(); document.removeEventListener('keydown', onKey); }, onKey = (e) => { if (e.key === 'Escape') { if (st.draw) { st.draw = false; paint(); } else close(); } };
+    const close = () => { clearTimeout(st.tm); closePop(); o.remove(); document.removeEventListener('keydown', onKey); document.removeEventListener('pointerdown', onDown, true); }, closePop = () => { if (st.popEl) st.popEl.remove(); st.popEl = null; st.pop = null; },
+    onDown = (e) => { if (st.popEl && !e.target.closest('.kmpop') && !e.target.closest('.kmfx')) closePop(); },
+    popList = (i) => { const others = new Set(faces().filter((f, j) => j !== i).map((f) => f.sid).filter(Boolean)); return subs().filter((x) => !others.has(skey(x))).sort((a, b) => (a.nn + a.vn).localeCompare(b.nn + b.vn, 'de')); },
+    drawPop = () => {
+      const pp = st.pop; if (!pp) return; const f = faces()[pp.i], list = popList(pp.i); if (!st.popEl) { st.popEl = document.createElement('div'); st.popEl.className = 'kmpop'; document.body.appendChild(st.popEl); }
+      st.popEl.innerHTML = `<div class="kmpoph"><b>Gesicht ${pp.i + 1}</b><span class="muted sm"> · Name wählen</span><button class="kmpx" data-pc aria-label="Schließen">×</button></div><div class="kmpopl">${list.length ? list.map((x) => `<button class="kmpi${skey(x) === pp.hl ? ' hl' : ''}" data-sid="${esc(skey(x))}">${esc(x.nn + ' ' + x.vn)}${skey(x) === (f && f.sid) ? ' ✓' : ''}</button>`).join('') : '<div class="muted sm" style="padding:8px">Alle Namen sind schon vergeben.</div>'}</div><div class="kmpopf muted sm">Buchstabe tippen = springen · Enter = übernehmen${f && f.sid ? ' <button class="kmpclr" data-clr>Zuordnung entfernen</button>' : ''}</div>`;
+      const el = st.popEl, w = 250, h = Math.min(el.offsetHeight || 360, innerHeight * 0.7); el.style.left = Math.max(6, Math.min(pp.x + 12, innerWidth - w - 8)) + 'px'; el.style.top = Math.max(6, Math.min(pp.y + 12, innerHeight - h - 8)) + 'px';
+      const hl = el.querySelector('.kmpi.hl'); if (hl) hl.scrollIntoView({ block: 'nearest' });
+    },
+    pick = async (i, sid) => { closePop(); await assign(i, sid); const fs2 = faces(); const nx = fs2.findIndex((f, j) => j !== i && !f.sid); st.act = nx < 0 ? i : nx; paint(); },
+    onKey = (e) => {
+      if (e.key === 'Escape') { if (st.popEl) { closePop(); } else if (st.draw) { st.draw = false; paint(); } else close(); return; }
+      if (st.popEl && st.pop) {
+        const pp = st.pop, list = popList(pp.i);
+        if (e.key === 'Enter') { e.preventDefault(); if (pp.hl) pick(pp.i, pp.hl); return; }
+        if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); const i = pp.i; closePop(); assign(i, ''); return; }
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const ix = list.findIndex((x) => skey(x) === pp.hl), n = list.length; if (n) { pp.hl = skey(list[(ix + (e.key === 'ArrowDown' ? 1 : -1) + n) % n]); drawPop(); } return; }
+        if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1 && /[a-zäöüß]/i.test(e.key)) {
+          e.preventDefault(); const L = nrm(e.key)[0] || e.key.toLowerCase(); let l2 = list.filter((x) => nrm(x.nn).startsWith(L)); if (!l2.length) l2 = list.filter((x) => nrm(x.vn).startsWith(L));
+          if (l2.length) { const ix = l2.findIndex((x) => skey(x) === pp.hl); pp.hl = skey(l2[(ix + 1) % l2.length]); drawPop(); }
+        }
+        return;
+      }
+      if (e.ctrlKey || e.metaKey || e.altKey || st.draw || st.busy || (e.target.closest && e.target.closest('select, input, textarea'))) return;
+      const fs = faces(); if (!fs.length) return;
+      const firstOpen = () => { const j = fs.findIndex((f) => !f.sid); return j < 0 ? 0 : j; };
+      if (e.key === 'Enter' || e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); flush(); let j = (st.act < 0 ? -1 : st.act); for (let k = 1; k <= fs.length; k++) { const t = (j + k) % fs.length; if (e.key !== 'Enter' || !faces()[t].sid) { j = t; break; } if (k === fs.length) j = (j + 1) % fs.length; } st.act = j; paint(); const r = o.querySelector('.kmfcr.act'); if (r) r.scrollIntoView({ block: 'nearest' }); return; }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); flush(); st.act = (st.act <= 0 ? fs.length : st.act) - 1; paint(); const r = o.querySelector('.kmfcr.act'); if (r) r.scrollIntoView({ block: 'nearest' }); return; }
+      if (e.key === 'Backspace' || e.key === 'Delete') { if (st.act >= 0) { e.preventDefault(); st.pend = null; clearTimeout(st.tm); assign(st.act, ''); } return; }
+      if (e.key.length === 1 && /[a-zäöüß]/i.test(e.key)) {
+        e.preventDefault(); if (st.act < 0 || !fs[st.act]) st.act = firstOpen(); const i = st.act, L = nrm(e.key)[0] || e.key.toLowerCase(), others = new Set(fs.filter((f, j) => j !== i).map((f) => f.sid).filter(Boolean));
+        let list = subs().filter((x) => !others.has(skey(x)) && nrm(x.nn).startsWith(L)); if (!list.length) list = subs().filter((x) => !others.has(skey(x)) && nrm(x.vn).startsWith(L));
+        list.sort((a, b) => (a.nn + a.vn).localeCompare(b.nn + b.vn, 'de')); const m = o.querySelector('.kmphmsg');
+        if (!list.length) { if (m) m.textContent = 'Kein freier Name mit „' + e.key.toUpperCase() + '“.'; return; }
+        const cur = st.pend && st.pend.i === i ? st.pend.sid : fs[i].sid, ix = list.findIndex((x) => skey(x) === cur), nx = list[(ix + 1) % list.length];
+        st.pend = { i, sid: skey(nx) }; const sel = o.querySelector('.kmfcr[data-i="' + i + '"] select'); if (sel) sel.value = skey(nx);
+        if (m) m.textContent = e.key.toUpperCase() + ': ' + nx.nn + ' ' + nx.vn + ' (' + ((ix + 1) % list.length + 1) + ' von ' + list.length + ') · weiter mit demselben Buchstaben, Enter = nächstes Gesicht';
+        clearTimeout(st.tm); st.tm = setTimeout(flush, 700);
+      }
+    }, flush = () => { clearTimeout(st.tm); const p = st.pend; st.pend = null; if (p && faces()[p.i] && faces()[p.i].sid !== p.sid) return assign(p.i, p.sid); };
     document.addEventListener('keydown', onKey);
     async function assign(i, sid) {
       const c = getC(), fs = faces().map((f) => Object.assign({}, f)), old = fs[i] && fs[i].sid;
@@ -218,10 +283,20 @@ const KM = (() => {
       setFaces(fs); paint();
     }
     async function names() {
+      const sts0 = subs(), fs0 = faces().map((f) => Object.assign({}, f));
+      if (!fs0.some((f) => !f.sid)) { st.msg = 'Alle Gesichter sind schon zugeordnet.'; return paint(); }
+      if (!sts0.length) { st.msg = 'In dieser Klasse gibt es noch keine Schüler, denen Namen zugeordnet werden könnten.'; return paint(); }
+      st.busy = true; st.msg = 'Die Beschriftungen im Foto werden gelesen … (beim ersten Mal wird die Texterkennung geladen)'; paint(); st.cnt = 0;
+      try {
+        const used0 = new Set(fs0.map((f) => f.sid).filter(Boolean)), words = await ocrWords(st.img), pick = matchLabels(words, sts0.filter((x) => !used0.has(skey(x))), fs0, st.img.naturalWidth, st.img.naturalHeight);
+        for (const x of pick) await assign(x.i, x.key); st.cnt = pick.length;
+      } catch (e) { st.msg = 'Die Beschriftungen konnten nicht gelesen werden: ' + (e.message || e); }
+      return namesRegion();
+    }
+    async function namesRegion() {
       const c = getC(), sts = subs(), fs = faces().map((f) => Object.assign({}, f)), idxs = fs.map((f, i) => i).filter((i) => !fs[i].sid);
-      if (!idxs.length) { st.msg = 'Alle Gesichter sind schon zugeordnet.'; return paint(); }
-      if (!sts.length) { st.msg = 'In dieser Klasse gibt es noch keine Schüler, denen Namen zugeordnet werden könnten.'; return paint(); }
-      st.busy = true; st.msg = 'Namen unter den Bildern werden gelesen …'; paint();
+      if (!idxs.length) { st.msg = (st.cnt || 0) + ' Namen automatisch zugeordnet. Bitte kontrolliere die Zuordnung.'; st.busy = false; return paint(); }
+      st.busy = true; st.msg = 'Weitere Namen werden gesucht …'; paint();
       try {
         const texts = await ocrNames(st.img, fs, idxs, (k, n) => { st.msg = 'Namen lesen … ' + k + ' von ' + n; const m = o.querySelector('.kmphmsg'); if (m) m.textContent = st.msg; });
         idxs.forEach((i, k) => { fs[i].t = (texts[k] || '').slice(0, 70); });
@@ -230,7 +305,7 @@ const KM = (() => {
         cand.sort((a, b) => b.sc - a.sc); const pick = [], taken = new Set(); cand.forEach((x) => { if (!taken.has(x.key)) { taken.add(x.key); pick.push(x); } });
         setFaces(fs); st.thumbs = {};
         for (const x of pick) await assign(x.i, x.key);
-        st.msg = pick.length ? pick.length + ' von ' + idxs.length + ' Namen automatisch zugeordnet. Bitte kontrolliere die Zuordnung und ergänze den Rest.' : 'Es konnten keine Namen sicher zugeordnet werden. Unter jedem Gesicht steht, was gelesen wurde.';
+        const tot = (st.cnt || 0) + pick.length; st.msg = tot ? tot + ' Namen automatisch zugeordnet. Bitte kontrolliere die Zuordnung und ergänze den Rest. Tipp: Gesicht anklicken und den Anfangsbuchstaben des Nachnamens drücken.' : 'Es konnten keine Namen sicher zugeordnet werden. Klicke ein Gesicht an und drücke den Anfangsbuchstaben des Nachnamens, mehrfach zum Weiterschalten.';
       } catch (e) { st.msg = 'Die Namen konnten nicht gelesen werden: ' + (e.message || e); }
       st.busy = false; paint();
     }
@@ -246,8 +321,8 @@ const KM = (() => {
     function paint() {
       const c = getC(), m = cphoto(key); if (!c || !m) return close();
       const fs = faces(), sts = subs().slice().sort((a, b) => (a.nn + a.vn).localeCompare(b.nn + b.vn, 'de')), used = new Set(fs.map((f) => f.sid).filter(Boolean));
-      const boxes = fs.map((f, i) => `<div class="kmfx${f.sid ? ' ok' : ''}${st.hot === i ? ' hot' : ''}" data-i="${i}" style="left:${f.x * 100}%;top:${f.y * 100}%;width:${f.w * 100}%;height:${f.h * 100}%"><b>${i + 1}</b></div>`).join('');
-      const rows = fs.map((f, i) => { if (!st.thumbs[i + '|' + f.x + f.y + f.w]) { try { st.thumbs[i + '|' + f.x + f.y + f.w] = cropFace(st.img, f, 72).toDataURL('image/jpeg', 0.8); } catch (e) { /* */ } } return `<div class="kmfcr${st.hot === i ? ' hot' : ''}" data-i="${i}"><img src="${st.thumbs[i + '|' + f.x + f.y + f.w] || ''}" alt=""><b>${i + 1}</b><div style="min-width:0"><select data-i="${i}" aria-label="Name zu Gesicht ${i + 1}"><option value="">– wer ist das? –</option>${sts.filter((x) => !used.has(skey(x)) || skey(x) === f.sid).map((x) => `<option value="${esc(skey(x))}"${skey(x) === f.sid ? ' selected' : ''}>${esc(x.nn + ' ' + x.vn)}</option>`).join('')}</select>${f.t && !f.sid ? `<small class="muted" style="display:block;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="Gelesener Text unter dem Bild">gelesen: ${esc(f.t)}</small>` : ''}</div><button class="kmfd" data-del="${i}" title="Gesicht entfernen" aria-label="Gesicht entfernen">×</button></div>`; }).join('');
+      const boxes = fs.map((f, i) => `<div class="kmfx${f.sid ? ' ok' : ''}${st.hot === i ? ' hot' : ''}${st.act === i ? ' act' : ''}" data-i="${i}" style="left:${f.x * 100}%;top:${f.y * 100}%;width:${f.w * 100}%;height:${f.h * 100}%"><b>${i + 1}</b></div>`).join('');
+      const rows = fs.map((f, i) => { if (!st.thumbs[i + '|' + f.x + f.y + f.w]) { try { st.thumbs[i + '|' + f.x + f.y + f.w] = cropFace(st.img, f, 72).toDataURL('image/jpeg', 0.8); } catch (e) { /* */ } } return `<div class="kmfcr${st.hot === i ? ' hot' : ''}${st.act === i ? ' act' : ''}" data-i="${i}"><img src="${st.thumbs[i + '|' + f.x + f.y + f.w] || ''}" alt=""><b>${i + 1}</b><div style="min-width:0"><select data-i="${i}" aria-label="Name zu Gesicht ${i + 1}"><option value="">– wer ist das? –</option>${sts.filter((x) => !used.has(skey(x)) || skey(x) === f.sid).map((x) => `<option value="${esc(skey(x))}"${skey(x) === f.sid ? ' selected' : ''}>${esc(x.nn + ' ' + x.vn)}</option>`).join('')}</select>${f.t && !f.sid ? `<small class="muted" style="display:block;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="Gelesener Text unter dem Bild">gelesen: ${esc(f.t)}</small>` : ''}</div><button class="kmfd" data-del="${i}" title="Gesicht entfernen" aria-label="Gesicht entfernen">×</button></div>`; }).join('');
       o.innerHTML = `<div class="kmphbox"><div class="kmphtop"><h3>Klassenfoto ${part ? esc(String(partName()).toUpperCase()) : disp(c)}</h3><span style="flex:1"></span><button class="btn sm good" data-x="run"${st.busy ? ' disabled' : ''}>Gesichter erkennen</button><button class="btn sm" data-x="names" title="Liest die Namen unter den Einzelbildern der Collage und ordnet sie zu"${st.busy ? ' disabled' : ''}>Namen lesen</button><button class="btn sm${st.draw ? ' good' : ''}" data-x="draw" title="Ziehe auf dem Foto einen Rahmen um ein Gesicht">${st.draw ? 'Rahmen ziehen …' : 'Gesicht markieren'}</button><button class="btn sm" data-x="rep">Foto ersetzen</button><button class="btn sm bad" data-x="del">Foto löschen</button><button class="btn sm" data-x="close">Schließen ✕</button><input type="file" accept="image/*" id="kmphrep" hidden></div>
         <div class="kmphmsg muted sm" role="status">${esc(st.msg || (fs.length ? '' : 'Noch keine Gesichter. Klicke auf „Gesichter erkennen“.'))}</div>
         <div class="kmphbody"><div class="kmphimgw"><div class="kmphimg${st.draw ? ' drawing' : ''}" id="kmphimg"><img src="${fileUrl(m.file, m.v)}" alt="Klassenfoto" draggable="false">${boxes}</div></div><div class="kmphside"><div class="muted sm" style="margin-bottom:6px">${fs.filter((f) => f.sid).length} von ${sts.length} Schülern zugeordnet</div>${rows || '<div class="muted sm">Noch keine Gesichter.</div>'}</div></div></div>`;
@@ -255,7 +330,8 @@ const KM = (() => {
     o.addEventListener('click', async (e) => {
       if (e.target === o) return close(); const b = e.target.closest('[data-x]'), d = e.target.closest('[data-del]'), bx = e.target.closest('.kmfx');
       if (d) { const fs = faces().slice(), f = fs[+d.dataset.del]; if (f && f.sid) { const c = getC(), os = studentsOf(c).find((x) => skey(x) === f.sid); if (os && os.pfrom === 'klassenfoto') patchStudent(c, f.sid, { photo: '', pfrom: '' }); } fs.splice(+d.dataset.del, 1); st.thumbs = {}; setFaces(fs); return paint(); }
-      if (bx && !st.draw) { const r = o.querySelector('.kmfcr[data-i="' + bx.dataset.i + '"]'); if (r) { r.scrollIntoView({ block: 'nearest' }); const s = r.querySelector('select'); if (s) s.focus(); } return; }
+      if (bx && !st.draw) { st.act = +bx.dataset.i; const f0 = faces()[st.act]; st.pop = { i: st.act, x: e.clientX, y: e.clientY, hl: (f0 && f0.sid) || (popList(st.act)[0] ? skey(popList(st.act)[0]) : '') }; paint(); drawPop(); const r = o.querySelector('.kmfcr[data-i="' + st.act + '"]'); if (r) r.scrollIntoView({ block: 'nearest' }); return; }
+      const rw = e.target.closest('.kmfcr'); if (rw && !e.target.closest('select, button')) { st.act = +rw.dataset.i; paint(); return; }
       if (!b) return; const a = b.dataset.x;
       if (a === 'close') close(); else if (a === 'run') run(); else if (a === 'names') names(); else if (a === 'draw') { st.draw = !st.draw; paint(); }
       else if (a === 'rep') o.querySelector('#kmphrep').click();
@@ -266,12 +342,17 @@ const KM = (() => {
       const sel = e.target.closest('select[data-i]'); if (sel) assign(+sel.dataset.i, sel.value);
     });
     o.addEventListener('mouseover', (e) => { const t = e.target.closest('.kmfx, .kmfcr'); const i = t ? +t.dataset.i : -1; if (i !== st.hot) { st.hot = i; o.querySelectorAll('.kmfx,.kmfcr').forEach((x) => x.classList.toggle('hot', +x.dataset.i === i)); } });
+    document.addEventListener('pointerdown', onDown, true);
+    document.addEventListener('click', (e) => {
+      const pe = st.popEl; if (!pe || !pe.contains(e.target)) return; const b = e.target.closest('button'); if (!b || !st.pop) return;
+      if (b.dataset.sid) pick(st.pop.i, b.dataset.sid); else if (b.dataset.pc !== undefined) closePop(); else if (b.dataset.clr !== undefined) { const i = st.pop.i; closePop(); assign(i, ''); }
+    });
     let dr = null;
     o.addEventListener('pointerdown', (e) => { const w = e.target.closest('#kmphimg'); if (!st.draw || !w || e.button) return; e.preventDefault(); const r = w.getBoundingClientRect(); dr = { r, x0: (e.clientX - r.left) / r.width, y0: (e.clientY - r.top) / r.height, el: document.createElement('div') }; dr.el.className = 'kmfx hot'; w.appendChild(dr.el); w.setPointerCapture && w.setPointerCapture(e.pointerId); });
     o.addEventListener('pointermove', (e) => { if (!dr) return; const x = Math.max(0, Math.min(1, (e.clientX - dr.r.left) / dr.r.width)), y = Math.max(0, Math.min(1, (e.clientY - dr.r.top) / dr.r.height)); Object.assign(dr.el.style, { left: Math.min(dr.x0, x) * 100 + '%', top: Math.min(dr.y0, y) * 100 + '%', width: Math.abs(x - dr.x0) * 100 + '%', height: Math.abs(y - dr.y0) * 100 + '%' }); });
     o.addEventListener('pointerup', (e) => { if (!dr) return; const d = dr; dr = null; const x = Math.max(0, Math.min(1, (e.clientX - d.r.left) / d.r.width)), y = Math.max(0, Math.min(1, (e.clientY - d.r.top) / d.r.height)), f = { x: Math.min(d.x0, x), y: Math.min(d.y0, y), w: Math.abs(x - d.x0), h: Math.abs(y - d.y0), sid: '' }; d.el.remove(); st.draw = false; if (f.w * d.r.width < 14 || f.h * d.r.height < 14) { st.msg = 'Der Rahmen war zu klein. Ziehe ihn um das ganze Gesicht.'; return paint(); } st.thumbs = {}; setFaces(sortFaces(faces().concat([f]))); st.msg = 'Gesicht hinzugefügt. Wähle rechts den Namen.'; paint(); });
     try { st.img = await loadImgUrl(fileUrl(cphoto(key).file, cphoto(key).v)); } catch (e) { st.msg = e.message; }
-    paint(); if (autoDetect && st.img) run();
+    st.act = faces().findIndex((f) => !f.sid); paint(); if (autoDetect && st.img) run(); else if (st.img && faces().some((f) => !f.sid && !f.t) && subs().length) names();
   }
   document.addEventListener('dragover', (e) => { if (e.target.closest && e.target.closest('.kmphdz') && [...(e.dataTransfer ? e.dataTransfer.types : [])].includes('Files')) { e.preventDefault(); e.target.closest('.kmphdz').classList.add('over'); } });
   document.addEventListener('dragleave', (e) => { const z = e.target.closest && e.target.closest('.kmphdz'); if (z) z.classList.remove('over'); });
@@ -409,6 +490,7 @@ const KM = (() => {
     kmedel: (e) => { const G = groups().find((g) => g.slug === e.dataset.slug); if (!G || !confirm('Diesen Eintrag samt allen Punkten löschen?')) return; saveRes(G, resItems(G).filter((x) => x.id !== e.dataset.eid)); render(); },
     kmgtog: (e) => { const slug = e.dataset.slug, ci = cinfo(slug); if (!Array.isArray(ci.students)) return; put('settings', Object.assign({}, ci, { id: 'cn_' + slug, students: ci.students.map((x) => (x.id === e.dataset.id ? Object.assign({}, x, { g: x.g === 'm' ? 'w' : 'm' }) : x)) })); render(); },
     kmphopen: (e) => openPhoto(e.dataset.key),
+    kmphview: (e) => viewPhoto(e.dataset.key),
     kmnew: (e) => { modal = { type: 'form', slug: e.dataset.slug, col: e.dataset.col, entry: null }; showModal(); },
     kmcoledit: () => { U.kmColEdit = !U.kmColEdit; render(); },
     kmcoladd: () => { const i = document.getElementById('kmcolnew'), n = i ? i.value.trim() : ''; if (!n) return toast('Bitte einen Namen für die Spalte eingeben'); if (i) { i.value = ''; i.blur(); } saveCols(colsDef().concat([{ id: 'c' + Date.now().toString(36), name: n }])); toast('Spalte „' + n + '“ hinzugefügt'); },
@@ -559,11 +641,13 @@ html{overflow-y:scroll;scrollbar-gutter:stable}
 .kmth .kmgnh{text-transform:none}.kmgen{color:var(--muted);font-weight:600}.kmth>span{position:relative}.kmrs{position:absolute;right:-5px;top:-3px;bottom:-3px;width:10px;cursor:col-resize;z-index:3}.kmrs::after{content:'';position:absolute;left:4px;top:3px;bottom:3px;width:2px;border-radius:1px;background:var(--line)}.kmrs:hover::after,.kmrs.on::after{background:var(--accent)}.kmav img,.kmavbig img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}.kmav{overflow:hidden}.kmavbig{overflow:hidden}
 .kmphone+.kmphone{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}.kmphlab{font:700 13px var(--font-body);margin:0 0 6px}.kmph .kmphdz{border:2px dashed var(--line);border-radius:12px;padding:22px 12px;text-align:center;cursor:pointer;display:flex;flex-direction:column;gap:4px;background:var(--surface2)}.kmphdz:hover,.kmphdz.over{border-color:var(--accent);background:var(--accent-soft)}
 .kmphth{display:block;width:100%;padding:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:zoom-in;background:var(--surface2)}.kmphth img{width:100%;height:auto;max-height:360px;object-fit:contain;display:block}
+.kmphvw{cursor:zoom-out}.kmphvw img{max-width:96vw;max-height:94vh;object-fit:contain;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,.5)}.kmphvx{position:fixed;top:14px;right:14px;z-index:2}
 .kmphov{position:fixed;inset:0;background:rgba(10,12,8,.72);z-index:9000;display:flex;align-items:center;justify-content:center;padding:2vh 2vw}.kmphbox{background:var(--surface,#fff);color:var(--ink);border-radius:14px;max-width:1500px;width:100%;height:96vh;display:flex;flex-direction:column;padding:12px 14px;min-height:0}
 .kmphtop{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.kmphtop h3{margin:0}.kmphmsg{min-height:20px;margin:6px 0}.kmphbody{display:flex;gap:14px;flex:1;min-height:0}.kmphimgw{flex:1;min-width:0;overflow:auto;display:flex;align-items:flex-start;justify-content:center;background:#111;border-radius:10px}
 .kmphimg{position:relative;display:inline-block;line-height:0;max-width:100%}.kmphimg img{max-width:100%;max-height:calc(96vh - 130px);width:auto;height:auto;display:block;-webkit-user-drag:none;user-select:none}.kmphimg.drawing{cursor:crosshair;touch-action:none}
 .kmfx{position:absolute;border:2px solid #ffb400;border-radius:6px;box-sizing:border-box;pointer-events:auto}.kmfx b{position:absolute;left:-2px;top:-20px;background:#ffb400;color:#000;font:700 12px var(--font-body);line-height:1;padding:3px 6px;border-radius:5px}.kmfx.ok{border-color:#2fb36b}.kmfx.ok b{background:#2fb36b;color:#fff}.kmfx.hot{box-shadow:0 0 0 3px rgba(255,255,255,.9);z-index:2}
-.kmphside{width:350px;flex:none;overflow:auto}.kmfcr{display:grid;grid-template-columns:40px 22px minmax(0,1fr) 26px;gap:8px;align-items:center;padding:5px 4px;border-top:1px solid var(--line);border-radius:6px}.kmfcr.hot{background:var(--accent-soft)}.kmfcr img{width:40px;height:40px;border-radius:50%;object-fit:cover;flex:none;background:var(--surface2)}.kmfcr b{width:20px;flex:none;text-align:center;font-size:13px}.kmfcr select{width:100%;min-width:0;margin:0;font:inherit;font-size:14px;padding:5px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--ink)}.kmfd{flex:none;width:24px;padding:0;border:0;background:none;font-size:20px;line-height:1;cursor:pointer;color:var(--muted)}.kmfd:hover{color:var(--bad)}
+.kmphside{width:350px;flex:none;overflow:auto}.kmfcr{display:grid;grid-template-columns:40px 22px minmax(0,1fr) 26px;gap:8px;align-items:center;padding:5px 4px;border-top:1px solid var(--line);border-radius:6px}.kmpop{position:fixed;z-index:9100;width:250px;max-height:70vh;display:flex;flex-direction:column;background:var(--surface,#fff);color:var(--ink);border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.35);overflow:hidden}.kmpoph{display:flex;align-items:center;gap:4px;padding:8px 10px;border-bottom:1px solid var(--line)}.kmpx{margin-left:auto;border:0;background:none;font-size:20px;line-height:1;cursor:pointer;color:var(--muted)}.kmpopl{overflow:auto;padding:4px}.kmpi{display:block;width:100%;text-align:left;border:0;background:none;color:inherit;font:inherit;font-size:14px;padding:7px 10px;border-radius:7px;cursor:pointer}.kmpi:hover,.kmpi.hl{background:var(--accent-soft)}.kmpi.hl{outline:2px solid var(--accent)}.kmpopf{padding:6px 10px;border-top:1px solid var(--line)}.kmpclr{display:inline-block;margin-top:4px;border:1px solid var(--line);background:var(--surface2);border-radius:7px;padding:3px 8px;cursor:pointer;font:inherit;font-size:12px;color:var(--bad)}
+.kmfcr.hot,.kmfcr.act{background:var(--accent-soft)}.kmfcr.act{outline:2px solid var(--accent)}.kmfx.act{box-shadow:0 0 0 3px #fff,0 0 0 5px var(--accent);z-index:3}.kmfcr img{width:40px;height:40px;border-radius:50%;object-fit:cover;flex:none;background:var(--surface2)}.kmfcr b{width:20px;flex:none;text-align:center;font-size:13px}.kmfcr select{width:100%;min-width:0;margin:0;font:inherit;font-size:14px;padding:5px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--ink)}.kmfd{flex:none;width:24px;padding:0;border:0;background:none;font-size:20px;line-height:1;cursor:pointer;color:var(--muted)}.kmfd:hover{color:var(--bad)}
 @media(max-width:800px){.kmphbody{flex-direction:column}.kmphside{width:auto;max-height:38vh}}
 .kmgtog{cursor:pointer;border-radius:6px;user-select:none}.kmgtog:hover{background:var(--accent-soft);color:var(--ink)}.kmflt{display:inline-flex;margin-left:6px;gap:4px;flex-wrap:wrap}.kmfb{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:7px;padding:3px 10px;font:600 13px var(--font-body);cursor:pointer}.kmfb.on{background:var(--brand,var(--accent));border-color:var(--brand,var(--accent));color:var(--brand-ink,var(--accent-ink))}
 .km>.kmh{margin:18px 0 12px}
