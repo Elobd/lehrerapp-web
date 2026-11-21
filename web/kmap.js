@@ -126,6 +126,110 @@ const KM = (() => {
       ${headH}<div class="kmbody"><nav class="kmside" aria-label="Bereiche"><div class="kmsidet">Klasse<b${c.names.length > 1 ? ' class="m"' : ''}>${disp(c)}</b></div>${side}</nav><section class="kmmain">${bodyH}</section></div></div>`;
   }
 
+  /* ---------- Klassenfoto, Gesichtserkennung (lokal im Browser) und Profilfotos ---------- */
+  const skey = (x) => ((x.nn || '') + '|' + (x.vn || '')).toLowerCase();
+  const fileUrl = (p, v) => '/api/file?path=' + encodeURIComponent(p) + '&inline=1' + (v ? '&v=' + v : '');
+  const photoOf = (x) => (x && x.photo ? fileUrl(x.photo, x.pv) : '');
+  const avSpan = (x, cls) => `<span class="${cls}" aria-hidden="true">${x.photo ? `<img src="${photoOf(x)}" alt="" loading="lazy">` : esc((x.vn[0] || '') + (x.nn[0] || ''))}</span>`;
+  async function putFile(path, blob) { const r = await fetch('/api/file?path=' + encodeURIComponent(path), { method: 'PUT', body: blob, credentials: 'same-origin' }); if (!r.ok) { const e = (await r.json().catch(() => ({}))).error || ''; throw new Error(e || 'Speichern auf der NAS fehlgeschlagen (' + r.status + ')'); } }
+  const loadImgUrl = (src) => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error('Das Bild konnte nicht gelesen werden')); i.src = src; });
+  async function shrinkImage(file, max) { const u = URL.createObjectURL(file); try { const i = await loadImgUrl(u), k = Math.min(1, max / Math.max(i.naturalWidth, i.naturalHeight)), cv = document.createElement('canvas'); cv.width = Math.round(i.naturalWidth * k); cv.height = Math.round(i.naturalHeight * k); cv.getContext('2d').drawImage(i, 0, 0, cv.width, cv.height); const b = await new Promise((ok) => cv.toBlob(ok, 'image/jpeg', 0.86)); return { blob: b, w: cv.width, h: cv.height }; } finally { URL.revokeObjectURL(u); } }
+  const cphoto = (key) => ((cfg().cphoto || {})[key]) || null;
+  const saveCph = (key, meta) => { const a = Object.assign({}, cfg().cphoto || {}); if (meta) a[key] = meta; else delete a[key]; saveCfg({ cphoto: a }); };
+  function classPhotoCard(c) {
+    const m = cphoto(c.key), nS = studentsOf(c).length;
+    if (!m) return `<div class="card kmph"><h2>Klassenfoto</h2><div class="kmphdz" data-key="${c.key}" tabindex="0" role="button" aria-label="Klassenfoto hierher ziehen oder klicken"><b>Foto der Klasse hierher ziehen</b><span class="muted sm">oder klicken, um eine Datei zu wählen</span><input type="file" accept="image/*" class="kmphf" data-key="${c.key}" hidden></div></div>`;
+    const done = (m.faces || []).filter((f) => f.sid).length;
+    return `<div class="card kmph"><h2>Klassenfoto</h2><button class="kmphth" data-act="kmphopen" data-key="${c.key}" title="Klick zum Vergrößern und Zuordnen" aria-label="Klassenfoto vergrößern"><img src="${fileUrl(m.file, m.v)}" alt="Klassenfoto"></button><div class="muted sm" style="margin-top:6px">${done ? done + ' von ' + nS + ' Profilfotos zugeordnet' : 'Klick zum Vergrößern · Gesichter erkennen und Namen zuordnen'}</div></div>`;
+  }
+  async function newClassPhoto(key, file) {
+    if (!file || !/^image\//.test(file.type)) return toast('Bitte ein Foto (Bilddatei) verwenden');
+    try { toast('Foto wird gespeichert …'); const sh = await shrinkImage(file, 2400), path = 'Klassenfotos/' + key.replace(/[^a-z0-9äöüß]+/gi, '_') + '.jpg'; await putFile(path, sh.blob); saveCph(key, { file: path, v: Date.now(), w: sh.w, h: sh.h, faces: [] }); setTimeout(() => openPhoto(key, true), 300); }
+    catch (e) { toast(e.message || 'Foto konnte nicht gespeichert werden'); }
+  }
+  let faceReady = null;
+  function loadFaces() {
+    if (faceReady) return faceReady;
+    faceReady = (async () => {
+      if (!window.faceapi) await new Promise((ok, no) => { const s = document.createElement('script'); s.src = '/vendor/face-api.js'; s.onload = ok; s.onerror = () => no(new Error('Die Gesichtserkennung konnte nicht geladen werden')); document.head.appendChild(s); });
+      await faceapi.nets.ssdMobilenetv1.loadFromUri('/vendor/faceapi-models');
+    })().catch((e) => { faceReady = null; throw e; });
+    return faceReady;
+  }
+  const iou = (a, b) => { const x = Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)), y = Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y)), i = x * y; return i / (a.w * a.h + b.w * b.h - i || 1); };
+  async function detectFaces(img) {
+    await loadFaces(); const k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight)), cv = document.createElement('canvas'); cv.width = Math.round(img.naturalWidth * k); cv.height = Math.round(img.naturalHeight * k); cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+    const res = await faceapi.detectAllFaces(cv, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 }));
+    return res.map((r) => ({ x: r.box.x / cv.width, y: r.box.y / cv.height, w: r.box.width / cv.width, h: r.box.height / cv.height })).filter((b) => b.w > 0.01);
+  }
+  const sortFaces = (fs) => { const hs = fs.map((f) => f.h).sort((a, b) => a - b), mh = hs[Math.floor(hs.length / 2)] || 0.05; return fs.slice().sort((a, b) => { const ra = Math.round((a.y + a.h / 2) / (mh * 1.2)), rb = Math.round((b.y + b.h / 2) / (mh * 1.2)); return ra - rb || a.x - b.x; }); };
+  function cropFace(img, f, size) {
+    const cx = (f.x + f.w / 2) * img.naturalWidth, cy = (f.y + f.h / 2) * img.naturalHeight - f.h * img.naturalHeight * 0.04, side = Math.max(f.w * img.naturalWidth, f.h * img.naturalHeight) * 1.55, cv = document.createElement('canvas'); cv.width = cv.height = size;
+    cv.getContext('2d').drawImage(img, cx - side / 2, cy - side / 2, side, side, 0, 0, size, size); return cv;
+  }
+  function patchStudent(c, key, patch) {
+    c.groups.forEach((G) => { const ci = cinfo(G.slug); if (!Array.isArray(ci.students) || !ci.students.some((x) => skey(x) === key)) return; put('settings', Object.assign({}, ci, { id: 'cn_' + G.slug, students: ci.students.map((x) => (skey(x) === key ? Object.assign({}, x, patch) : x)) })); });
+  }
+  const phPath = (key) => 'Schuelerfotos/' + key.replace(/[^a-z0-9äöüß]+/gi, '_') + '.jpg';
+  async function openPhoto(key, autoDetect) {
+    if (document.getElementById('kmphov')) return;
+    const getC = () => classes().find((k) => k.key === key); if (!getC() || !cphoto(key)) return;
+    const o = document.createElement('div'); o.id = 'kmphov'; o.className = 'kmphov'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); document.body.appendChild(o);
+    const st = { img: null, hot: -1, draw: false, busy: false, msg: '', thumbs: {} };
+    const faces = () => (cphoto(key) || {}).faces || [], setFaces = (fs) => saveCph(key, Object.assign({}, cphoto(key), { faces: fs }));
+    const close = () => { o.remove(); document.removeEventListener('keydown', onKey); }, onKey = (e) => { if (e.key === 'Escape') { if (st.draw) { st.draw = false; paint(); } else close(); } };
+    document.addEventListener('keydown', onKey);
+    async function assign(i, sid) {
+      const c = getC(), fs = faces().map((f) => Object.assign({}, f)), old = fs[i] && fs[i].sid;
+      if (old && old !== sid) { const os = studentsOf(c).find((x) => skey(x) === old); if (os && os.pfrom === 'klassenfoto') patchStudent(c, old, { photo: '', pfrom: '' }); }
+      fs.forEach((f, j) => { if (sid && f.sid === sid && j !== i) { f.sid = ''; } }); fs[i].sid = sid || '';
+      if (sid) { try { const cv = cropFace(st.img, fs[i], 256), blob = await new Promise((ok) => cv.toBlob(ok, 'image/jpeg', 0.88)), path = phPath(sid); await putFile(path, blob); patchStudent(c, sid, { photo: path, pv: Date.now(), pfrom: 'klassenfoto' }); st.msg = 'Profilfoto gespeichert.'; } catch (e) { st.msg = e.message || 'Profilfoto konnte nicht gespeichert werden.'; } }
+      setFaces(fs); paint();
+    }
+    async function run() {
+      st.busy = true; st.msg = 'Gesichter werden gesucht … (läuft nur auf diesem Gerät, beim ersten Mal wird das Modell geladen)'; paint();
+      try {
+        const found = await detectFaces(st.img), keep = faces().filter((f) => f.sid), add = found.filter((b) => !keep.some((k) => iou(k, b) > 0.25)), fs = sortFaces(add.concat(keep).map((f) => ({ x: f.x, y: f.y, w: f.w, h: f.h, sid: f.sid || '' })));
+        setFaces(fs); st.msg = found.length ? found.length + ' Gesichter erkannt. Wähle rechts bei jedem Gesicht den Namen.' : 'Es wurden keine Gesichter erkannt. Nutze „Gesicht markieren“ und ziehe einen Rahmen um das Gesicht.';
+      } catch (e) { st.msg = 'Die Erkennung ist fehlgeschlagen: ' + (e.message || e) + ' Du kannst Gesichter mit „Gesicht markieren“ von Hand einzeichnen.'; }
+      st.busy = false; paint();
+    }
+    function paint() {
+      const c = getC(), m = cphoto(key); if (!c || !m) return close();
+      const fs = faces(), sts = studentsOf(c).slice().sort((a, b) => (a.nn + a.vn).localeCompare(b.nn + b.vn, 'de')), used = new Set(fs.map((f) => f.sid).filter(Boolean));
+      const boxes = fs.map((f, i) => `<div class="kmfx${f.sid ? ' ok' : ''}${st.hot === i ? ' hot' : ''}" data-i="${i}" style="left:${f.x * 100}%;top:${f.y * 100}%;width:${f.w * 100}%;height:${f.h * 100}%"><b>${i + 1}</b></div>`).join('');
+      const rows = fs.map((f, i) => { if (!st.thumbs[i + '|' + f.x + f.y + f.w]) { try { st.thumbs[i + '|' + f.x + f.y + f.w] = cropFace(st.img, f, 72).toDataURL('image/jpeg', 0.8); } catch (e) { /* */ } } return `<div class="kmfcr${st.hot === i ? ' hot' : ''}" data-i="${i}"><img src="${st.thumbs[i + '|' + f.x + f.y + f.w] || ''}" alt=""><b>${i + 1}</b><select data-i="${i}" aria-label="Name zu Gesicht ${i + 1}"><option value="">– wer ist das? –</option>${sts.filter((x) => !used.has(skey(x)) || skey(x) === f.sid).map((x) => `<option value="${esc(skey(x))}"${skey(x) === f.sid ? ' selected' : ''}>${esc(x.nn + ' ' + x.vn)}</option>`).join('')}</select><button class="kmfd" data-del="${i}" title="Gesicht entfernen" aria-label="Gesicht entfernen">×</button></div>`; }).join('');
+      o.innerHTML = `<div class="kmphbox"><div class="kmphtop"><h3>Klassenfoto ${disp(c)}</h3><span style="flex:1"></span><button class="btn sm good" data-x="run"${st.busy ? ' disabled' : ''}>Gesichter erkennen</button><button class="btn sm${st.draw ? ' good' : ''}" data-x="draw" title="Ziehe auf dem Foto einen Rahmen um ein Gesicht">${st.draw ? 'Rahmen ziehen …' : 'Gesicht markieren'}</button><button class="btn sm" data-x="rep">Foto ersetzen</button><button class="btn sm bad" data-x="del">Foto löschen</button><button class="btn sm" data-x="close">Schließen ✕</button><input type="file" accept="image/*" id="kmphrep" hidden></div>
+        <div class="kmphmsg muted sm" role="status">${esc(st.msg || (fs.length ? '' : 'Noch keine Gesichter. Klicke auf „Gesichter erkennen“.'))}</div>
+        <div class="kmphbody"><div class="kmphimgw"><div class="kmphimg${st.draw ? ' drawing' : ''}" id="kmphimg"><img src="${fileUrl(m.file, m.v)}" alt="Klassenfoto" draggable="false">${boxes}</div></div><div class="kmphside"><div class="muted sm" style="margin-bottom:6px">${fs.filter((f) => f.sid).length} von ${sts.length} Schülern zugeordnet</div>${rows || '<div class="muted sm">Noch keine Gesichter.</div>'}</div></div></div>`;
+    }
+    o.addEventListener('click', async (e) => {
+      if (e.target === o) return close(); const b = e.target.closest('[data-x]'), d = e.target.closest('[data-del]'), bx = e.target.closest('.kmfx');
+      if (d) { const fs = faces().slice(), f = fs[+d.dataset.del]; if (f && f.sid) { const c = getC(), os = studentsOf(c).find((x) => skey(x) === f.sid); if (os && os.pfrom === 'klassenfoto') patchStudent(c, f.sid, { photo: '', pfrom: '' }); } fs.splice(+d.dataset.del, 1); st.thumbs = {}; setFaces(fs); return paint(); }
+      if (bx && !st.draw) { const r = o.querySelector('.kmfcr[data-i="' + bx.dataset.i + '"]'); if (r) { r.scrollIntoView({ block: 'nearest' }); const s = r.querySelector('select'); if (s) s.focus(); } return; }
+      if (!b) return; const a = b.dataset.x;
+      if (a === 'close') close(); else if (a === 'run') run(); else if (a === 'draw') { st.draw = !st.draw; paint(); }
+      else if (a === 'rep') o.querySelector('#kmphrep').click();
+      else if (a === 'del') { if (!confirm('Klassenfoto löschen? Bereits gespeicherte Profilfotos bleiben erhalten.')) return; const m = cphoto(key); try { await fetch('/api/file?path=' + encodeURIComponent(m.file), { method: 'DELETE', credentials: 'same-origin' }); } catch (e2) { /* */ } saveCph(key, null); close(); }
+    });
+    o.addEventListener('change', async (e) => {
+      if (e.target.id === 'kmphrep') { const f = e.target.files[0]; if (!f) return; close(); const m = cphoto(key); const faces0 = m ? m.faces : []; await newClassPhoto(key, f); return; }
+      const sel = e.target.closest('select[data-i]'); if (sel) assign(+sel.dataset.i, sel.value);
+    });
+    o.addEventListener('mouseover', (e) => { const t = e.target.closest('.kmfx, .kmfcr'); const i = t ? +t.dataset.i : -1; if (i !== st.hot) { st.hot = i; o.querySelectorAll('.kmfx,.kmfcr').forEach((x) => x.classList.toggle('hot', +x.dataset.i === i)); } });
+    let dr = null;
+    o.addEventListener('pointerdown', (e) => { const w = e.target.closest('#kmphimg'); if (!st.draw || !w || e.button) return; e.preventDefault(); const r = w.getBoundingClientRect(); dr = { r, x0: (e.clientX - r.left) / r.width, y0: (e.clientY - r.top) / r.height, el: document.createElement('div') }; dr.el.className = 'kmfx hot'; w.appendChild(dr.el); w.setPointerCapture && w.setPointerCapture(e.pointerId); });
+    o.addEventListener('pointermove', (e) => { if (!dr) return; const x = Math.max(0, Math.min(1, (e.clientX - dr.r.left) / dr.r.width)), y = Math.max(0, Math.min(1, (e.clientY - dr.r.top) / dr.r.height)); Object.assign(dr.el.style, { left: Math.min(dr.x0, x) * 100 + '%', top: Math.min(dr.y0, y) * 100 + '%', width: Math.abs(x - dr.x0) * 100 + '%', height: Math.abs(y - dr.y0) * 100 + '%' }); });
+    o.addEventListener('pointerup', (e) => { if (!dr) return; const d = dr; dr = null; const x = Math.max(0, Math.min(1, (e.clientX - d.r.left) / d.r.width)), y = Math.max(0, Math.min(1, (e.clientY - d.r.top) / d.r.height)), f = { x: Math.min(d.x0, x), y: Math.min(d.y0, y), w: Math.abs(x - d.x0), h: Math.abs(y - d.y0), sid: '' }; d.el.remove(); st.draw = false; if (f.w * d.r.width < 14 || f.h * d.r.height < 14) { st.msg = 'Der Rahmen war zu klein. Ziehe ihn um das ganze Gesicht.'; return paint(); } st.thumbs = {}; setFaces(sortFaces(faces().concat([f]))); st.msg = 'Gesicht hinzugefügt. Wähle rechts den Namen.'; paint(); });
+    try { st.img = await loadImgUrl(fileUrl(cphoto(key).file, cphoto(key).v)); } catch (e) { st.msg = e.message; }
+    paint(); if (autoDetect && st.img) run();
+  }
+  document.addEventListener('dragover', (e) => { if (e.target.closest && e.target.closest('.kmphdz') && [...(e.dataTransfer ? e.dataTransfer.types : [])].includes('Files')) { e.preventDefault(); e.target.closest('.kmphdz').classList.add('over'); } });
+  document.addEventListener('dragleave', (e) => { const z = e.target.closest && e.target.closest('.kmphdz'); if (z) z.classList.remove('over'); });
+  document.addEventListener('drop', (e) => { const z = e.target.closest && e.target.closest('.kmphdz'); if (!z) return; e.preventDefault(); z.classList.remove('over'); const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) newClassPhoto(z.dataset.key, f); });
+  document.addEventListener('click', (e) => { const z = e.target.closest && e.target.closest('.kmphdz'); if (z && !e.target.matches('input')) { const i = z.querySelector('input.kmphf'); if (i) i.click(); } });
+  document.addEventListener('change', (e) => { const i = e.target; if (i.classList && i.classList.contains('kmphf')) { const f = i.files[0]; if (f) newClassPhoto(i.dataset.key, f); i.value = ''; } });
+
   function general(c) {
     const sts = studentsOf(c), m = sts.filter((s) => s.g === 'm').length, w = sts.filter((s) => s.g === 'w').length, o = sts.length - m - w;
     const c0 = cfg(), isKv = norm(c0.kvClass || '') === c.key, editKv = U.kmKvEdit === c.key;
@@ -142,6 +246,7 @@ const KM = (() => {
         <div class="kmkvr"><span class="kmk">Schüleranzahl</span><span class="kmv">${sts.length ? sts.length + ' (' + m + 'm / ' + w + 'w' + (o ? ' / ' + o + ' ohne Angabe' : '') + ')' : '<span class="muted">noch keine Schüler</span>'}</span></div>
         <label class="kmchk"><input type="checkbox" data-ch="kmkvme" data-key="${c.key}" ${isKv ? 'checked' : ''}> Das ist meine Klasse als Klassenvorstand (steht immer zuerst)</label></div>
       <div class="card"><h2>Meine Stunden</h2>${subj || '<div class="muted sm">Keine Stunden</div>'}</div>
+      ${classPhotoCard(c)}
     </div>
     ${isKv ? `<div class="card" style="margin-top:14px"><h2>Klassenvorstand-Übersicht</h2><p class="muted sm" style="margin:0">Lehrpersonen mit Fächern und Notenübersicht aller Fächer folgen in einem späteren Schritt.</p></div>` : ''}`;
   }
@@ -195,7 +300,7 @@ const KM = (() => {
         const sinp = (k) => `<span class="kmpc"><input class="kmsmi" data-act="kmnop" data-ch="kmsem" data-slug="${G.slug}" data-id="${esc(x.id)}" data-s="${k}" inputmode="numeric" maxlength="1" value="${esc(sm[k] || '')}" aria-label="Note ${k}. Semester"></span>`;
         const cells = P.per.map((a) => (a.n ? pctL(a.pc) : '<span class="kmp"></span>')).join('');
         const bi = (on('pc') ? (P.tm ? pctL(P.pc) : '<span class="kmp"></span>') : '') + (on('note') ? (P.tm ? `<span class="kmpc"><span class="kmp ${P.note === 5 ? 'ab' : P.note === 4 ? 'pa' : 'ak'}">${P.note}</span> <span class="muted sm">${GRADES[P.note]}</span></span>` : '<span></span>') : '') + (on('s1') ? sinp(1) : '') + (on('s2') ? sinp(2) : '');
-        return `<div class="kmrow kmgo" data-act="kmstu" data-slug="${G.slug}" data-id="${esc(x.id)}" tabindex="0" role="link"><span class="kmno">${i + 1}</span><span class="kmav" aria-hidden="true">${esc((x.vn[0] || '') + (x.nn[0] || ''))}</span><span class="kmnm"><b>${esc(up(x.nn))}</b> ${esc(x.vn)}</span><span class="kmpc kmgen kmgtog" data-act="kmgtog" data-slug="${G.slug}" data-id="${esc(x.id)}" role="button" tabindex="0" title="Klick wechselt zwischen m und w">${esc(x.g === 'm' || x.g === 'w' || x.g === 'd' ? x.g : '–')}</span>${multi ? `<span class="kmcl">${esc(x.kl)}</span>` : ''}${cells}${bi}</div>`;
+        return `<div class="kmrow kmgo" data-act="kmstu" data-slug="${G.slug}" data-id="${esc(x.id)}" tabindex="0" role="link"><span class="kmno">${i + 1}</span>${avSpan(x, 'kmav')}<span class="kmnm"><b>${esc(up(x.nn))}</b> ${esc(x.vn)}</span><span class="kmpc kmgen kmgtog" data-act="kmgtog" data-slug="${G.slug}" data-id="${esc(x.id)}" role="button" tabindex="0" title="Klick wechselt zwischen m und w">${esc(x.g === 'm' || x.g === 'w' || x.g === 'd' ? x.g : '–')}</span>${multi ? `<span class="kmcl">${esc(x.kl)}</span>` : ''}${cells}${bi}</div>`;
       }).join('');
       tbl = list.length ? `<div class="kmtable" data-kt="g" style="--kmgrid:${grid};--kmmin:${mn}px"><div class="kmrow kmth">${hcell('nr', 'Nr', '', '', false)}${hcell('av', '', '', '', false)}${hcell('nm', 'Name')}${hcell('g', 'm/w', 'kmpc kmgnh', ' title="Geschlecht"')}${multi ? hcell('kl', 'Klasse') : ''}${th}${thb}</div>${rows}</div>${resItems(G).length ? '' : '<p class="muted sm" style="margin:8px 0 0">Klicke auf den Namen einer Spalte (zum Beispiel „Check-Ups“). Dort trägst du die Punkte ein, die Prozente erscheinen dann hier.</p>'}` : '<p class="muted" style="margin:0">Noch keine Schüler. Im Stundenplan „Von WebUntis übernehmen“ und „Alle Klassen holen“ nutzen.</p>';
       gear = `<button class="btn sm${U.kmColEdit ? ' good' : ''}" data-act="kmcoledit" title="Spalten bearbeiten: umbenennen, ergänzen, ausblenden, Notenschlüssel">✎ Bearbeiten</button>`;
@@ -205,7 +310,7 @@ const KM = (() => {
       cardsExtraInfo = `${list.length} Schüler${m || w ? ' (' + m + 'm / ' + w + 'w)' : ''}`;
     } else {
       const sg = gridOf('s', [{ k: 'nr', d: '34px', w: 34 }, { k: 'av', d: '38px', w: 38 }, { k: 'nm', d: 'minmax(150px,1.6fr)', w: 150 }, { k: 'g', d: '44px', w: 44 }].concat(multi ? [{ k: 'kl', d: '56px', w: 56 }] : [], [{ k: 'pa', d: 'minmax(58px,.55fr)', w: 58 }, { k: 'pp', d: 'minmax(58px,.55fr)', w: 58 }, { k: 'pb', d: 'minmax(58px,.55fr)', w: 58 }]));
-      const rows = list.map((x, i) => { const s = stat(G, x); return `<div class="kmrow kmgo" data-act="kmstu" data-slug="${G.slug}" data-id="${esc(x.id)}" tabindex="0" role="link"><span class="kmno">${i + 1}</span><span class="kmav" aria-hidden="true">${esc((x.vn[0] || '') + (x.nn[0] || ''))}</span><span class="kmnm"><b>${esc(up(x.nn))}</b> ${esc(x.vn)}</span><span class="kmpc kmgen kmgtog" data-act="kmgtog" data-slug="${G.slug}" data-id="${esc(x.id)}" role="button" tabindex="0" title="Klick wechselt zwischen m und w">${esc(x.g === 'm' || x.g === 'w' || x.g === 'd' ? x.g : '–')}</span>${multi ? `<span class="kmcl">${esc(x.kl)}</span>` : ''}${pct(s.pa, 'ak')}${pct(s.pp, 'pa')}${pct(s.pb, 'ab')}</div>`; }).join('');
+      const rows = list.map((x, i) => { const s = stat(G, x); return `<div class="kmrow kmgo" data-act="kmstu" data-slug="${G.slug}" data-id="${esc(x.id)}" tabindex="0" role="link"><span class="kmno">${i + 1}</span>${avSpan(x, 'kmav')}<span class="kmnm"><b>${esc(up(x.nn))}</b> ${esc(x.vn)}</span><span class="kmpc kmgen kmgtog" data-act="kmgtog" data-slug="${G.slug}" data-id="${esc(x.id)}" role="button" tabindex="0" title="Klick wechselt zwischen m und w">${esc(x.g === 'm' || x.g === 'w' || x.g === 'd' ? x.g : '–')}</span>${multi ? `<span class="kmcl">${esc(x.kl)}</span>` : ''}${pct(s.pa, 'ak')}${pct(s.pp, 'pa')}${pct(s.pb, 'ab')}</div>`; }).join('');
       tbl = list.length ? `<div class="kmtable" data-kt="s" style="--kmgrid:${sg.grid};--kmmin:${sg.min}px"><div class="kmrow kmth">${hcell('nr', 'Nr', '', '', false)}${hcell('av', '', '', '', false)}${hcell('nm', 'Name')}${hcell('g', 'm/w', 'kmpc kmgnh', ' title="Geschlecht"')}${multi ? hcell('kl', 'Klasse') : ''}${hcell('pa', 'aktiv', 'kmpc')}${hcell('pp', 'passiv', 'kmpc')}${hcell('pb', 'fehlt', 'kmpc')}</div>${rows}</div>${list.some((x) => stat(G, x).t) ? '' : '<p class="muted sm" style="margin:8px 0 0">Prozentwerte erscheinen, sobald du in den Stunden die Anwesenheit kontrollierst.</p>'}` : '<p class="muted" style="margin:0">Noch keine Schüler. Im Stundenplan „Von WebUntis übernehmen“ und „Alle Klassen holen“ nutzen.</p>';
     }
     if (isG) {
@@ -224,7 +329,7 @@ const KM = (() => {
     const back = c ? route(c.key, kd === 'gpb' ? 'g' : 's') : 'mappe';
     const perf = `<div class="card"><h2>Leistungen</h2>${(() => { const P = perfOf(G, x, visCols(c || { key: '' })); return P.tm ? `<div class="kmli"><b>Gesamt</b> ${pctL(P.pc)} <span class="muted sm">${r1(P.tp)} von ${r1(P.tm)} Punkten</span> · <b>${GRADES[P.note]}</b> (${P.note})</div>` : ''; })()}${colsDef().map((k) => { const its = resItems(G).filter((e) => e.col === k.id && has(e, x)); return `<div class="kmli"><b>${esc(k.name)}</b> ${pctL(colPct(G, x, k.id))}${its.map((e) => `<div class="muted sm">${esc(dshort(e.date))} · ${esc(e.title)}: ${fmt(e.pts[x.id])} / ${fmt(e.max)}</div>`).join('')}</div>`; }).join('')}</div>`;
     return `<div class="kmh"><a class="kmmore" href="#${back}" data-act="go" data-v="${back}">‹ Zurück zur Klassenmappe ${c ? esc(c.label) : ''}</a></div>
-    <section class="card kmprofile"><div class="kmavbig">${esc((x.vn[0] || '') + (x.nn[0] || ''))}</div><div><h1 style="margin:0">${esc(up(x.nn))} ${esc(x.vn)}</h1><div class="muted">Klasse ${esc(x.kl || (c ? c.names[0] : ''))} · ${SUBJ[kd] || esc(G.subject)}${x.g === 'm' || x.g === 'w' ? ' · ' + x.g : ''}</div></div></section>
+    <section class="card kmprofile">${avSpan(x, 'kmavbig').replace('<span','<div').replace(/<\/span>$/,'</div>')}<div><h1 style="margin:0">${esc(up(x.nn))} ${esc(x.vn)}</h1><div class="muted">Klasse ${esc(x.kl || (c ? c.names[0] : ''))} · ${SUBJ[kd] || esc(G.subject)}${x.g === 'm' || x.g === 'w' ? ' · ' + x.g : ''}</div></div></section>
     <div class="kmgrid" style="margin-top:14px">
       ${kd === 'gpb' ? perf : `<div class="card"><h2>Anwesenheit</h2><div class="row" style="gap:14px">${pct(s.pa, 'ak')}${pct(s.pp, 'pa')}${pct(s.pb, 'ab')}</div><div class="muted sm" style="margin-top:6px">${s.t ? s.t + ' kontrollierte Stunden: ' + s.a + ' aktiv, ' + s.p + ' passiv, ' + s.b + ' abwesend' : 'Noch keine Kontrolle erfasst'}</div></div>`}
       <div class="card"><h2>Fehlzeiten</h2>${absDates.length ? absDates.slice(0, 12).map((e) => `<div class="kmli"><a href="#stunde-${slug}--${esc(e.id)}" data-act="go" data-v="stunde-${slug}--${esc(e.id)}">${esc(dshort(e.date))}</a></div>`).join('') : '<div class="muted sm">Keine</div>'}</div>
@@ -254,6 +359,7 @@ const KM = (() => {
     kmeadd: (e) => { const G = groups().find((g) => g.slug === e.dataset.slug), col = colsDef().find((k) => k.id === e.dataset.col); if (!G || !col) return; const items = resItems(G), n = items.filter((x) => x.col === col.id).length + 1, id = uid('r'); saveRes(G, items.concat([{ id, col: col.id, title: col.name + ' ' + n, date: TODAY, max: 10, pts: {} }])); render(); setTimeout(() => { const i = document.querySelector('.kmet[data-eid="' + id + '"]'); if (i) { i.focus(); i.select(); } }, 40); },
     kmedel: (e) => { const G = groups().find((g) => g.slug === e.dataset.slug); if (!G || !confirm('Diesen Eintrag samt allen Punkten löschen?')) return; saveRes(G, resItems(G).filter((x) => x.id !== e.dataset.eid)); render(); },
     kmgtog: (e) => { const slug = e.dataset.slug, ci = cinfo(slug); if (!Array.isArray(ci.students)) return; put('settings', Object.assign({}, ci, { id: 'cn_' + slug, students: ci.students.map((x) => (x.id === e.dataset.id ? Object.assign({}, x, { g: x.g === 'm' ? 'w' : 'm' }) : x)) })); render(); },
+    kmphopen: (e) => openPhoto(e.dataset.key),
     kmnew: (e) => { modal = { type: 'form', slug: e.dataset.slug, col: e.dataset.col, entry: null }; showModal(); },
     kmcoledit: () => { U.kmColEdit = !U.kmColEdit; render(); },
     kmcoladd: () => { const i = document.getElementById('kmcolnew'), n = i ? i.value.trim() : ''; if (!n) return toast('Bitte einen Namen für die Spalte eingeben'); if (i) { i.value = ''; i.blur(); } saveCols(colsDef().concat([{ id: 'c' + Date.now().toString(36), name: n }])); toast('Spalte „' + n + '“ hinzugefügt'); },
@@ -401,7 +507,16 @@ html{overflow-y:scroll;scrollbar-gutter:stable}
 .kmdiv{display:inline-block;flex:none;width:16px;height:32px;cursor:grab;position:relative;align-self:center}.kmdiv::before{content:'';position:absolute;left:7px;top:3px;bottom:3px;width:2px;border-radius:2px;background:var(--muted);opacity:.45;transition:opacity .15s,background .15s}.kmdiv:hover::before,.kmdiv.over::before{opacity:1;background:var(--accent)}.kmdiv.over{outline:2px dashed var(--accent);outline-offset:-2px;border-radius:6px}
 .kmarr{display:inline-flex;gap:2px}.kmarr button{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:6px;width:24px;height:28px;cursor:pointer;font-size:16px;line-height:1}
 .kmtools{display:flex;gap:6px}.kmtool{border:1px solid var(--line);background:var(--surface2);color:var(--ink);border-radius:8px;padding:6px 9px;cursor:pointer;font:600 12px var(--font-body);display:inline-flex;align-items:center}.kmtool.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
-.kmth .kmgnh{text-transform:none}.kmgen{color:var(--muted);font-weight:600}.kmth>span{position:relative}.kmrs{position:absolute;right:-5px;top:-3px;bottom:-3px;width:10px;cursor:col-resize;z-index:3}.kmrs::after{content:'';position:absolute;left:4px;top:3px;bottom:3px;width:2px;border-radius:1px;background:var(--line)}.kmrs:hover::after,.kmrs.on::after{background:var(--accent)}.kmgtog{cursor:pointer;border-radius:6px;user-select:none}.kmgtog:hover{background:var(--accent-soft);color:var(--ink)}.kmflt{display:inline-flex;margin-left:6px;gap:4px;flex-wrap:wrap}.kmfb{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:7px;padding:3px 10px;font:600 13px var(--font-body);cursor:pointer}.kmfb.on{background:var(--brand,var(--accent));border-color:var(--brand,var(--accent));color:var(--brand-ink,var(--accent-ink))}
+.kmth .kmgnh{text-transform:none}.kmgen{color:var(--muted);font-weight:600}.kmth>span{position:relative}.kmrs{position:absolute;right:-5px;top:-3px;bottom:-3px;width:10px;cursor:col-resize;z-index:3}.kmrs::after{content:'';position:absolute;left:4px;top:3px;bottom:3px;width:2px;border-radius:1px;background:var(--line)}.kmrs:hover::after,.kmrs.on::after{background:var(--accent)}.kmav img,.kmavbig img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}.kmav{overflow:hidden}.kmavbig{overflow:hidden}
+.kmph .kmphdz{border:2px dashed var(--line);border-radius:12px;padding:22px 12px;text-align:center;cursor:pointer;display:flex;flex-direction:column;gap:4px;background:var(--surface2)}.kmphdz:hover,.kmphdz.over{border-color:var(--accent);background:var(--accent-soft)}
+.kmphth{display:block;width:100%;padding:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:zoom-in;background:var(--surface2)}.kmphth img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block}
+.kmphov{position:fixed;inset:0;background:rgba(10,12,8,.72);z-index:9000;display:flex;align-items:center;justify-content:center;padding:2vh 2vw}.kmphbox{background:var(--surface,#fff);color:var(--ink);border-radius:14px;max-width:1500px;width:100%;height:96vh;display:flex;flex-direction:column;padding:12px 14px;min-height:0}
+.kmphtop{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.kmphtop h3{margin:0}.kmphmsg{min-height:20px;margin:6px 0}.kmphbody{display:flex;gap:14px;flex:1;min-height:0}.kmphimgw{flex:1;min-width:0;overflow:auto;display:flex;align-items:flex-start;justify-content:center;background:#111;border-radius:10px}
+.kmphimg{position:relative;display:inline-block;line-height:0;max-width:100%}.kmphimg img{max-width:100%;max-height:calc(96vh - 130px);width:auto;height:auto;display:block;-webkit-user-drag:none;user-select:none}.kmphimg.drawing{cursor:crosshair;touch-action:none}
+.kmfx{position:absolute;border:2px solid #ffb400;border-radius:6px;box-sizing:border-box;pointer-events:auto}.kmfx b{position:absolute;left:-2px;top:-20px;background:#ffb400;color:#000;font:700 12px var(--font-body);line-height:1;padding:3px 6px;border-radius:5px}.kmfx.ok{border-color:#2fb36b}.kmfx.ok b{background:#2fb36b;color:#fff}.kmfx.hot{box-shadow:0 0 0 3px rgba(255,255,255,.9);z-index:2}
+.kmphside{width:350px;flex:none;overflow:auto}.kmfcr{display:grid;grid-template-columns:40px 22px minmax(0,1fr) 26px;gap:8px;align-items:center;padding:5px 4px;border-top:1px solid var(--line);border-radius:6px}.kmfcr.hot{background:var(--accent-soft)}.kmfcr img{width:40px;height:40px;border-radius:50%;object-fit:cover;flex:none;background:var(--surface2)}.kmfcr b{width:20px;flex:none;text-align:center;font-size:13px}.kmfcr select{width:100%;min-width:0;margin:0;font:inherit;font-size:14px;padding:5px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--ink)}.kmfd{flex:none;width:24px;padding:0;border:0;background:none;font-size:20px;line-height:1;cursor:pointer;color:var(--muted)}.kmfd:hover{color:var(--bad)}
+@media(max-width:800px){.kmphbody{flex-direction:column}.kmphside{width:auto;max-height:38vh}}
+.kmgtog{cursor:pointer;border-radius:6px;user-select:none}.kmgtog:hover{background:var(--accent-soft);color:var(--ink)}.kmflt{display:inline-flex;margin-left:6px;gap:4px;flex-wrap:wrap}.kmfb{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:7px;padding:3px 10px;font:600 13px var(--font-body);cursor:pointer}.kmfb.on{background:var(--brand,var(--accent));border-color:var(--brand,var(--accent));color:var(--brand-ink,var(--accent-ink))}
 .km>.kmh{margin:18px 0 12px}
 .kmchip .kmsep,.kmsidet .kmsep{margin:0 .35em;color:inherit;opacity:.55;font-weight:400}.kmsidet{overflow-wrap:normal}.kmsidet .kmsep{margin:0 .2em}.kmsidet b.m{font-size:14px;white-space:nowrap}.kmsidet b{display:block;text-transform:none;letter-spacing:0;font-size:15px;margin-top:3px}
 .kmbody{display:grid;grid-template-columns:112px minmax(0,1fr);gap:12px;align-items:start}
