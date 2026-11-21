@@ -382,8 +382,8 @@ const MAT = (() => {
       await fput(dir + '/' + base + '.docx', docx); await fput(dir + '/' + base + '.pdf', pdf);
       m.files = null; m.last = { dir, base };
       toast('Gespeichert in „' + dir + '“ (Word + PDF)');
-    } catch (e) { toast('Fehler: ' + (e.message || e)); }
-    m.busy = ''; render();
+      m.busy = ''; render(); return { dir, base, docx: dir + '/' + base + '.docx', pdf: dir + '/' + base + '.pdf' };
+    } catch (e) { toast('Fehler: ' + (e.message || e)); m.busy = ''; render(); return null; }
   }
 
   /* ---------- Erzeugen ---------- */
@@ -411,6 +411,25 @@ const MAT = (() => {
     c.down.forEach((a) => b.push({ t: 'li', x: a.n + ': ' + a.clue }));
     b.push(...refs(), { t: 'pb' }, { t: 'h2', x: 'Lösung' }, { t: 'grid', cells: c.cells, sol: true });
     return b;
+  }
+
+  /* ---------- Test erstellen aus ausgewählten Quellen (ohne KI) ---------- */
+  const pickText = (full) => { const sents = sentences(full); if (!sents.length) return ''; const keys = keyWords(full, 14).map((k) => k.toLowerCase()), sc = sents.map((s, i) => ({ s, i, v: keys.reduce((a, k) => a + (s.toLowerCase().includes(k) ? 1 : 0), 0) })); return sc.sort((a, b) => b.v - a.v || a.i - b.i).slice(0, 16).sort((a, b) => a.i - b.i).map((x) => x.s).join(' ').slice(0, 2600); };
+  async function makeTest(ids, o) {
+    const m = M(), keep = m.sel, parts = o.parts || { gaps: true, terms: true, questions: true, cross: false };
+    try {
+      const sel = []; for (const id of ids) { const s = srcOf(id); if (!s) continue; const t = await textOf(id), full = (t.pages || []).map((p) => p.t).join(' '), pk = pickText(full); if (pk) sel.push({ ref: s.vtitle || s.title, t: pk }); }
+      if (!sel.length) throw new Error('In den gewählten Materialien wurde kein lesbarer Text gefunden (Bilder oder Scans haben keinen Text).');
+      m.sel = sel; const title = o.title || 'Test', txt = allText(), keys = keyWords(txt, 8), b = head(title).concat([{ t: 'p', x: 'Maximale Punkte: ' + (o.max ? o.max : '______') + '      Erreichte Punkte: ______      Note: ______' }, { t: 'sp' }]);
+      let n = 0; const sol = [];
+      if (parts.gaps) { const g = gapText(); if (g.words.length) { n++; const words = g.words.slice().sort((a, c) => a.localeCompare(c, 'de')); b.push({ t: 'h2', x: 'Aufgabe ' + n + ': Lückentext' }, { t: 'p', x: 'Setze die fehlenden Wörter ein.' }, { t: 'p', x: 'Wörter: ' + words.join('  ·  ') }); for (let i = 0; i < g.text.length; i += 4) b.push({ t: 'p', x: g.text.slice(i, i + 4).join(' ') }); b.push({ t: 'sp' }); sol.push({ t: 'h2', x: 'Aufgabe ' + n + ': Lückentext' }, { t: 'p', x: g.words.map((w, i) => (i + 1) + '. ' + w).join('    ') }); } }
+      if (parts.terms && keys.length) { n++; b.push({ t: 'h2', x: 'Aufgabe ' + n + ': Begriffe erklären' }, { t: 'p', x: 'Erkläre die folgenden Begriffe in ein bis zwei Sätzen.' }); keys.slice(0, 6).forEach((k) => b.push({ t: 'li', x: k + ':  ________________________________________________' })); b.push({ t: 'sp' }); sol.push({ t: 'h2', x: 'Aufgabe ' + n + ': Begriffe' }); const ss = sentences(txt); keys.slice(0, 6).forEach((k) => { const f = ss.find((s) => s.toLowerCase().includes(k.toLowerCase())); sol.push({ t: 'li', x: k + ': ' + (f || '–') }); }); }
+      if (parts.questions && keys.length) { n++; b.push({ t: 'h2', x: 'Aufgabe ' + n + ': Fragen zum Stoff' }); const q = keys.slice(0, 4); q.forEach((k) => { b.push({ t: 'li', x: 'Was weißt du über „' + k + '“? Nenne mindestens zwei Fakten und erkläre den Zusammenhang.' }, { t: 'p', x: '________________________________________________________________' }, { t: 'p', x: '________________________________________________________________' }); }); b.push({ t: 'sp' }); sol.push({ t: 'h2', x: 'Aufgabe ' + n + ': Erwartungshorizont' }); const ss = sentences(txt); q.forEach((k) => { const f = ss.filter((s) => s.toLowerCase().includes(k.toLowerCase())).slice(0, 2); sol.push({ t: 'li', x: k + ': ' + (f.join(' ') || '–') }); }); }
+      if (parts.cross) { const c = crossword(14); if (c) { n++; b.push({ t: 'h2', x: 'Aufgabe ' + n + ': Kreuzworträtsel' }, { t: 'grid', cells: c.cells, sol: false }, { t: 'h2', x: 'Waagrecht' }); c.across.forEach((a) => b.push({ t: 'li', x: a.n + ': ' + a.clue })); b.push({ t: 'h2', x: 'Senkrecht' }); c.down.forEach((a) => b.push({ t: 'li', x: a.n + ': ' + a.clue })); sol.push({ t: 'h2', x: 'Aufgabe ' + n + ': Kreuzworträtsel' }, { t: 'grid', cells: c.cells, sol: true }); } }
+      if (!n) throw new Error('Aus dem Text lassen sich keine Aufgaben erzeugen. Wähle mehr oder andere Materialien.');
+      b.push(...refs(), { t: 'pb' }, { t: 'h2', x: 'Lösung' }, ...sol);
+      return await deliver('Test', title, b);
+    } finally { m.sel = keep; }
   }
 
   /* ---------- Alles-in-einem-Feld: erkennen, Angaben prüfen, dann „Anlegen“ ---------- */
@@ -1276,5 +1295,5 @@ html:root .kmchip.matep{padding:3px 10px;font-size:12.5px;gap:4px;background:var
   if (!document.getElementById('matedcss')) { const st2 = document.createElement('style'); st2.id = 'matedcss'; st2.textContent = '.matedov{position:fixed;inset:0;z-index:8000;background:rgba(10,12,8,.65);display:flex;align-items:flex-start;justify-content:center;padding:3vh 2vw;overflow:auto}.matedbox{background:var(--bg,#f4f6ef);border-radius:14px;max-width:980px;width:100%;padding:12px 14px;position:relative}.matedx{position:absolute;right:14px;top:12px;z-index:2}.matedbox>.card{margin-top:0;padding-top:34px}'; document.head.appendChild(st2); }
   /* Schnittstelle für die Stundenseite: Quellen auflisten und anzeigen */
   const list = () => sources().map((s) => ({ id: s.id.replace(/^mat_/, ''), title: s.vtitle || s.title || 'Quelle', file: dlPath(s), url: s.url || '', kind: kindOf(s), kindLabel: (KINDS.find(([k]) => k === kindOf(s)) || [0, ''])[1], thumb: thumbOf(s), ep: tagsOf(s).epoche, hay: norm([s.title, s.vtitle, s.channel, s.author, ...tagsOf(s).epoche, ...tagsOf(s).tags, ...tagsOf(s).keys].join(' ')) }));
-  return { view, picker, list, edit: openEdit, epochs: EPOCHS, epS };
+  return { view, picker, list, edit: openEdit, epochs: EPOCHS, epS, makeTest };
 })();
