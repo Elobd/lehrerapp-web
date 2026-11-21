@@ -549,7 +549,7 @@ const isBspkG=G=>subjKind(G.subject)==='bspk';
 function migrateSplit(){try{const done=[];groups().forEach(G=>{if(!G.day||cinfo(G.slug).id)return;const base=(norm(G.label)+'-'+norm(G.subject)).replace(/-$/,''),old=S.settings['cn_'+base];if(!old)return;
   const log=(Array.isArray(old.log)?old.log:[]).filter(e=>{const d=parse(e.date);return ((d.getDay()+6)%7)+1===G.wd});
   put('settings',Object.assign({},old,{id:'cn_'+G.slug,log}))})}catch(e){}}
-function purgeBspkGirls(){let n=0;try{groups().forEach(G=>{if(!isBspkG(G))return;const ci=cinfo(G.slug),st=Array.isArray(ci.students)?ci.students:[];if(st.some(x=>x.g==='w')){n+=st.filter(x=>x.g==='w').length;put('settings',Object.assign({},ci,{id:'cn_'+G.slug,students:st.filter(x=>x.g!=='w')}))}})}catch(e){}if(n)toast(n+' weibliche Schüler aus BSPK-Klassen entfernt')}
+function purgeBspkGirls(){/* löscht nichts mehr: ein geändertes Geschlecht darf nie Schüler entfernen */}
 const cinfoV=slug=>{const c=cinfo(slug),st=stAct(Array.isArray(c.students)?c.students:[]);return st.length?Object.assign({},c,{m:String(st.filter(x=>x.g==='m').length),w:String(st.filter(x=>x.g==='w').length),total:String(st.length)}):c};
 const cTotal=i=>{if(Array.isArray(i.students)&&i.students.length)return stAct(i.students).length;const m=parseInt(i.m),w=parseInt(i.w),t=parseInt(i.total);if(!isNaN(m)||!isNaN(w))return (isNaN(m)?0:m)+(isNaN(w)?0:w);return isNaN(t)?null:t};
 const dtag=d=>{const n=dayDiff(d);return n===0?'heute':'in '+n+(n===1?' Tag':' Tagen')};
