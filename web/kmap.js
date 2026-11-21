@@ -108,7 +108,7 @@ const KM = (() => {
   }
   /* Schüler ohne Geschlecht: vermutetes eintragen (in BSPK-Klassen immer m, weil dort nur Buben sind) */
   function ensureGenders() {
-    try { groups().forEach((G) => { const ci = cinfo(G.slug), st = ci.students; if (!Array.isArray(st) || !st.some((x) => !x.g)) return; const bsp = typeof isBspkG === 'function' && isBspkG(G); put('settings', Object.assign({}, ci, { id: 'cn_' + G.slug, students: st.map((x) => (x.g ? x : Object.assign({}, x, { g: bsp ? 'm' : guessGender(x.vn) }))) })); }); } catch (e) { /* */ }
+    try { groups().forEach((G) => { const ci = cinfo(G.slug), st = ci.students; if (!Array.isArray(st) || !st.some((x) => !x.g)) return; const bsp = false; put('settings', Object.assign({}, ci, { id: 'cn_' + G.slug, students: st.map((x) => (x.g ? x : Object.assign({}, x, { g: bsp ? 'm' : guessGender(x.vn) }))) })); }); } catch (e) { /* */ }
   }
   function view(v) {
     ensureGenders();
@@ -171,7 +171,7 @@ const KM = (() => {
   const prnIcon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="9" rx="2"/><path d="M7 14h10v7H7z"/></svg>';
   function subject(c, kd) {
     const G = primary(kd === 'gpb' ? c.gpb : c.bspk), ci = cinfo(G.slug), multi = G.classes.length > 1;
-    const all = studentsSorted(G), fl = multi && U.kmcf && U.kmcf[G.slug] && G.classes.includes(U.kmcf[G.slug]) ? U.kmcf[G.slug] : '', both = all.some((x) => x.g === 'm') && all.some((x) => x.g === 'w'), gf = both && U.kmgf && U.kmgf[G.slug] || '', list = all.filter((x) => (!fl || x.kl === fl) && (!gf || x.g === gf)), nl = nextLesson(G), lg = logOf(ci).filter((e) => e.text).slice(0, 3);
+    const all = studentsSorted(G), fl = multi && U.kmcf && U.kmcf[G.slug] && G.classes.includes(U.kmcf[G.slug]) ? U.kmcf[G.slug] : '', both = (all.some((x) => x.g === 'm') && all.some((x) => x.g === 'w')) || (kd !== 'gpb' && all.length > 0), gf = both && U.kmgf && U.kmgf[G.slug] || '', list = all.filter((x) => (!fl || x.kl === fl) && (!gf || x.g === gf)), nl = nextLesson(G), lg = logOf(ci).filter((e) => e.text).slice(0, 3);
     const tests = grpTests(G).filter((t) => t.status === 'geplant' && t.date >= TODAY).slice(0, 3);
     const head = `<!--H--><div class="kmh"><h1>${SUBJ[kd]}<span class="kmsep kmh1">I</span><span class="muted" style="font-weight:500">Klasse ${disp(c)}</span></h1></div><!--/H-->`;
     let cards = `<div class="kmgrid">
