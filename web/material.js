@@ -671,7 +671,7 @@ const MAT = (() => {
       else if (d.kind === 'epub') { const nm = QDIR + '/' + id + '-' + slugify(base(d.name)) + '.epub'; await fput(nm, d.file); setS({ epub: nm }); await saveSt(); }
       else if (d.kind === 'video') { const nm = 'Material/Videos/' + id + '.' + (extOf(d.name) || 'mp4'); await fput(nm, d.file); setS({ seconds: d.seconds == null ? null : d.seconds, dl: { state: 'done', file: nm, size: d.file.size } }); }
       else if (d.kind === 'bild') { for (let i = 0; i < d.files.length; i++) await fput(QDIR + '/' + id + '-s' + (i + 1) + '.png', d.files[i]); await saveSt(); }
-      else if (d.kind === 'text') { await saveSt(); if (d.file && extOf(d.name) === 'docx') { const nm = QDIR + '/' + id + '-' + slugify(d.name); await fput(nm, d.file); setS({ file: nm }); } }
+      else if (d.kind === 'text') { await saveSt(); if (d.file && extOf(d.name) === 'docx') { const nm = QDIR + '/' + id + '-' + slugify(d.name); await fput(nm, d.file); setS({ file: nm, needPdf: !!extra.ao }); } }
       else if (d.kind === 'datei') {
         const nm = QDIR + '/' + id + '-' + slugify(d.name); await fput(nm, d.file); setS({ file: nm });
         if (d.mode === 'text') { const raw = (await d.file.text()).replace(/\u0000/g, '').replace(/\s+/g, ' ').trim(); if (raw.length >= 20) { d.pages = [{ p: 1, t: raw }]; await saveSt(); } }
@@ -683,7 +683,7 @@ const MAT = (() => {
       if (d.kind === 'yt' && d.dl) startDownload(id);
       if (!d.noThumb && !d.thumbBlob && !d.cover && d.kind !== 'yt' && d.kind !== 'ppt') autoThumb(id, false);
       if (d.thumbUrl && d.thumbUrl.startsWith('blob:')) URL.revokeObjectURL(d.thumbUrl);
-      m.drafts = m.drafts.filter((x) => x.id !== d.id); m.open = null; toast('Angelegt und auf der NAS gespeichert'); if (d.attach) document.dispatchEvent(new CustomEvent('matcreated', { detail: { id, attach: d.attach } }));
+      m.drafts = m.drafts.filter((x) => x.id !== d.id); m.open = null; toast('Angelegt und auf der NAS gespeichert'); setTimeout(() => syncPdfs(false), 400); if (d.attach) document.dispatchEvent(new CustomEvent('matcreated', { detail: { id, attach: d.attach } }));
     } catch (e) { d.status = 'ready'; d.err = e.message || String(e); if (/Failed to fetch|NetworkError|Load failed/i.test(d.err)) d.err = 'Keine Verbindung zum Server auf der NAS (Container lehrerapp oder Tailscale läuft nicht, oder die Datei ist zu groß).'; note('err', 'Anlegen fehlgeschlagen: ' + d.err); }
     render();
   }
@@ -1007,7 +1007,7 @@ const MAT = (() => {
     matdurin: (e) => { const s = srcOf(e.dataset.id); if (!s) return; const ps = parseDur(e.value); if (Number.isNaN(ps)) return toast('Das Format kenne ich nicht. Bitte so eingeben: 12:34 oder 1:05:20'); put('settings', Object.assign({}, s, { seconds: ps })); render(); },
     matttl: (e) => { const s = srcOf(e.dataset.id); if (!s) return; const v = e.value.trim(); if (v) put('settings', Object.assign({}, s, s.vtitle ? { vtitle: v, title: v } : { title: v })); render(); },
     matmeta: (e) => { const s = srcOf(e.dataset.id), f = e.dataset.f; if (s && /^(author|publisher)$/.test(f)) put('settings', Object.assign({}, s, { [f]: e.value.trim() })); },
-    matao: (e) => { const s = srcOf(e.dataset.id); if (s) put('settings', Object.assign({}, s, { ao: e.value.trim() })); },
+    matao: (e) => { const s = srcOf(e.dataset.id); if (s) { const v = e.value.trim(), o2 = Object.assign({}, s, { ao: v }); if (v && isWord(s) && s.file && !s.pdfOff && !sources().some((x) => x.pdfFrom === e.dataset.id)) o2.needPdf = true; put('settings', o2); setTimeout(() => syncPdfs(false), 400); } },
     matnote: (e) => { const s = srcOf(e.dataset.id); if (s) put('settings', Object.assign({}, s, { notes: e.value })); },
     matsel: (e) => { const x = M().sel[+e.dataset.i]; if (x) x.t = e.value; },
     matqs: (e) => { M().q = e.value; },
@@ -1362,7 +1362,18 @@ html:root .kmchip.matep{padding:3px 10px;font-size:12.5px;gap:4px;background:var
   async function syncPdfs(force, onlyId) {
     if (SY.busy) return 0; SY.busy = true; let n = 0;
     try {
-      if (!(await convertOk())) return 0;
+      const need = sources().filter((x) => x.needPdf && x.file && isWord(x) && !onlyId && !(SY.err[x.id] && Date.now() - SY.err[x.id] < 600000));
+      if (need.length || true) { if (!(await convertOk())) { if (need.length && !SY.warned) { SY.warned = true; toast('PDF aus Word kann noch nicht erstellt werden: LibreOffice fehlt im Container (Anleitung: Dockerfile neu bauen).'); } return 0; } }
+      for (const w of need) {
+        const wid = w.id.replace(/^mat_/, ''), cur = srcOf(wid); if (!cur || !cur.needPdf) continue;
+        if (sources().some((x) => x.pdfFrom === wid)) { const o3 = Object.assign({}, cur); delete o3.needPdf; put('settings', o3); continue; }
+        const title = (cur.vtitle || cur.title || 'Dokument') + ' PDF', pid = Date.now().toString(36) + Math.random().toString(36).slice(2, 5), dst = QDIR + '/' + pid + '-' + slugify(cur.vtitle || cur.title || 'Dokument') + '.pdf';
+        try {
+          const rr = await fetch('/api/convert', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ src: cur.file, dst }) }); if (!rr.ok) throw new Error(((await rr.json().catch(() => ({}))).error) || 'Fehler ' + rr.status);
+          put('settings', { id: 'mat_' + pid, title, type: 'pdf', kind: 'pdf', url: '', added: Date.now(), pages: 0, file: dst, fileName: slugify(cur.vtitle || cur.title) + '.pdf', ao: cur.ao || '', auto: cur.auto, man: cur.man, hid: cur.hid, pdfFrom: wid, pdfAt: Date.now(), pending: cur.pending || false, pfrom: cur.pfrom, lock: true });
+          const o4 = Object.assign({}, srcOf(wid)); delete o4.needPdf; put('settings', o4); n++; toast('PDF „' + title + '“ automatisch erstellt');
+        } catch (e) { SY.err[w.id] = Date.now(); toast('PDF konnte nicht erstellt werden: ' + (e.message || e)); }
+      }
       const links = sources().filter((p) => p.pdfFrom && p.file && (!onlyId || p.id === 'mat_' + onlyId)).map((p) => ({ p, w: srcOf(p.pdfFrom) })).filter((x) => x.w && x.w.file);
       if (!links.length) return 0;
       const r = await fetch('/api/files?dir=Material', { credentials: 'same-origin' }); if (!r.ok) return 0; const mt = {}; ((await r.json()).files || []).forEach((f) => { mt[f.path] = f.mtime; });
@@ -1417,7 +1428,7 @@ html:root .kmchip.matep{padding:3px 10px;font-size:12.5px;gap:4px;background:var
       setTimeout(() => { if (document.getElementById('mataomod')) paint(); }, 250);
     });
     o.addEventListener('change', async (e) => {
-      const rp = e.target.closest && e.target.closest('[data-aorep]'); if (rp && rp.files[0]) { const f = rp.files[0]; rp.value = ''; toast('Word-Datei wird hochgeladen …'); try { await replaceWord(rp.dataset.aorep, f); const l = sources().find((x) => x.pdfFrom === 'mat_' + rp.dataset.aorep); if (l) await syncPdfs(true, l.id.replace(/^mat_/, '')); } catch (er) { toast('Fehler: ' + (er.message || er)); } return paint(); }
+      const rp = e.target.closest && e.target.closest('[data-aorep]'); if (rp && rp.files[0]) { const f = rp.files[0]; rp.value = ''; toast('Word-Datei wird hochgeladen …'); try { await replaceWord(rp.dataset.aorep, f); const l = sources().find((x) => x.pdfFrom === rp.dataset.aorep); if (l) await syncPdfs(true, l.id.replace(/^mat_/, '')); } catch (er) { toast('Fehler: ' + (er.message || er)); } return paint(); }
       if (e.target.id === 'mataoname') { const nn = e.target.value.trim(); if (!nn) return paint(); aoMembers(key).forEach((s) => put('settings', Object.assign({}, s, { ao: nn }))); key = norm(nn); M().aoOpen = key; setTimeout(paint, 150); }
     });
     document.addEventListener('keydown', onK); paint();
