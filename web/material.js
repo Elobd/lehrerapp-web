@@ -621,9 +621,9 @@ const MAT = (() => {
     m.dedupBusy = false;
     if (drop.length) { toast(drop.length === 1 ? 'Ein Duplikat („' + (drop[0].s.vtitle || drop[0].s.title) + '“) wurde automatisch gelöscht.' : drop.length + ' Duplikate wurden automatisch gelöscht.'); render(); }
   }
-  async function intake(files, text, att) {
+  async function intake(files, text, att, ao) {
     const m = M(); note(); const imgs = [];
-    const push = (d) => { d.attach = att === undefined ? m.attach || null : att; m.drafts.push(d); return d; };
+    const push = (d) => { d.attach = att === undefined ? m.attach || null : att; if (ao) d.f.ao = ao; m.drafts.push(d); return d; };
     const todo = [];
     const skipped = [];
     for (const f of files || []) {
@@ -657,7 +657,7 @@ const MAT = (() => {
     try {
       const f = d.f, tagFix = { epoche: d.ep, tags: d.tg, keys: d.keys };
       const type = d.kind === 'pdf' ? 'pdf' : d.kind === 'epub' ? 'buch' : d.kind === 'yt' || d.kind === 'video' ? 'video' : 'sonst';
-      const extra = { lock: true, hash: d.hash || textHash(d), tpos: d.tpos || null, cls: d.cls || {}, kind: d.art || artOf(d), auto: tagFix, author: f.author || '', publisher: f.publisher || '', lang: f.lang || '', year: f.year || '', fileName: d.name || '', size: d.file ? d.file.size : 0 };
+      const extra = { lock: true, hash: d.hash || textHash(d), tpos: d.tpos || null, cls: d.cls || {}, kind: d.art || artOf(d), auto: tagFix, author: f.author || '', publisher: f.publisher || '', lang: f.lang || '', year: f.year || '', fileName: d.name || '', size: d.file ? d.file.size : 0, ao: String(f.ao || '').trim() };
       if (d.attach) { extra.pending = true; extra.pfrom = { slug: d.attach.slug, lid: d.attach.lid, date: d.attach.date || '', label: d.attach.label || '' }; }
       if (d.kind === 'yt' || d.kind === 'video') { const ps = parseDur(f.dur); if (ps != null && !Number.isNaN(ps)) d.seconds = ps; else if (!String(f.dur || '').trim()) d.seconds = null; }
       let id;
@@ -707,7 +707,7 @@ const MAT = (() => {
     if (d.status === 'reading') return `<section class="card matdraft" tabindex="-1" data-d="${did}">${head}<div class="row" style="align-items:center;gap:10px"><span class="muted">⏳ wird gelesen${d.prog ? ' … ' + esc(d.prog) : ' …'}</span><span style="flex:1"></span><button class="btn sm" data-act="mddel" data-d="${did}">Abbrechen</button></div></section>`;
     if (d.status === 'error') return `<section class="card matdraft" tabindex="-1" data-d="${did}">${head}<div class="matnote err" style="margin:0 0 10px"><span>Konnte nicht gelesen werden: ${esc(d.err)}</span></div><button class="btn sm" data-act="mddel" data-d="${did}">Entfernen</button></section>`;
     const ths = d.thumbBlob && d.thumbUrl ? d.thumbUrl : d.vid ? `https://i.ytimg.com/vi/${d.vid}/hqdefault.jpg` : d.thumbUrl;
-    const rows = [fld(d, 'title', 'Titel')];
+    const rows = [fld(d, 'title', 'Titel'), `<div class="kmkvr"><span class="kmk">Arbeitsauftrag</span><span class="kmv">${aoField(d.f.ao, `id="dr-${d.id}-ao" data-ch="mdf" data-d="${d.id}" data-k="ao"`)}</span></div>`];
     if (k === 'pdf' || k === 'ppt') rows.push(fld(d, 'author', 'Autor'));
     if (k === 'epub') rows.push(fld(d, 'author', 'Autor'), fld(d, 'publisher', 'Verlag'), fld(d, 'lang', 'Sprache'), fld(d, 'year', 'Jahr'));
     if (k === 'yt') rows.push(ro('Kanal', d.f.channel || '–', d.f.channelUrl), ro('Video', d.f.url, d.f.url));
@@ -729,6 +729,7 @@ const MAT = (() => {
       <div class="matfoot">${d.status === 'saving' ? '<span class="muted">⏳ wird auf die NAS geladen …</span>' : `<button class="btn" data-act="mddel" data-d="${did}">Verwerfen</button><button class="btn good" data-act="mdgo" data-d="${did}">Anlegen</button>`}</div></section>`;
   }
   const ICO = {
+    ao: '<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 3h6v3H9zM9 10h6M9 14h6M9 18h3"/>',
     all: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
     video: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z"/>',
     pdf: '<path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>',
@@ -746,8 +747,8 @@ const MAT = (() => {
     if (m.ddN !== list.length) { m.ddN = list.length; setTimeout(dedupe, 600); }
     const banner = `${m.busy ? `<div class="muted sm" style="margin-bottom:8px">⏳ ${esc(m.busy)}</div>` : ''}${m.note ? `<div class="matnote ${m.note.k}" role="status"><span>${esc(m.note.t)}${/server\.js|Unbekannte API|Verbindung|Keine Verbindung/.test(m.note.t) ? ' <a href="/diagnose.html" style="color:inherit;text-decoration:underline">Diagnose öffnen</a>' : ''}</span><button data-act="matnote0" aria-label="Schließen">×</button></div>` : ''}`;
     const kinds = kindsOrdered();
-    const side = `<nav class="kmside" aria-label="Art"><div class="kmsidet">Art</div><button class="kmicon${!f.a ? ' on' : ''}" data-act="matfa" data-v="">${ico('all')}<small>Alle ${list.length}</small></button>${kinds.map(([k, n]) => `<button class="kmicon${f.a === k ? ' on' : ''}${list.some((x) => kindOf(x) === k) ? '' : ' zero'}" draggable="true" data-k="${k}" title="Ziehen zum Verschieben" data-act="matfa" data-v="${k}">${ico(k)}<small>${esc(n.split(' ')[0])} ${list.filter((x) => kindOf(x) === k).length}</small></button>`).join('')}</nav>`;
-    const artName = (KINDS.find(([k]) => k === f.a) || [0, 'Alle Quellen'])[1];
+    const side = `<nav class="kmside" aria-label="Art"><div class="kmsidet">Art</div><button class="kmicon${!f.a ? ' on' : ''}" data-act="matfa" data-v="">${ico('all')}<small>Alle ${list.length}</small></button>${kinds.map(([k, n]) => `<button class="kmicon${f.a === k ? ' on' : ''}${list.some((x) => kindOf(x) === k) ? '' : ' zero'}" draggable="true" data-k="${k}" title="Ziehen zum Verschieben" data-act="matfa" data-v="${k}">${ico(k)}<small>${esc(n.split(' ')[0])} ${list.filter((x) => kindOf(x) === k).length}</small></button>`).join('')}<button class="kmicon${f.a === 'ao' ? ' on' : ''}${aoNames().length ? '' : ' zero'}" data-act="matfa" data-v="ao" title="Arbeitsaufträge: zusammengehörige Dateien">${ico('ao')}<small>Arbeitsaufträge ${aoNames().length}</small></button></nav>`;
+    const artName = f.a === 'ao' ? 'Arbeitsaufträge' : (KINDS.find(([k]) => k === f.a) || [0, 'Alle Quellen'])[1];
     const head = `<div class="kmh"><h1>Material<span class="kmsep kmh1">I</span><span class="muted" style="font-weight:500">${esc(f.e || 'Alle Epochen')}${f.a ? ' · ' + esc(artName) : ''}</span></h1></div>`;
     return `<div class="km">${head}${banner}<div class="kmbody">${side}<section class="kmmain">${quellen()}</section></div></div>`;
   }
@@ -786,11 +787,14 @@ const MAT = (() => {
   const saveHist = (items) => put('settings', { id: 'matq_hist', items: items.slice(0, 12) });
   const clearBtn = (act, show) => (show ? `<button class="matclr" data-act="${act}" title="Eingabe löschen" aria-label="Eingabe löschen">×</button>` : '');
   const KINDS = [['video', 'Video'], ['buch', 'Buch'], ['pdf', 'PDF'], ['epub', 'EPUB'], ['ppt', 'PowerPoint'], ['text', 'Text / Word'], ['bild', 'Screenshots'], ['link', 'Link']];
+  const aoOf = (s) => String(s.ao || '').trim();
+  const aoNames = () => [...new Set(sources().map(aoOf).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de'));
+  const aoField = (val, attrs) => `<input class="matin" list="matao-dl" ${attrs} value="${esc(val || '')}" placeholder="Name, z. B. Römische Republik (Dateien mit gleichem Namen gehören zusammen)" autocomplete="off"><datalist id="matao-dl">${aoNames().map((n) => `<option value="${esc(n)}">`).join('')}</datalist>`;
   const kindsOrdered = () => { const sv = ((S.settings.matcfg || {}).order || []).filter((k) => KINDS.some((x) => x[0] === k)); return sv.map((k) => KINDS.find((x) => x[0] === k)).concat(KINDS.filter((x) => !sv.includes(x[0]))); };
   const kindOf = (s) => (s.kind && KINDS.some((k) => k[0] === s.kind) ? s.kind : isYt(s.url) || s.type === 'video' ? 'video' : s.epub ? 'epub' : /\.(pptx?|ppsx?|odp|pptm)$/i.test(s.file || '') ? 'ppt' : s.type === 'pdf' || /\.pdf$/i.test(s.file || '') ? 'pdf' : s.url && !s.pages ? 'link' : /^Screenshots /.test(s.title || '') ? 'bild' : 'text');
   const newF = () => ({ q: '', e: '', t: [], a: '' });
   function filterOf() { const m = M(); if (!m.f) m.f = newF(); if (m.f.a === undefined) m.f.a = ''; return m.f; }
-  const matches = (s) => { const f = filterOf(), t = tagsOf(s); if (f.a && kindOf(s) !== f.a) return false; if (f.e && !t.epoche.includes(f.e)) return false; if (f.t.some((x) => !t.tags.includes(x) && !t.keys.includes(x))) return false; const q = norm(f.q).split(/\s+/).filter(Boolean); if (q.length) { const hay = norm([s.title, s.vtitle, s.channel, s.notes, s.author, ...clsAll(s), ...t.epoche, ...t.tags, ...t.keys].join(' ')); if (q.some((w) => !hay.includes(w))) return false; } return true; };
+  const matches = (s) => { const f = filterOf(), t = tagsOf(s); if (f.a === 'ao') { if (!aoOf(s)) return false; } else if (f.a && kindOf(s) !== f.a) return false; if (f.e && !t.epoche.includes(f.e)) return false; if (f.t.some((x) => !t.tags.includes(x) && !t.keys.includes(x))) return false; const q = norm(f.q).split(/\s+/).filter(Boolean); if (q.length) { const hay = norm([s.title, s.vtitle, s.channel, s.notes, s.author, ...clsAll(s), ...t.epoche, ...t.tags, ...t.keys].join(' ')); if (q.some((w) => !hay.includes(w))) return false; } return true; };
   function filterBar(list) {
     const f = filterOf(), eps = EPOCHS.filter((e) => list.some((s) => tagsOf(s).epoche.includes(e))), cnt = {}; list.forEach((s) => { const t = tagsOf(s); t.tags.concat(t.keys).forEach((x) => { cnt[x] = (cnt[x] || 0) + 1; }); });
     const tg = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a] || a.localeCompare(b, 'de')).slice(0, 30);
@@ -824,6 +828,7 @@ const MAT = (() => {
       <div class="kmkvr"><span class="kmk">Epoche</span><span class="kmv chips">${tog(EPOCHS, t.epoche, true)}</span></div>
       <div class="kmkvr"><span class="kmk">Themen</span><span class="kmv chips">${tog(t.tags, t.tags)}${tog(restT.slice(0, 6), t.tags)}<details class="matmore"><summary class="mattag">Weitere ▾</summary><div>${tog(restT.slice(6), t.tags)}</div></details><input class="matin" data-ch="matatag" data-id="${id}" placeholder="+ eigener Tag" style="width:130px"></span></div>
       ${row('Schlagwörter', `<span class="chips">${t.keys.map((x) => `<span class="mattag ky">${esc(x)}<button data-act="matrmkey" data-id="${id}" data-t="${esc(x)}" aria-label="Entfernen">×</button></span>`).join('')}<input class="matin" data-ch="matakey" data-id="${id}" placeholder="+ Schlagwort" style="width:140px"></span>`)}
+      ${row('Arbeitsauftrag', aoField(s.ao, `data-ch="matao" data-id="${id}"`))}
       ${row('Notiz', `<input class="matin" data-ch="matnote" data-id="${id}" value="${esc(s.notes || '')}" placeholder="Notiz zur Quelle">`)}
       <div class="matfoot"><button class="btn sm" data-act="matretag" data-id="${id}" title="Epoche, Themen und Schlagwörter aus Titel und Text neu bestimmen">Tags neu berechnen</button><button class="btn sm bad" data-act="matdel" data-id="${id}">Löschen</button></div></section>`;
   }
@@ -851,7 +856,17 @@ const MAT = (() => {
     const tile = (s) => { const id = s.id.replace(/^mat_/, ''), on = m.open === id, e0 = tagsOf(s).epoche[0]; return `<div class="mattile${on ? ' on' : ''}${e0 ? ' hasep' : ''}"${epS(e0)}><button class="matmain" data-act="matpop" data-id="${id}" title="Öffnen: ${esc(s.title)}"><span class="matth">${thumbOf(s, true)}${s.dl && s.dl.state === 'done' ? '<b class="matnas" title="Video liegt auf der NAS">NAS</b>' : ''}${s.seconds != null ? `<b class="matdur">${esc(dur(s.seconds).replace(/ (Min|Std)$/, ''))}</b>` : ''}</span><span class="matti">${esc(s.vtitle || s.title)}</span><span class="matsub">${epTags(s)}</span></button>${dlPath(s) ? `<a class="matedit matdlt" href="${url(dlPath(s))}" download title="Herunterladen" aria-label="Herunterladen"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 11l5 5 5-5M5 21h14"/></svg></a>` : ''}<button class="matedit matdelt" data-act="matdel" data-id="${id}" aria-label="Löschen" title="Löschen"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg></button><button class="matedit" data-act="matopen" data-id="${id}" aria-expanded="${on}" aria-label="Bearbeiten" title="Bearbeiten"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button></div>`; };
     const saved = cfgM().cols || {}, cols = [{ k: 'nr', n: 'Nr', d: '34px', w: 34 }, { k: 'th', n: '', d: '76px', w: 76 }, { k: 'ti', n: 'Titel', d: 'minmax(140px,1.3fr)', w: 140, rs: 1 }, { k: 'art', n: 'Art', d: '90px', w: 90, rs: 1 }, { k: 'ep', n: 'Epoche', d: 'minmax(150px,1.4fr)', w: 150, rs: 1 }].concat(groups().map((g) => ({ k: 'g:' + g.id, n: g.name, d: 'minmax(110px,1fr)', w: 110, rs: 1 })), [{ k: 'um', n: 'Umfang', d: '90px', w: 90, rs: 1 }, { k: 'ac', n: '', d: '112px', w: 112 }]);
     const tmpl = cols.map((c) => (saved[c.k] ? saved[c.k] + 'px' : c.d)).join(' '), tmin = cols.reduce((a, c) => a + (saved[c.k] || c.w), 0);
-    const body = !list.length ? '<p class="muted" style="margin:0">Noch keine Quellen. Ziehe oben ein PDF, ein Video oder einen YouTube-Link hinein.</p>'
+    const aoBody = () => {
+      const g = new Map(); shown.forEach((x) => { const n = aoOf(x), k = norm(n); if (!g.has(k)) g.set(k, { n, items: [] }); g.get(k).items.push(x); });
+      const arr = [...g.entries()].sort((a, b) => a[1].n.localeCompare(b[1].n, 'de'));
+      const newTile = `<div class="mataonew"><b class="matti">Neuer Arbeitsauftrag</b><input id="mataonn" class="matin" placeholder="Name des Arbeitsauftrags" autocomplete="off" aria-label="Name des neuen Arbeitsauftrags"><div class="mataodz" tabindex="0" role="button" aria-label="Dateien für den Arbeitsauftrag hineinziehen"><span class="matdzi">⬇</span><b>Mehrere Dateien hierher ziehen</b><small class="muted">Der Name gilt für alle Dateien. Klicken geht auch.</small><input type="file" id="mataof" multiple hidden></div></div>`;
+      if (!arr.length) return `<div class="mataog">${newTile}</div><p class="muted" style="margin:12px 0 0">` + (aoNames().length ? 'Kein Arbeitsauftrag passt zum Filter.' : 'Noch keine Arbeitsaufträge. Trage beim Anlegen oder Bearbeiten eines Materials im Feld „Arbeitsauftrag“ einen Namen ein. Alle Dateien mit demselben Namen werden hier zu einer Kachel zusammengefasst.') + '</p>';
+      return `<div class="mataog">${newTile}${arr.map(([k, gr]) => { const on = m.aoOpen === k, eps = [...new Set(gr.items.flatMap((x) => tagsOf(x).epoche))], e0 = eps[0];
+        const tl = `<div class="mattile mataot${on ? ' on' : ''}${e0 ? ' hasep' : ''}"${epS(e0)}><button class="matmain" data-act="mataoopen" data-k="${esc(k)}" aria-expanded="${on}" title="Dateien anzeigen"><span class="matth">${thumbOf(gr.items[0], true)}<b class="matdur">${gr.items.length} ${gr.items.length === 1 ? 'Datei' : 'Dateien'}</b></span><span class="matti">${esc(gr.n)}</span><span class="matsub">${eps.map((e) => `<span class="mattag ep"${epS(e)}>${esc(e)}</span>`).join('')}</span></button></div>`;
+        const pn = on ? `<div class="mataop"><div class="muted sm" style="margin-bottom:6px">Dateien dieses Arbeitsauftrags (${gr.items.length})</div>${gr.items.map((x) => { const id = x.id.replace(/^mat_/, ''); return `<div class="kmli matpendr"><span class="matth2${/^(buch|pdf|epub)$/.test(kindOf(x)) ? ' matportrait' : ''}">${thumbOf(x)}</span><span style="flex:1;min-width:0"><b>${esc(x.vtitle || x.title)}</b><br><small class="muted">${esc((KINDS.find(([kk]) => kk === kindOf(x)) || [0, ''])[1])}</small></span><button class="btn sm" data-act="matpop" data-id="${id}">Ansehen</button><button class="btn sm" data-act="matpedit" data-id="${id}">Bearbeiten</button></div>`; }).join('')}</div>` : '';
+        return tl + pn; }).join('')}</div>`;
+    };
+    const body = f.a === 'ao' ? aoBody() : !list.length ? '<p class="muted" style="margin:0">Noch keine Quellen. Ziehe oben ein PDF, ein Video oder einen YouTube-Link hinein.</p>'
       : !shown.length ? '<p class="muted" style="margin:0">Keine Quelle passt zum Filter.</p>'
       : view === 'kacheln' ? `<div class="matgrid">${shown.map(tile).join('')}</div>`
       : `<div class="kmtable" style="--kmgrid:${tmpl};--kmmin:${tmin}px"><div class="kmrow kmth">${cols.map((c) => `<span${c.rs ? ` class="matcolh" data-col="${c.k}"` : ''}>${esc(c.n)}${c.rs ? `<i class="matrs" data-col="${c.k}" title="Ziehen: Breite ändern · Doppelklick: zurücksetzen"></i>` : ''}</span>`).join('')}</div>${rows}</div>`;
@@ -991,6 +1006,8 @@ const MAT = (() => {
     matdurin: (e) => { const s = srcOf(e.dataset.id); if (!s) return; const ps = parseDur(e.value); if (Number.isNaN(ps)) return toast('Das Format kenne ich nicht. Bitte so eingeben: 12:34 oder 1:05:20'); put('settings', Object.assign({}, s, { seconds: ps })); render(); },
     matttl: (e) => { const s = srcOf(e.dataset.id); if (!s) return; const v = e.value.trim(); if (v) put('settings', Object.assign({}, s, s.vtitle ? { vtitle: v, title: v } : { title: v })); render(); },
     matmeta: (e) => { const s = srcOf(e.dataset.id), f = e.dataset.f; if (s && /^(author|publisher)$/.test(f)) put('settings', Object.assign({}, s, { [f]: e.value.trim() })); },
+    matao: (e) => { const s = srcOf(e.dataset.id); if (s) put('settings', Object.assign({}, s, { ao: e.value.trim() })); },
+    mataoopen: (e) => { const m = M(); m.aoOpen = m.aoOpen === e.dataset.k ? '' : e.dataset.k; render(); },
     matnote: (e) => { const s = srcOf(e.dataset.id); if (s) put('settings', Object.assign({}, s, { notes: e.value })); },
     matsel: (e) => { const x = M().sel[+e.dataset.i]; if (x) x.t = e.value; },
     matqs: (e) => { M().q = e.value; },
@@ -1249,6 +1266,14 @@ const MAT = (() => {
   }, true);
   document.addEventListener('dragleave', (e) => { const row = e.target.closest && e.target.closest('.imgover'); if (row && !row.contains(e.relatedTarget)) row.classList.remove('imgover'); });
   document.addEventListener('dragend', () => { gdrag = null; document.querySelectorAll('.matgi.drag,.matgi.over').forEach((x) => x.classList.remove('drag', 'over')); kdrag = null; document.querySelectorAll('.kmicon.drag,.kmicon.over,.matkindchip.drag,.matkindchip.over').forEach((x) => x.classList.remove('drag', 'over')); });
+  /* Neuer Arbeitsauftrag: mehrere Dateien auf einmal, ein Name für alle */
+  const aoTake = (files, text) => { const inp = document.getElementById('mataonn'), n = inp ? inp.value.trim() : ''; if (!n) { toast('Bitte zuerst den Namen des Arbeitsauftrags eintragen'); if (inp) inp.focus(); return; } M().attach = null; intake(files, text, null, n); };
+  const aoZone = (e) => e.target && e.target.closest && e.target.closest('.mataodz');
+  document.addEventListener('click', (e) => { if (aoZone(e) && e.target.tagName !== 'INPUT') { const f = document.getElementById('mataof'); if (f) f.click(); } });
+  document.addEventListener('change', (e) => { if (e.target && e.target.id === 'mataof') { const f = [...e.target.files]; e.target.value = ''; aoTake(f, ''); } });
+  document.addEventListener('dragover', (e) => { const z = aoZone(e); if (z) { e.preventDefault(); z.classList.add('over'); } });
+  document.addEventListener('dragleave', (e) => { const z = aoZone(e); if (z && !z.contains(e.relatedTarget)) z.classList.remove('over'); });
+  document.addEventListener('drop', (e) => { const z = aoZone(e); if (!z) return; e.preventDefault(); e.stopImmediatePropagation(); z.classList.remove('over'); const dt = e.dataTransfer, files = [...(dt.files || [])], text = files.length ? '' : (dt.getData('text/uri-list') || dt.getData('text/plain') || '').split('\n').filter((l) => l && l[0] !== '#').join(' '); aoTake(files, text); }, true);
   const zone = (e) => e.target && e.target.closest && e.target.closest('#matdz');
   document.addEventListener('click', (e) => { const pz = e.target.closest && e.target.closest('.matpz'); if (pz) { pz.focus(); return; } if (zone(e) && !(e.target.tagName === 'INPUT')) { const f = document.getElementById('matdzf'); if (f) f.click(); } });
   document.addEventListener('change', (e) => { if (e.target && e.target.id === 'matdzf') { const f = [...e.target.files]; e.target.value = ''; intake(f, ''); } });
@@ -1274,6 +1299,8 @@ const MAT = (() => {
 .kmkvr.rd{position:relative}.matgrip{position:absolute;left:-14px;top:8px;cursor:grab;color:var(--muted);opacity:.35;font:700 13px/1 var(--font-body);letter-spacing:-2px;user-select:none;padding:2px}.kmkvr.rd:hover .matgrip{opacity:1}.kmkvr.rowdrag{opacity:.4}.kmkvr.rowover{box-shadow:inset 0 3px 0 var(--brand,var(--accent))}
 .matgi{cursor:grab;padding-right:4px}.matgi .matgl{border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;padding:0}.matgx{border:0;background:transparent;color:inherit;opacity:.45;cursor:pointer;font:700 13px/1 var(--font-body);padding:0 2px}.matgx:hover{opacity:1;color:var(--bad)}.matgi.drag{opacity:.35}.matgi.over{box-shadow:inset 3px 0 0 var(--brand,var(--accent))}.matgrpx{margin-left:4px}
 .mattag.mini{margin:0 0 0 6px;font-size:10px;padding:0 6px;background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.mataog{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;grid-auto-flow:row dense}.mataonew{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:12px;display:flex;flex-direction:column;gap:8px}.mataonew .matin{width:100%}.mataodz{border:2px dashed var(--line);border-radius:10px;padding:14px 10px;text-align:center;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;min-height:110px;justify-content:center}.mataodz:hover,.mataodz.over,.mataodz:focus{border-color:var(--accent);background:var(--accent-soft)}
+.mataop{grid-column:1/-1;border:1px solid var(--accent);border-radius:12px;padding:10px 14px;background:var(--surface2)}.mataot.on{outline:2px solid var(--accent)}
 .matpendr{display:flex;align-items:center;gap:10px;padding:6px 0}.matpend{border-color:var(--accent)}
 .matdz{display:flex;gap:16px;align-items:center;border:2px dashed var(--line);cursor:pointer;padding:22px 24px}.matdz:hover,.matdz.over,.matdz:focus{border-color:var(--brand,var(--accent));background:var(--accent-soft);outline:none}.matdzi{font-size:34px;line-height:1;color:var(--muted)}
 .matask{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:3000;display:grid;place-items:center;padding:16px}.matbox{background:var(--surface);color:var(--ink);border-radius:14px;padding:20px;max-width:520px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.35)}
@@ -1332,6 +1359,6 @@ html:root .kmchip.matep{padding:3px 10px;font-size:12.5px;gap:4px;background:var
   }
   if (!document.getElementById('matedcss')) { const st2 = document.createElement('style'); st2.id = 'matedcss'; st2.textContent = '.matedov{position:fixed;inset:0;z-index:8000;background:rgba(10,12,8,.65);display:flex;align-items:flex-start;justify-content:center;padding:3vh 2vw;overflow:auto}.matedbox{background:var(--bg,#f4f6ef);border-radius:14px;max-width:980px;width:100%;padding:12px 14px;position:relative}.matedx{position:absolute;right:14px;top:12px;z-index:2}.matedbox>.card{margin-top:0;padding-top:34px}'; document.head.appendChild(st2); }
   /* Schnittstelle für die Stundenseite: Quellen auflisten und anzeigen */
-  const list = () => sources().map((s) => ({ id: s.id.replace(/^mat_/, ''), title: s.vtitle || s.title || 'Quelle', file: dlPath(s), url: s.url || '', kind: kindOf(s), kindLabel: (KINDS.find(([k]) => k === kindOf(s)) || [0, ''])[1], thumb: thumbOf(s), ep: tagsOf(s).epoche, hay: norm([s.title, s.vtitle, s.channel, s.author, ...tagsOf(s).epoche, ...tagsOf(s).tags, ...tagsOf(s).keys].join(' ')) }));
+  const list = () => sources().map((s) => ({ id: s.id.replace(/^mat_/, ''), title: s.vtitle || s.title || 'Quelle', file: dlPath(s), url: s.url || '', kind: kindOf(s), kindLabel: (KINDS.find(([k]) => k === kindOf(s)) || [0, ''])[1], thumb: thumbOf(s), ep: tagsOf(s).epoche, ao: aoOf(s), hay: norm([s.title, s.vtitle, s.channel, s.author, aoOf(s), ...tagsOf(s).epoche, ...tagsOf(s).tags, ...tagsOf(s).keys].join(' ')) }));
   return { view, picker, adder, take: (files, text, att) => intake(files, text, att), list, edit: openEdit, epochs: EPOCHS, epS, makeTest };
 })();
