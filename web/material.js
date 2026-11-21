@@ -711,11 +711,17 @@ const MAT = (() => {
     return a.length ? `<div class="sm" style="margin-top:8px">${a.map(([k, v]) => `<span class="muted">${k}:</span> ${esc(v)}`).join(' &nbsp;·&nbsp; ')}</div>` : '';
   }
   function videoBlock(s, id) {
-    if (!isYt(s.url)) return '';
-    const d = s.dl || {}; let h;
-    if (d.state === 'done' && d.file) h = `<div class="sm"><b style="color:var(--good)">✓ Auf der NAS gespeichert</b> <span class="muted">(${esc(mb(d.size || 0))})</span> · <a href="${url(d.file)}" download>Herunterladen</a></div><video controls preload="metadata" src="${url(d.file, '&inline=1')}" style="max-width:min(560px,100%);margin-top:8px;border-radius:10px;background:#000"></video>`;
-    else if (d.state === 'running' || d.state === 'queued') h = `<div class="sm">⏳ ${esc(d.msg || (d.state === 'queued' ? 'Download wartet …' : 'Download läuft …'))}</div>`;
-    else h = `<div class="sm">${d.state === 'error' ? `<span style="color:var(--bad)">Download nicht möglich: ${esc(d.msg || '')}</span> ` : '<span class="muted">Video ist noch nicht auf der NAS.</span> '}<button class="btn sm" data-act="matdl" data-id="${id}">${d.state === 'error' ? 'Erneut versuchen' : 'Video auf die NAS laden'}</button></div>`;
+    const d = s.dl || {}, yt = isYt(s.url), done = d.state === 'done' && d.file, busy = d.state === 'running' || d.state === 'queued';
+    let h;
+    if (yt) {
+      h = `<label class="matchk" style="margin:0"><input type="checkbox" data-ch="matdlchk" data-id="${id}" ${done ? 'checked' : ''} ${busy ? 'disabled' : ''}> <b>Auf der NAS gespeichert</b></label>`
+        + (busy ? `<div class="sm" style="margin-top:4px">⏳ ${esc(d.msg || (d.state === 'queued' ? 'Download wartet …' : 'Download läuft …'))}</div>`
+          : done ? `<div class="sm muted" style="margin:4px 0 6px">${esc(mb(d.size || 0))} · <a href="${url(d.file)}" download>Herunterladen</a> · Haken entfernen löscht die Datei von der NAS</div><video controls preload="metadata" src="${url(d.file, '&inline=1')}" style="max-width:min(560px,100%);border-radius:10px;background:#000"></video>`
+          : d.state === 'error' ? `<div class="sm" style="margin-top:4px;color:var(--bad)">Download nicht möglich: ${esc(d.msg || '')} <button class="btn sm" data-act="matdl" data-id="${id}">Erneut versuchen</button></div>`
+          : '<div class="sm muted" style="margin-top:4px">Haken setzen, um das Video auf die NAS herunterzuladen.</div>');
+    } else if (done) h = `<label class="matchk" style="margin:0"><input type="checkbox" checked disabled> <b>Auf der NAS gespeichert</b></label><div class="sm muted" style="margin-top:4px">${esc(mb(d.size || 0))} · <a href="${url(d.file)}" download>Herunterladen</a></div>`;
+    else if (s.file && /\.(mp4|m4v|mov|webm|mkv|avi)$/i.test(s.file)) h = `<label class="matchk" style="margin:0"><input type="checkbox" checked disabled> <b>Auf der NAS gespeichert</b></label>`;
+    else h = `<label class="matchk" style="margin:0;opacity:.6"><input type="checkbox" disabled> <b>Auf der NAS gespeichert</b></label><div class="sm muted" style="margin-top:4px">Das Herunterladen ist nur bei YouTube-Videos möglich.</div>`;
     return `<div style="margin-top:10px">${h}</div>`;
   }
   /* Vorschaubild-Bereich der Bearbeiten-Karte: Bild (verschiebbar), Angaben, Schaltflächen */
@@ -769,7 +775,7 @@ const MAT = (() => {
       ${clsRows(s.cls, 'matcls', 'data-id="' + id + '"')}
       ${row('Titel', `<input class="matin" data-ch="matttl" data-id="${id}" value="${esc(s.vtitle || s.title)}">`)}${kindOf(s) === 'video' ? row('Länge', `<input class="matin" data-ch="matdurin" data-id="${id}" value="${esc(durIn(s.seconds))}" placeholder="mm:ss oder h:mm:ss" style="width:160px"> <span class="muted sm">z. B. 12:34 oder 1:05:20</span>`) : ''}${yt.replace(/<div class="kmkvr"><span class="kmk">Dauer<\/span>[\s\S]*?<\/div>/, '')}${ang}
       ${s.file ? row('Öffnen', `<a href="${url(s.file, /\.pdf$/i.test(s.file) ? '&inline=1' : '')}" target="_blank">${/\.pdf$/i.test(s.file) ? 'PDF ansehen' : 'Datei öffnen'}</a>`) : ''}
-      ${isYt(s.url) ? `<div class="kmkvr"><span class="kmk">Video-Datei</span><span class="kmv">${videoBlock(s, id).replace('margin-top:10px', 'margin-top:0')}</span></div>` : ''}
+      ${kindOf(s) === 'video' ? `<div class="kmkvr"><span class="kmk">Video-Datei</span><span class="kmv">${videoBlock(s, id).replace('margin-top:10px', 'margin-top:0')}</span></div>` : ''}
       <div class="kmkvr"><span class="kmk">Epoche</span><span class="kmv chips">${tog(EPOCHS, t.epoche, true)}</span></div>
       <div class="kmkvr"><span class="kmk">Themen</span><span class="kmv chips">${tog(t.tags, t.tags)}${tog(restT.slice(0, 6), t.tags)}<details class="matmore"><summary class="mattag">Weitere ▾</summary><div>${tog(restT.slice(6), t.tags)}</div></details><input class="matin" data-ch="matatag" data-id="${id}" placeholder="+ eigener Tag" style="width:130px"></span></div>
       ${row('Schlagwörter', `<span class="chips">${t.keys.map((x) => `<span class="mattag ky">${esc(x)}<button data-act="matrmkey" data-id="${id}" data-t="${esc(x)}" aria-label="Entfernen">×</button></span>`).join('')}<input class="matin" data-ch="matakey" data-id="${id}" placeholder="+ Schlagwort" style="width:140px"></span>`)}
@@ -920,6 +926,12 @@ const MAT = (() => {
     matgnew: (e) => { const v = e.value.trim(); if (!v) return; const g = groups().map((x) => Object.assign({}, x, { items: x.items.slice() })), gr = g.find((x) => x.id === e.dataset.g); if (!gr) return; if (!gr.items.includes(v)) gr.items.push(v); saveGroups(g); e.value = ''; render(); },
     matakey: (e) => { const v = e.value.trim(); if (!v) return; const s = srcOf(e.dataset.id); if (!s) return; put('settings', Object.assign({}, s, { mankeys: [...new Set((s.mankeys || []).concat(v))], hid: (s.hid || []).filter((x) => x !== v) })); e.value = ''; render(); },
     mdkey: (e) => { const d = M().drafts.find((x) => x.id === e.dataset.d), v = e.value.trim(); if (!d || !v) return; if (!d.keys.includes(v)) d.keys.push(v); e.value = ''; render(); },
+    matdlchk: (e) => {
+      const id = e.dataset.id, s = srcOf(id); if (!s) return;
+      if (e.checked) { startDownload(id); return; }
+      e.checked = true; // erst nach Bestätigung entfernen
+      openMenu(e, `<div class="matmt">Video von der NAS löschen?</div><div class="sm" style="padding:2px 10px 8px;max-width:250px;line-height:1.35">Die heruntergeladene Datei wird entfernt. Der Link zum Video bleibt erhalten.</div><div style="display:flex;gap:6px;padding:0 6px 6px"><button class="matmi matyes" data-pick="ja" style="justify-content:center">Ja, löschen</button><button class="matmi" data-pick="nein" style="justify-content:center">Abbrechen</button></div>`, async (x) => { if (x !== 'ja') return render(); const f = ((srcOf(id) || {}).dl || {}).file; if (f) { try { await fdel(f); } catch (z) { /* */ } } setDl(id, { state: 'none', file: null, size: 0, msg: '' }); toast('Video von der NAS gelöscht'); render(); });
+    },
     matdurin: (e) => { const s = srcOf(e.dataset.id); if (!s) return; const ps = parseDur(e.value); if (Number.isNaN(ps)) return toast('Das Format kenne ich nicht. Bitte so eingeben: 12:34 oder 1:05:20'); put('settings', Object.assign({}, s, { seconds: ps })); render(); },
     matttl: (e) => { const s = srcOf(e.dataset.id); if (!s) return; const v = e.value.trim(); if (v) put('settings', Object.assign({}, s, s.vtitle ? { vtitle: v, title: v } : { title: v })); render(); },
     matnote: (e) => { const s = srcOf(e.dataset.id); if (s) put('settings', Object.assign({}, s, { notes: e.value })); },
