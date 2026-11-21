@@ -671,7 +671,7 @@ const MAT = (() => {
       else if (d.kind === 'epub') { const nm = QDIR + '/' + id + '-' + slugify(base(d.name)) + '.epub'; await fput(nm, d.file); setS({ epub: nm }); await saveSt(); }
       else if (d.kind === 'video') { const nm = 'Material/Videos/' + id + '.' + (extOf(d.name) || 'mp4'); await fput(nm, d.file); setS({ seconds: d.seconds == null ? null : d.seconds, dl: { state: 'done', file: nm, size: d.file.size } }); }
       else if (d.kind === 'bild') { for (let i = 0; i < d.files.length; i++) await fput(QDIR + '/' + id + '-s' + (i + 1) + '.png', d.files[i]); await saveSt(); }
-      else if (d.kind === 'text') { await saveSt(); }
+      else if (d.kind === 'text') { await saveSt(); if (d.file && extOf(d.name) === 'docx') { const nm = QDIR + '/' + id + '-' + slugify(d.name); await fput(nm, d.file); setS({ file: nm }); } }
       else if (d.kind === 'datei') {
         const nm = QDIR + '/' + id + '-' + slugify(d.name); await fput(nm, d.file); setS({ file: nm });
         if (d.mode === 'text') { const raw = (await d.file.text()).replace(/\u0000/g, '').replace(/\s+/g, ' ').trim(); if (raw.length >= 20) { d.pages = [{ p: 1, t: raw }]; await saveSt(); } }
@@ -862,9 +862,9 @@ const MAT = (() => {
       const newTile = `<div class="mataonew"><b class="matti">Neuer Arbeitsauftrag</b><input id="mataonn" class="matin" placeholder="Name des Arbeitsauftrags" autocomplete="off" aria-label="Name des neuen Arbeitsauftrags"><div class="mataodz" tabindex="0" role="button" aria-label="Dateien für den Arbeitsauftrag hineinziehen"><span class="matdzi">⬇</span><b>Mehrere Dateien hierher ziehen</b><small class="muted">Der Name gilt für alle Dateien. Klicken geht auch.</small><input type="file" id="mataof" multiple hidden></div></div>`;
       if (!arr.length) return `<div class="mataog">${newTile}</div><p class="muted" style="margin:12px 0 0">` + (aoNames().length ? 'Kein Arbeitsauftrag passt zum Filter.' : 'Noch keine Arbeitsaufträge. Trage beim Anlegen oder Bearbeiten eines Materials im Feld „Arbeitsauftrag“ einen Namen ein. Alle Dateien mit demselben Namen werden hier zu einer Kachel zusammengefasst.') + '</p>';
       return `<div class="mataog">${newTile}${arr.map(([k, gr]) => { const on = m.aoOpen === k, eps = [...new Set(gr.items.flatMap((x) => tagsOf(x).epoche))], e0 = eps[0];
-        const tl = `<div class="mattile mataot${on ? ' on' : ''}${e0 ? ' hasep' : ''}"${epS(e0)}><button class="matmain" data-act="mataoopen" data-k="${esc(k)}" aria-expanded="${on}" title="Dateien anzeigen"><span class="matth">${thumbOf(gr.items[0], true)}<b class="matdur">${gr.items.length} ${gr.items.length === 1 ? 'Datei' : 'Dateien'}</b></span><span class="matti">${esc(gr.n)}</span><span class="matsub">${eps.map((e) => `<span class="mattag ep"${epS(e)}>${esc(e)}</span>`).join('')}</span></button></div>`;
+        const tl = `<div class="mattile mataot${on ? ' on' : ''}${e0 ? ' hasep' : ''}"${epS(e0)} draggable="true" data-aok="${esc(k)}" title="Klick: Dateien ansehen und bearbeiten · Ziehen auf eine Epoche oben: Arbeitsauftrag verschieben"><button class="matmain" data-act="mataoopen" data-k="${esc(k)}" aria-expanded="${on}" title="Dateien anzeigen"><span class="matth">${thumbOf(gr.items[0], true)}<b class="matdur">${gr.items.length} ${gr.items.length === 1 ? 'Datei' : 'Dateien'}</b></span><span class="matti">${esc(gr.n)}</span><span class="matsub">${eps.map((e) => `<span class="mattag ep"${epS(e)}>${esc(e)}</span>`).join('')}</span></button></div>`;
         const pn = on ? `<div class="mataop"><div class="muted sm" style="margin-bottom:6px">Dateien dieses Arbeitsauftrags (${gr.items.length})</div>${gr.items.map((x) => { const id = x.id.replace(/^mat_/, ''); return `<div class="kmli matpendr"><span class="matth2${/^(buch|pdf|epub)$/.test(kindOf(x)) ? ' matportrait' : ''}">${thumbOf(x)}</span><span style="flex:1;min-width:0"><b>${esc(x.vtitle || x.title)}</b><br><small class="muted">${esc((KINDS.find(([kk]) => kk === kindOf(x)) || [0, ''])[1])}</small></span><button class="btn sm" data-act="matpop" data-id="${id}">Ansehen</button><button class="btn sm" data-act="matpedit" data-id="${id}">Bearbeiten</button></div>`; }).join('')}</div>` : '';
-        return tl + pn; }).join('')}</div>`;
+        return tl; }).join('')}</div>`;
     };
     const body = f.a === 'ao' ? aoBody() : !list.length ? '<p class="muted" style="margin:0">Noch keine Quellen. Ziehe oben ein PDF, ein Video oder einen YouTube-Link hinein.</p>'
       : !shown.length ? '<p class="muted" style="margin:0">Keine Quelle passt zum Filter.</p>'
@@ -957,6 +957,7 @@ const MAT = (() => {
     matft: (e) => { const f = filterOf(), v = e.dataset.v; f.t = f.t.includes(v) ? f.t.filter((x) => x !== v) : f.t.concat(v); render(); },
     matfx: () => { M().f = newF(); setIn('matfq', ''); render(); },
     matpop: (e) => popup(e.dataset.id),
+    mataoopen: (e) => { openAo(e.dataset.k); },
     matopen: (e) => { const m = M(), id = e.dataset.id; m.open = m.open === id ? null : id; render(); if (m.open) setTimeout(() => { const c = document.getElementById('matdetail'); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 50); },
     matshowf: () => { const m = M(); m.showFiles = !m.showFiles; if (m.showFiles) m.files = null; render(); },
     matyt: async (e) => {
@@ -1007,7 +1008,6 @@ const MAT = (() => {
     matttl: (e) => { const s = srcOf(e.dataset.id); if (!s) return; const v = e.value.trim(); if (v) put('settings', Object.assign({}, s, s.vtitle ? { vtitle: v, title: v } : { title: v })); render(); },
     matmeta: (e) => { const s = srcOf(e.dataset.id), f = e.dataset.f; if (s && /^(author|publisher)$/.test(f)) put('settings', Object.assign({}, s, { [f]: e.value.trim() })); },
     matao: (e) => { const s = srcOf(e.dataset.id); if (s) put('settings', Object.assign({}, s, { ao: e.value.trim() })); },
-    mataoopen: (e) => { const m = M(); m.aoOpen = m.aoOpen === e.dataset.k ? '' : e.dataset.k; render(); },
     matnote: (e) => { const s = srcOf(e.dataset.id); if (s) put('settings', Object.assign({}, s, { notes: e.value })); },
     matsel: (e) => { const x = M().sel[+e.dataset.i]; if (x) x.t = e.value; },
     matqs: (e) => { M().q = e.value; },
@@ -1299,11 +1299,12 @@ const MAT = (() => {
 .kmkvr.rd{position:relative}.matgrip{position:absolute;left:-14px;top:8px;cursor:grab;color:var(--muted);opacity:.35;font:700 13px/1 var(--font-body);letter-spacing:-2px;user-select:none;padding:2px}.kmkvr.rd:hover .matgrip{opacity:1}.kmkvr.rowdrag{opacity:.4}.kmkvr.rowover{box-shadow:inset 0 3px 0 var(--brand,var(--accent))}
 .matgi{cursor:grab;padding-right:4px}.matgi .matgl{border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;padding:0}.matgx{border:0;background:transparent;color:inherit;opacity:.45;cursor:pointer;font:700 13px/1 var(--font-body);padding:0 2px}.matgx:hover{opacity:1;color:var(--bad)}.matgi.drag{opacity:.35}.matgi.over{box-shadow:inset 3px 0 0 var(--brand,var(--accent))}.matgrpx{margin-left:4px}
 .mattag.mini{margin:0 0 0 6px;font-size:10px;padding:0 6px;background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.mataows{margin-top:14px;padding:12px;border:1px solid var(--accent);border-radius:10px;background:var(--surface2)}.aoover{outline:3px solid var(--accent);outline-offset:2px}.mataot.drag{opacity:.4}
 .mataog{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;grid-auto-flow:row dense}.mataonew{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:12px;display:flex;flex-direction:column;gap:8px}.mataonew .matin{width:100%}.mataodz{border:2px dashed var(--line);border-radius:10px;padding:14px 10px;text-align:center;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;min-height:110px;justify-content:center}.mataodz:hover,.mataodz.over,.mataodz:focus{border-color:var(--accent);background:var(--accent-soft)}
 .mataop{grid-column:1/-1;border:1px solid var(--accent);border-radius:12px;padding:10px 14px;background:var(--surface2)}.mataot.on{outline:2px solid var(--accent)}
 .matpendr{display:flex;align-items:center;gap:10px;padding:6px 0}.matpend{border-color:var(--accent)}
 .matdz{display:flex;gap:16px;align-items:center;border:2px dashed var(--line);cursor:pointer;padding:22px 24px}.matdz:hover,.matdz.over,.matdz:focus{border-color:var(--brand,var(--accent));background:var(--accent-soft);outline:none}.matdzi{font-size:34px;line-height:1;color:var(--muted)}
-.matask{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:3000;display:grid;place-items:center;padding:16px}.matbox{background:var(--surface);color:var(--ink);border-radius:14px;padding:20px;max-width:520px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.35)}
+.matask{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;display:grid;place-items:center;padding:16px}.matbox{background:var(--surface);color:var(--ink);border-radius:14px;padding:20px;max-width:520px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.35)}
 .mattag{display:inline-flex;align-items:center;gap:3px;border-radius:7px;padding:3px 10px;font:600 12px var(--font-body);margin:0 4px 4px 0;border:1px solid var(--line);background:var(--surface2);color:var(--ink)}.mattag button{border:0;background:transparent;color:inherit;cursor:pointer;font:700 14px/1 var(--font-body);padding:0 0 0 2px}
 .mattag.ep{--ec:#9a8f6c;background:color-mix(in srgb,var(--ec) 18%,var(--surface));border-color:var(--ec);color:var(--ink)}.mattag.ep.sel:hover{background:color-mix(in srgb,var(--ec) 32%,var(--surface))}.mattag.ep.sel.on{background:var(--ec);border-color:var(--ec);color:#fff}
 .mattile.hasep{border-top:4px solid var(--ec)}.matepdot{color:var(--ec);font-weight:700}.mattag.ky{background:transparent;border-style:dashed}.mattag.sel{cursor:pointer}.mattag.sel.on{background:var(--brand,var(--accent));border-color:var(--brand,var(--accent));color:var(--brand-ink,var(--accent-ink))}.mattag small{opacity:.7}
@@ -1348,6 +1349,79 @@ html:root .kmchip.matep{padding:3px 10px;font-size:12.5px;gap:4px;background:var
   const pickerFiles = () => { const m = M(); return `<section class="card" style="margin-top:12px"><div class="row" style="align-items:center;gap:10px"><h2 style="margin:0">Erstellte Dateien und Word-Vorlage</h2><span style="flex:1"></span><button class="btn sm" data-act="matshowf">${m.showFiles ? 'Ausblenden' : 'Anzeigen'}</button></div>${m.showFiles ? ordner() : '<div class="muted sm" style="margin-top:6px">Hier liegen die fertigen Arbeitsblätter (Word und PDF) und deine Vorlage.</div>'}</section>`; };
   const picker = () => `<div class="kmh" style="margin:24px 0 10px"><h1 style="font-size:22px">Material suchen und auswählen</h1><div class="muted sm">Durchsucht alle Quellen (PDF, EPUB, Videos, Texte). Aus der Auswahl kannst du Material erstellen.</div></div>${suche()}${pickerFiles()}`;
   /* Bearbeiten-Fenster einer Quelle (zum Beispiel von der Stundenseite aus) */
+  /* ---------- Arbeitsauftrag: Popup, Umbenennen, Epoche, Word -> PDF ---------- */
+  const isWord = (s) => /\.docx?$/i.test(s.file || s.fileName || '');
+  const aoMembers = (k) => sources().filter((x) => norm(aoOf(x)) === k);
+  const aoPair = (items) => { const w = items.filter(isWord), p = items.filter((x) => kindOf(x) === 'pdf' && x.file); return w.length === 1 && p.length === 1 ? { w: w[0], p: p[0] } : null; };
+  function aoSetEpoch(k, ep) {
+    aoMembers(k).forEach((s) => { const cur = tagsOf(s).epoche; let man = (s.man || []).filter((x) => !EPOCHS.includes(x)), hid = (s.hid || []).filter((x) => x !== ep); cur.forEach((y) => { if (y !== ep && !hid.includes(y)) hid.push(y); }); man = man.concat(ep); put('settings', Object.assign({}, s, { man, hid })); });
+  }
+  const SY = { ok: null, busy: false, err: {}, msg: {} };
+  async function convertOk() { if (SY.ok !== null) return SY.ok; try { const r = await fetch('/api/version', { credentials: 'same-origin' }); const j = await r.json(); SY.ok = !!j.convert; } catch { SY.ok = false; } return SY.ok; }
+  async function syncPdfs(force, onlyId) {
+    if (SY.busy) return 0; SY.busy = true; let n = 0;
+    try {
+      if (!(await convertOk())) return 0;
+      const links = sources().filter((p) => p.pdfFrom && p.file && (!onlyId || p.id === 'mat_' + onlyId)).map((p) => ({ p, w: srcOf(p.pdfFrom) })).filter((x) => x.w && x.w.file);
+      if (!links.length) return 0;
+      const r = await fetch('/api/files?dir=Material', { credentials: 'same-origin' }); if (!r.ok) return 0; const mt = {}; ((await r.json()).files || []).forEach((f) => { mt[f.path] = f.mtime; });
+      for (const { p, w } of links) {
+        if (!mt[w.file]) continue; if (!force && (mt[p.file] || 0) >= mt[w.file] - 1000) continue; if (!force && SY.err[p.id] && Date.now() - SY.err[p.id] < 600000) continue;
+        try { const rr = await fetch('/api/convert', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ src: w.file, dst: p.file }) }); if (!rr.ok) throw new Error(((await rr.json().catch(() => ({}))).error) || 'Fehler ' + rr.status); delete SY.err[p.id]; SY.msg[p.id] = ''; n++; put('settings', Object.assign({}, srcOf(p.id.replace(/^mat_/, '')), { pdfAt: Date.now() })); toast('PDF „' + (p.vtitle || p.title) + '“ aus der Word-Datei aktualisiert'); }
+        catch (e) { SY.err[p.id] = Date.now(); SY.msg[p.id] = e.message || String(e); }
+      }
+    } finally { SY.busy = false; } return n;
+  }
+  setTimeout(() => syncPdfs(false), 8000); setInterval(() => syncPdfs(false), 180000);
+  async function replaceWord(wid, file) {
+    const w = srcOf(wid); if (!w || !file) return; const nm = w.file || (QDIR + '/' + wid + '-' + slugify(file.name));
+    await fput(nm, file); const raw = (await docxText(file)).replace(/\u0000/g, '').replace(/\s+/g, ' ').trim();
+    put('settings', Object.assign({}, srcOf(wid), { file: nm, fileName: file.name, size: file.size, pages: raw.length >= 20 ? 1 : (srcOf(wid) || {}).pages }));
+    if (raw.length >= 20) { T[wid] = { pages: [{ p: 1, t: raw }] }; await fput(QDIR + '/' + wid + '.json', new Blob([JSON.stringify(T[wid])], { type: 'application/json' })); }
+    toast('Word-Datei ersetzt');
+  }
+  function openAo(k) {
+    if (document.getElementById('mataomod') || !aoMembers(k).length) return; const m = M(); m.aoOpen = k; let key = k;
+    const o = document.createElement('div'); o.id = 'mataomod'; o.className = 'matedov'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); document.body.appendChild(o);
+    const close = () => { o.remove(); document.removeEventListener('keydown', onK); M().aoOpen = ''; render(); }, onK = (e) => { if (e.key === 'Escape' && !document.querySelector('.matask, .matpop, #matedov')) close(); };
+    const paint = () => {
+      const items = aoMembers(key); if (!items.length) return close(); const name = aoOf(items[0]), eps = new Set(); items.forEach((x) => tagsOf(x).epoche.forEach((e) => eps.add(e)));
+      const pr = aoPair(items), link = items.find((x) => x.pdfFrom), words = items.filter(isWord), pdfs = items.filter((x) => kindOf(x) === 'pdf' && x.file);
+      let wp = '';
+      if (link && srcOf(link.pdfFrom)) { const w = srcOf(link.pdfFrom), id = link.id.replace(/^mat_/, ''), wid = w.id.replace(/^mat_/, ''); wp = `<div class="mataows"><b>PDF wird automatisch aus der Word-Datei aktualisiert ✓</b><div class="muted sm">„${esc(link.vtitle || link.title)}“ entsteht aus „${esc(w.vtitle || w.title)}“. Speicherst du die Word-Datei neu, wird die PDF im Hintergrund angepasst${link.pdfAt ? ' · zuletzt ' + esc(new Date(link.pdfAt).toLocaleString('de-AT')) : ''}.${SY.msg[link.id] ? ' <span style="color:var(--bad,#b3261e)">Fehler: ' + esc(SY.msg[link.id]) + '</span>' : ''}${SY.ok === false ? ' <span style="color:var(--bad,#b3261e)">Der Server kann noch kein Word → PDF (LibreOffice fehlt, Container neu bauen).</span>' : ''}</div><div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap"><button class="btn sm" data-aosync="${id}">Jetzt aktualisieren</button><label class="btn sm" style="cursor:pointer">Neue Word-Datei hochladen<input type="file" accept=".doc,.docx" hidden data-aorep="${wid}"></label><button class="btn sm bad" data-aounlink="${id}">Verknüpfung lösen</button></div></div>`; }
+      else if (pr) wp = `<div class="mataows"><b>Word- und PDF-Datei erkannt</b><div class="muted sm">Soll die PDF „${esc(pr.p.vtitle || pr.p.title)}“ immer aus der Word-Datei „${esc(pr.w.vtitle || pr.w.title)}“ entstehen? Dann wird sie bei jeder Änderung der Word-Datei automatisch neu erzeugt (überschreibt die bisherige PDF).</div><div class="row" style="gap:8px;margin-top:8px"><button class="btn sm good" data-aolink="${pr.p.id.replace(/^mat_/, '')}" data-w="${pr.w.id.replace(/^mat_/, '')}">Automatisch aktualisieren einschalten</button></div></div>`;
+      else if (words.length && pdfs.length) wp = `<div class="mataows"><b>Word → PDF</b><div class="muted sm">Für die automatische Aktualisierung braucht der Arbeitsauftrag genau eine Word- und eine PDF-Datei.</div></div>`;
+      const keep = o.querySelector('.matedbox'), top = keep ? keep.scrollTop : 0;
+      o.innerHTML = `<div class="matedbox"><button class="btn sm matedx" data-edx aria-label="Schließen">Schließen ✕</button><h2 style="margin:0 0 10px">Arbeitsauftrag</h2>
+        <div class="kmkvr"><span class="kmk">Name</span><span class="kmv"><input class="matin" id="mataoname" value="${esc(name)}" aria-label="Name des Arbeitsauftrags"></span></div>
+        <div class="kmkvr"><span class="kmk">Epoche</span><span class="kmv chips">${EPOCHS.map((x) => `<button class="mattag ep sel${eps.has(x) ? ' on' : ''}"${epS(x)} data-aoep="${esc(x)}">${esc(x)}</button>`).join('')}<small class="muted" style="align-self:center">gilt für alle Dateien</small></span></div>
+        <div class="muted sm" style="margin:12px 0 4px">Dateien (${items.length})</div>
+        ${items.map((x) => { const id = x.id.replace(/^mat_/, ''); return `<div class="kmli matpendr"><span class="matth2${/^(buch|pdf|epub)$/.test(kindOf(x)) ? ' matportrait' : ''}">${thumbOf(x)}</span><span style="flex:1;min-width:0"><b>${esc(x.vtitle || x.title)}</b><br><small class="muted">${esc((KINDS.find(([kk]) => kk === kindOf(x)) || [0, ''])[1])}${isWord(x) ? ' · Word' : ''}${x.pdfFrom ? ' · aus Word erzeugt' : ''}</small></span><button class="btn sm" data-act="matpop" data-id="${id}">Ansehen</button><button class="btn sm" data-act="matpedit" data-id="${id}">Bearbeiten</button></div>`; }).join('')}
+        ${wp}</div>`;
+      const nb = o.querySelector('.matedbox'); if (nb) nb.scrollTop = top;
+    };
+    o.addEventListener('click', async (e) => {
+      if (e.target === o || e.target.closest('[data-edx]')) return close();
+      const ep = e.target.closest('[data-aoep]'); if (ep) { aoSetEpoch(key, ep.dataset.aoep); return setTimeout(paint, 120); }
+      const lk = e.target.closest('[data-aolink]'); if (lk) { const p = srcOf(lk.dataset.aolink); if (p) put('settings', Object.assign({}, p, { pdfFrom: lk.dataset.w })); setTimeout(() => { paint(); syncPdfs(false); }, 150); return; }
+      const ul = e.target.closest('[data-aounlink]'); if (ul) { const p = srcOf(ul.dataset.aounlink); if (p) { const o2 = Object.assign({}, p); delete o2.pdfFrom; put('settings', o2); } return setTimeout(paint, 150); }
+      const sy = e.target.closest('[data-aosync]'); if (sy) { toast('PDF wird erstellt …'); const n = await syncPdfs(true, sy.dataset.aosync); if (!n) toast('Nicht aktualisiert: ' + (SY.msg['mat_' + sy.dataset.aosync] || 'Server nicht erreichbar oder LibreOffice fehlt')); return paint(); }
+      setTimeout(() => { if (document.getElementById('mataomod')) paint(); }, 250);
+    });
+    o.addEventListener('change', async (e) => {
+      const rp = e.target.closest && e.target.closest('[data-aorep]'); if (rp && rp.files[0]) { const f = rp.files[0]; rp.value = ''; toast('Word-Datei wird hochgeladen …'); try { await replaceWord(rp.dataset.aorep, f); const l = sources().find((x) => x.pdfFrom === 'mat_' + rp.dataset.aorep); if (l) await syncPdfs(true, l.id.replace(/^mat_/, '')); } catch (er) { toast('Fehler: ' + (er.message || er)); } return paint(); }
+      if (e.target.id === 'mataoname') { const nn = e.target.value.trim(); if (!nn) return paint(); aoMembers(key).forEach((s) => put('settings', Object.assign({}, s, { ao: nn }))); key = norm(nn); M().aoOpen = key; setTimeout(paint, 150); }
+    });
+    document.addEventListener('keydown', onK); paint();
+  }
+  /* Arbeitsauftrags-Kachel auf eine Epoche ziehen = alle Dateien in diese Epoche verschieben */
+  { let aodrag = null;
+    document.addEventListener('dragstart', (e) => { const t = e.target.closest && e.target.closest('.mataot'); if (!t) return; aodrag = t.dataset.aok; try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', 'ao:' + aodrag); } catch (x) { /* */ } t.classList.add('drag'); });
+    const chipEp = (e) => e.target && e.target.closest && e.target.closest('.matep[data-v]');
+    document.addEventListener('dragover', (e) => { if (!aodrag) return; const c = chipEp(e); if (c && c.dataset.v) { e.preventDefault(); c.classList.add('aoover'); } });
+    document.addEventListener('dragleave', (e) => { const c = chipEp(e); if (c) c.classList.remove('aoover'); });
+    document.addEventListener('drop', (e) => { if (!aodrag) return; const c = chipEp(e), k = aodrag; aodrag = null; document.querySelectorAll('.aoover').forEach((x) => x.classList.remove('aoover')); if (!c || !c.dataset.v) return; e.preventDefault(); e.stopImmediatePropagation(); aoSetEpoch(k, c.dataset.v); toast('Arbeitsauftrag nach „' + c.dataset.v + '“ verschoben'); }, true);
+    document.addEventListener('dragend', () => { aodrag = null; document.querySelectorAll('.mataot.drag,.aoover').forEach((x) => x.classList.remove('drag', 'aoover')); }); }
   function openEdit(id) {
     if (document.getElementById('matedov')) return; const first = srcOf(id); if (!first) return;
     const o = document.createElement('div'); o.id = 'matedov'; o.className = 'matedov'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); document.body.appendChild(o);
