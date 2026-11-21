@@ -136,11 +136,17 @@ const KM = (() => {
   async function shrinkImage(file, max) { const u = URL.createObjectURL(file); try { const i = await loadImgUrl(u), k = Math.min(1, max / Math.max(i.naturalWidth, i.naturalHeight)), cv = document.createElement('canvas'); cv.width = Math.round(i.naturalWidth * k); cv.height = Math.round(i.naturalHeight * k); cv.getContext('2d').drawImage(i, 0, 0, cv.width, cv.height); const b = await new Promise((ok) => cv.toBlob(ok, 'image/jpeg', 0.86)); return { blob: b, w: cv.width, h: cv.height }; } finally { URL.revokeObjectURL(u); } }
   const cphoto = (key) => ((cfg().cphoto || {})[key]) || null;
   const saveCph = (key, meta) => { const a = Object.assign({}, cfg().cphoto || {}); if (meta) a[key] = meta; else delete a[key]; saveCfg({ cphoto: a }); };
+  const pkey = (c, n) => (c.names.length > 1 ? c.key + '::' + norm(n) : c.key);
+  const subStudents = (c, part) => studentsOf(c).filter((x) => !part || !x.kl || norm(x.kl) === part);
   function classPhotoCard(c) {
-    const m = cphoto(c.key), nS = studentsOf(c).length;
-    if (!m) return `<div class="card kmph"><h2>Klassenfoto</h2><div class="kmphdz" data-key="${c.key}" tabindex="0" role="button" aria-label="Klassenfoto hierher ziehen oder klicken"><b>Foto der Klasse hierher ziehen</b><span class="muted sm">oder klicken, um eine Datei zu wählen</span><input type="file" accept="image/*" class="kmphf" data-key="${c.key}" hidden></div></div>`;
-    const done = (m.faces || []).filter((f) => f.sid).length;
-    return `<div class="card kmph"><h2>Klassenfoto</h2><button class="kmphth" data-act="kmphopen" data-key="${c.key}" title="Klick zum Vergrößern und Zuordnen" aria-label="Klassenfoto vergrößern"><img src="${fileUrl(m.file, m.v)}" alt="Klassenfoto"></button><div class="muted sm" style="margin-top:6px">${done ? done + ' von ' + nS + ' Profilfotos zugeordnet' : 'Klick zum Vergrößern · Gesichter erkennen und Namen zuordnen'}</div></div>`;
+    const multi = c.names.length > 1, parts = multi ? c.names : [c.label];
+    const one = (n) => {
+      const key = pkey(c, n), part = multi ? norm(n) : '', m = cphoto(key), nm = multi ? 'Klasse ' + esc(String(n).toUpperCase()) : 'der Klasse', nS = subStudents(c, part).length;
+      if (!m) return `<div class="kmphone"><div class="kmphdz" data-key="${esc(key)}" tabindex="0" role="button" aria-label="Foto ${nm} hierher ziehen oder klicken"><b>Foto ${nm} hierher ziehen</b><span class="muted sm">oder klicken, um eine Datei zu wählen</span><input type="file" accept="image/*" class="kmphf" data-key="${esc(key)}" hidden></div></div>`;
+      const done = (m.faces || []).filter((f) => f.sid).length;
+      return `<div class="kmphone">${multi ? `<div class="kmphlab">Klasse ${esc(String(n).toUpperCase())}</div>` : ''}<button class="kmphth" data-act="kmphopen" data-key="${esc(key)}" title="Klick zum Vergrößern und Zuordnen" aria-label="Klassenfoto vergrößern"><img src="${fileUrl(m.file, m.v)}" alt="Klassenfoto ${esc(String(n))}"></button><div class="muted sm" style="margin-top:6px">${done ? done + ' von ' + nS + ' Profilfotos zugeordnet' : 'Klick zum Vergrößern · Gesichter erkennen und Namen zuordnen'}</div></div>`;
+    };
+    return `<div class="card kmph"><h2>Klassenfoto</h2>${parts.map(one).join('')}</div>`;
   }
   async function newClassPhoto(key, file) {
     if (!file || !/^image\//.test(file.type)) return toast('Bitte ein Foto (Bilddatei) verwenden');
@@ -197,7 +203,8 @@ const KM = (() => {
   }
   async function openPhoto(key, autoDetect) {
     if (document.getElementById('kmphov')) return;
-    const getC = () => classes().find((k) => k.key === key); if (!getC() || !cphoto(key)) return;
+    const ck = key.split('::')[0], part = key.includes('::') ? key.split('::')[1] : '', getC = () => classes().find((k) => k.key === ck); if (!getC() || !cphoto(key)) return;
+    const partName = () => { const c = getC(); return part && c ? (c.names.find((n) => norm(n) === part) || part) : ''; }, subs = () => subStudents(getC(), part);
     const o = document.createElement('div'); o.id = 'kmphov'; o.className = 'kmphov'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); document.body.appendChild(o);
     const st = { img: null, hot: -1, draw: false, busy: false, msg: '', thumbs: {} };
     const faces = () => (cphoto(key) || {}).faces || [], setFaces = (fs) => saveCph(key, Object.assign({}, cphoto(key), { faces: fs }));
@@ -211,7 +218,7 @@ const KM = (() => {
       setFaces(fs); paint();
     }
     async function names() {
-      const c = getC(), sts = studentsOf(c), fs = faces().map((f) => Object.assign({}, f)), idxs = fs.map((f, i) => i).filter((i) => !fs[i].sid);
+      const c = getC(), sts = subs(), fs = faces().map((f) => Object.assign({}, f)), idxs = fs.map((f, i) => i).filter((i) => !fs[i].sid);
       if (!idxs.length) { st.msg = 'Alle Gesichter sind schon zugeordnet.'; return paint(); }
       if (!sts.length) { st.msg = 'In dieser Klasse gibt es noch keine Schüler, denen Namen zugeordnet werden könnten.'; return paint(); }
       st.busy = true; st.msg = 'Namen unter den Bildern werden gelesen …'; paint();
@@ -238,10 +245,10 @@ const KM = (() => {
     }
     function paint() {
       const c = getC(), m = cphoto(key); if (!c || !m) return close();
-      const fs = faces(), sts = studentsOf(c).slice().sort((a, b) => (a.nn + a.vn).localeCompare(b.nn + b.vn, 'de')), used = new Set(fs.map((f) => f.sid).filter(Boolean));
+      const fs = faces(), sts = subs().slice().sort((a, b) => (a.nn + a.vn).localeCompare(b.nn + b.vn, 'de')), used = new Set(fs.map((f) => f.sid).filter(Boolean));
       const boxes = fs.map((f, i) => `<div class="kmfx${f.sid ? ' ok' : ''}${st.hot === i ? ' hot' : ''}" data-i="${i}" style="left:${f.x * 100}%;top:${f.y * 100}%;width:${f.w * 100}%;height:${f.h * 100}%"><b>${i + 1}</b></div>`).join('');
       const rows = fs.map((f, i) => { if (!st.thumbs[i + '|' + f.x + f.y + f.w]) { try { st.thumbs[i + '|' + f.x + f.y + f.w] = cropFace(st.img, f, 72).toDataURL('image/jpeg', 0.8); } catch (e) { /* */ } } return `<div class="kmfcr${st.hot === i ? ' hot' : ''}" data-i="${i}"><img src="${st.thumbs[i + '|' + f.x + f.y + f.w] || ''}" alt=""><b>${i + 1}</b><div style="min-width:0"><select data-i="${i}" aria-label="Name zu Gesicht ${i + 1}"><option value="">– wer ist das? –</option>${sts.filter((x) => !used.has(skey(x)) || skey(x) === f.sid).map((x) => `<option value="${esc(skey(x))}"${skey(x) === f.sid ? ' selected' : ''}>${esc(x.nn + ' ' + x.vn)}</option>`).join('')}</select>${f.t && !f.sid ? `<small class="muted" style="display:block;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="Gelesener Text unter dem Bild">gelesen: ${esc(f.t)}</small>` : ''}</div><button class="kmfd" data-del="${i}" title="Gesicht entfernen" aria-label="Gesicht entfernen">×</button></div>`; }).join('');
-      o.innerHTML = `<div class="kmphbox"><div class="kmphtop"><h3>Klassenfoto ${disp(c)}</h3><span style="flex:1"></span><button class="btn sm good" data-x="run"${st.busy ? ' disabled' : ''}>Gesichter erkennen</button><button class="btn sm" data-x="names" title="Liest die Namen unter den Einzelbildern der Collage und ordnet sie zu"${st.busy ? ' disabled' : ''}>Namen lesen</button><button class="btn sm${st.draw ? ' good' : ''}" data-x="draw" title="Ziehe auf dem Foto einen Rahmen um ein Gesicht">${st.draw ? 'Rahmen ziehen …' : 'Gesicht markieren'}</button><button class="btn sm" data-x="rep">Foto ersetzen</button><button class="btn sm bad" data-x="del">Foto löschen</button><button class="btn sm" data-x="close">Schließen ✕</button><input type="file" accept="image/*" id="kmphrep" hidden></div>
+      o.innerHTML = `<div class="kmphbox"><div class="kmphtop"><h3>Klassenfoto ${part ? esc(String(partName()).toUpperCase()) : disp(c)}</h3><span style="flex:1"></span><button class="btn sm good" data-x="run"${st.busy ? ' disabled' : ''}>Gesichter erkennen</button><button class="btn sm" data-x="names" title="Liest die Namen unter den Einzelbildern der Collage und ordnet sie zu"${st.busy ? ' disabled' : ''}>Namen lesen</button><button class="btn sm${st.draw ? ' good' : ''}" data-x="draw" title="Ziehe auf dem Foto einen Rahmen um ein Gesicht">${st.draw ? 'Rahmen ziehen …' : 'Gesicht markieren'}</button><button class="btn sm" data-x="rep">Foto ersetzen</button><button class="btn sm bad" data-x="del">Foto löschen</button><button class="btn sm" data-x="close">Schließen ✕</button><input type="file" accept="image/*" id="kmphrep" hidden></div>
         <div class="kmphmsg muted sm" role="status">${esc(st.msg || (fs.length ? '' : 'Noch keine Gesichter. Klicke auf „Gesichter erkennen“.'))}</div>
         <div class="kmphbody"><div class="kmphimgw"><div class="kmphimg${st.draw ? ' drawing' : ''}" id="kmphimg"><img src="${fileUrl(m.file, m.v)}" alt="Klassenfoto" draggable="false">${boxes}</div></div><div class="kmphside"><div class="muted sm" style="margin-bottom:6px">${fs.filter((f) => f.sid).length} von ${sts.length} Schülern zugeordnet</div>${rows || '<div class="muted sm">Noch keine Gesichter.</div>'}</div></div></div>`;
     }
@@ -550,8 +557,8 @@ html{overflow-y:scroll;scrollbar-gutter:stable}
 .kmarr{display:inline-flex;gap:2px}.kmarr button{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:6px;width:24px;height:28px;cursor:pointer;font-size:16px;line-height:1}
 .kmtools{display:flex;gap:6px}.kmtool{border:1px solid var(--line);background:var(--surface2);color:var(--ink);border-radius:8px;padding:6px 9px;cursor:pointer;font:600 12px var(--font-body);display:inline-flex;align-items:center}.kmtool.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .kmth .kmgnh{text-transform:none}.kmgen{color:var(--muted);font-weight:600}.kmth>span{position:relative}.kmrs{position:absolute;right:-5px;top:-3px;bottom:-3px;width:10px;cursor:col-resize;z-index:3}.kmrs::after{content:'';position:absolute;left:4px;top:3px;bottom:3px;width:2px;border-radius:1px;background:var(--line)}.kmrs:hover::after,.kmrs.on::after{background:var(--accent)}.kmav img,.kmavbig img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}.kmav{overflow:hidden}.kmavbig{overflow:hidden}
-.kmph .kmphdz{border:2px dashed var(--line);border-radius:12px;padding:22px 12px;text-align:center;cursor:pointer;display:flex;flex-direction:column;gap:4px;background:var(--surface2)}.kmphdz:hover,.kmphdz.over{border-color:var(--accent);background:var(--accent-soft)}
-.kmphth{display:block;width:100%;padding:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:zoom-in;background:var(--surface2)}.kmphth img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block}
+.kmphone+.kmphone{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}.kmphlab{font:700 13px var(--font-body);margin:0 0 6px}.kmph .kmphdz{border:2px dashed var(--line);border-radius:12px;padding:22px 12px;text-align:center;cursor:pointer;display:flex;flex-direction:column;gap:4px;background:var(--surface2)}.kmphdz:hover,.kmphdz.over{border-color:var(--accent);background:var(--accent-soft)}
+.kmphth{display:block;width:100%;padding:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:zoom-in;background:var(--surface2)}.kmphth img{width:100%;height:auto;max-height:360px;object-fit:contain;display:block}
 .kmphov{position:fixed;inset:0;background:rgba(10,12,8,.72);z-index:9000;display:flex;align-items:center;justify-content:center;padding:2vh 2vw}.kmphbox{background:var(--surface,#fff);color:var(--ink);border-radius:14px;max-width:1500px;width:100%;height:96vh;display:flex;flex-direction:column;padding:12px 14px;min-height:0}
 .kmphtop{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.kmphtop h3{margin:0}.kmphmsg{min-height:20px;margin:6px 0}.kmphbody{display:flex;gap:14px;flex:1;min-height:0}.kmphimgw{flex:1;min-width:0;overflow:auto;display:flex;align-items:flex-start;justify-content:center;background:#111;border-radius:10px}
 .kmphimg{position:relative;display:inline-block;line-height:0;max-width:100%}.kmphimg img{max-width:100%;max-height:calc(96vh - 130px);width:auto;height:auto;display:block;-webkit-user-drag:none;user-select:none}.kmphimg.drawing{cursor:crosshair;touch-action:none}
