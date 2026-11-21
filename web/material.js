@@ -969,6 +969,91 @@ const MAT = (() => {
     } catch (e) { await fallback(e.message || 'Fehler'); }
   }
   /* Doppelklick auf eine Kachel: Quelle als Pop-up öffnen */
+  /* EPUB-Leser: Inhaltsverzeichnis, Kapitel, Schriftgröße, Hell/Sepia/Dunkel, merkt sich die Stelle */
+  const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* */ } };
+  async function showEpub(o, s, id) {
+    const host = o.querySelector('.matepub'), say = (h) => { host.innerHTML = `<div style="padding:24px" class="muted">${h}</div>`; };
+    if (!document.getElementById('matepubcss')) {
+      const st = document.createElement('style'); st.id = 'matepubcss';
+      st.textContent = `.matepub{display:flex;flex-direction:column;height:100%;min-height:0}.matetb{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:0 0 8px}.matetb .sm{font-size:13px}.matebody{display:flex;flex:1;min-height:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;position:relative}.matetoc{width:290px;flex:none;overflow:auto;border-right:1px solid var(--line);background:var(--surface);padding:8px 0;font-size:14px}.matetoc button{display:block;width:100%;text-align:left;background:none;border:0;padding:6px 14px;color:inherit;font:inherit;cursor:pointer;line-height:1.3}.matetoc button:hover{background:var(--surface2)}.matetoc button.on{background:var(--surface2);font-weight:700;box-shadow:inset 3px 0 0 var(--brand,var(--accent))}.matetoc.off{display:none}.matefr{flex:1;min-width:0;border:0;background:#fff}@media(max-width:700px){.matetoc{position:absolute;z-index:2;top:0;bottom:0;left:0;width:82%;box-shadow:4px 0 16px rgba(0,0,0,.25)}}`;
+      document.head.appendChild(st);
+    }
+    let z; try { const Z = await loadZip(), buf = await fgetBuf(s.epub); if (!buf) return say('Die EPUB-Datei wurde auf der NAS nicht gefunden.'); z = await Z.loadAsync(buf); } catch (e) { return say('Die EPUB-Datei konnte nicht geöffnet werden: ' + esc(e.message || e)); }
+    const P = new DOMParser(), rd = async (n) => { const f = z.file(n) || z.file(decodeURIComponent(n)); return f ? f.async('string') : null; };
+    const res = (b, h) => { try { return decodeURIComponent(new URL(h, 'http://x/' + b).pathname.slice(1)); } catch (e) { return h; } };
+    const dirOf = (p) => p.replace(/[^/]*$/, '');
+    const cont = await rd('META-INF/container.xml'); if (!cont) return say('Das ist keine gültige EPUB-Datei.');
+    const opfPath = P.parseFromString(cont, 'text/xml').querySelector('rootfile').getAttribute('full-path'), bs = dirOf(opfPath), opf = P.parseFromString(await rd(opfPath), 'text/xml');
+    const man = {}; opf.querySelectorAll('manifest > item').forEach((it) => { man[it.getAttribute('id')] = { path: res(bs, it.getAttribute('href')), type: it.getAttribute('media-type') || '', props: it.getAttribute('properties') || '' }; });
+    const spine = [...opf.querySelectorAll('spine > itemref')].filter((x) => x.getAttribute('linear') !== 'no').map((x) => man[x.getAttribute('idref')]).filter((x) => x && /html|xml/.test(x.type));
+    if (!spine.length) return say('Die EPUB enthält keine lesbaren Kapitel (vermutlich Kopierschutz).');
+    const idx = {}; spine.forEach((x, i) => { idx[x.path] = i; });
+    /* Inhaltsverzeichnis: EPUB3-nav oder NCX */
+    let toc = [];
+    try {
+      const nav = Object.values(man).find((x) => /\bnav\b/.test(x.props));
+      if (nav) {
+        const d = P.parseFromString(await rd(nav.path), 'text/html'), nv = [...d.querySelectorAll('nav')].find((n) => /toc/.test(n.getAttribute('epub:type') || '')) || d.querySelector('nav');
+        const walk = (ol, lv) => { [...ol.children].filter((li) => li.tagName === 'LI').forEach((li) => { const a = li.querySelector(':scope > a, :scope > span'); if (a) toc.push({ t: a.textContent.replace(/\s+/g, ' ').trim(), h: a.getAttribute('href') ? res(dirOf(nav.path), a.getAttribute('href')) : null, lv }); const sub = li.querySelector(':scope > ol'); if (sub) walk(sub, lv + 1); }); };
+        const ol = nv && nv.querySelector('ol'); if (ol) walk(ol, 0);
+      }
+      if (!toc.length) {
+        const sp = opf.querySelector('spine'), ncx = sp && man[sp.getAttribute('toc')] || Object.values(man).find((x) => /ncx/.test(x.type));
+        if (ncx) {
+          const d = P.parseFromString(await rd(ncx.path), 'text/xml'), kids = (el, n) => [...el.children].filter((c) => c.localName === n);
+          const walk = (el, lv) => kids(el, 'navPoint').forEach((np) => { const lab = np.getElementsByTagName('text')[0], c = kids(np, 'content')[0]; if (lab && c) toc.push({ t: lab.textContent.replace(/\s+/g, ' ').trim(), h: res(dirOf(ncx.path), c.getAttribute('src')), lv }); walk(np, lv + 1); });
+          const nm = d.getElementsByTagName('navMap')[0]; if (nm) walk(nm, 0);
+        }
+      }
+    } catch (e) { toc = []; }
+    toc = toc.filter((x) => x.t && x.h && idx[x.h.replace(/#.*$/, '')] != null);
+    if (toc.length < 2) toc = spine.map((x, i) => ({ t: 'Abschnitt ' + (i + 1), h: x.path, lv: 0 }));
+    const blobs = {}, mime = (p) => ({ jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', svg: 'image/svg+xml', webp: 'image/webp', css: 'text/css', woff: 'font/woff', woff2: 'font/woff2', ttf: 'font/ttf', otf: 'font/otf' }[(p.match(/\.(\w+)$/) || [0, ''])[1].toLowerCase()] || 'application/octet-stream');
+    const blobUrl = async (p) => { if (blobs[p] !== undefined) return blobs[p]; const f = z.file(p) || z.file(decodeURIComponent(p)); if (!f) return (blobs[p] = null); const b = await f.async('blob'); return (blobs[p] = URL.createObjectURL(new Blob([b], { type: mime(p) }))); };
+    const cssFix = async (css, base) => { const refs = [...css.matchAll(/url\(\s*['"]?([^'")]+)['"]?\s*\)/g)].map((m) => m[1]).filter((u) => !/^(data:|https?:|#)/i.test(u)); const map = {}; for (const u of new Set(refs)) map[u] = await blobUrl(res(base, u.replace(/[?#].*$/, ''))); return css.replace(/url\(\s*['"]?([^'")]+)['"]?\s*\)/g, (m, u) => (map[u] ? `url(${map[u]})` : m)); };
+    const st = { i: 0, size: lsGet('matepub_size', 100), theme: lsGet('matepub_theme', 'hell'), toc: window.innerWidth > 700 }, last = lsGet('matepub_pos', {})[id];
+    const fr = () => host.querySelector('.matefr');
+    const themeCss = () => ({ hell: 'html,body{background:#fff!important}', sepia: 'html,body{background:#f4ecd8!important;color:#4b3a22!important}body *{color:inherit!important;background:transparent!important}a{color:#7a4a12!important}', dunkel: 'html,body{background:#16181a!important;color:#d9dcd6!important}body *{color:inherit!important;background:transparent!important}a{color:#8fb8ff!important}img{opacity:.9}' }[st.theme]);
+    async function load(i, frag, y) {
+      if (i !== st.i) st.pick = null; st.i = Math.max(0, Math.min(spine.length - 1, i)); const it = spine[st.i], html = await rd(it.path); if (html == null) return;
+      const d = P.parseFromString(html, 'text/html'), b = dirOf(it.path); let head = '';
+      d.querySelectorAll('script,iframe,object,embed').forEach((x) => x.remove());
+      for (const l of [...d.querySelectorAll('link[rel~="stylesheet"]')]) { const css = await rd(res(b, l.getAttribute('href') || '')); if (css) head += '<style>' + (await cssFix(css, dirOf(res(b, l.getAttribute('href'))))) + '</style>'; }
+      for (const sy of [...d.querySelectorAll('style')]) head += '<style>' + (await cssFix(sy.textContent, b)) + '</style>';
+      for (const im of [...d.querySelectorAll('img,image,source')]) for (const a of ['src', 'href', 'xlink:href', 'srcset']) { const v = im.getAttribute(a); if (v && !/^(data:|https?:)/i.test(v)) { const u = await blobUrl(res(b, v.split(/[ ?#]/)[0])); if (u) im.setAttribute(a, u); if (a === 'srcset') im.removeAttribute('srcset'); } }
+      const nxt = st.i < spine.length - 1 ? '<p class="matenx"><a href="#" data-n="1">Nächstes Kapitel ▶</a></p>' : '';
+      const doc = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${head}<style id="matx">body{max-width:46em;margin:0 auto!important;padding:20px 24px 40px!important;line-height:1.6;box-sizing:border-box}img,svg,video{max-width:100%;height:auto}.matenx{text-align:center;margin:40px 0 0}.matenx a{font-weight:700;text-decoration:none}html{zoom:${st.size / 100}}${themeCss()}</style></head><body>${d.body ? d.body.innerHTML : ''}${nxt}</body></html>`;
+      const f = fr(); f.onload = () => {
+        const cd = f.contentDocument; if (!cd) return;
+        if (frag && cd.getElementById(frag)) cd.getElementById(frag).scrollIntoView(); else if (y) cd.documentElement.scrollTop = y;
+        cd.addEventListener('click', (e) => { const a = e.target.closest && e.target.closest('a'); if (!a) return; e.preventDefault(); if (a.dataset.n) return load(st.i + 1); const h = a.getAttribute('href') || ''; if (/^(https?:|mailto:)/i.test(h)) return window.open(h, '_blank', 'noopener'); const [pp, fg] = h.split('#'), tp = pp ? res(b, pp) : it.path; if (idx[tp] != null) load(idx[tp], fg); else if (fg && cd.getElementById(fg)) cd.getElementById(fg).scrollIntoView(); });
+        let tm; cd.addEventListener('scroll', () => { clearTimeout(tm); tm = setTimeout(() => save(cd.documentElement.scrollTop), 400); });
+        cd.addEventListener('keydown', (e) => { if (e.key === 'Escape') o.querySelector('[data-x]').click(); });
+      };
+      f.srcdoc = doc; paint(); save(y || 0);
+    }
+    const save = (y) => { const m = lsGet('matepub_pos', {}); m[id] = { i: st.i, y: Math.round(y || 0) }; lsSet('matepub_pos', m); };
+    const curToc = () => { if (st.pick != null && toc[st.pick] && idx[toc[st.pick].h.replace(/#.*$/, '')] === st.i) return st.pick; let k = -1; toc.forEach((x, n) => { const j = idx[x.h.replace(/#.*$/, '')]; if (j === st.i && (k < 0 || idx[toc[k].h.replace(/#.*$/, '')] !== st.i)) k = n; else if (j < st.i && (k < 0 || idx[toc[k].h.replace(/#.*$/, '')] < st.i)) k = n; }); return k; };
+    function paint() {
+      const k = curToc(), tt = host.querySelector('.matetoc'); if (!tt) return;
+      tt.querySelectorAll('button').forEach((bt, n) => bt.classList.toggle('on', n === k));
+      host.querySelector('[data-ep]').textContent = 'Kapitel ' + (st.i + 1) + ' von ' + spine.length; const on = tt.querySelector('button.on'); if (on) on.scrollIntoView({ block: 'nearest' });
+    }
+    host.innerHTML = `<div class="matetb"><button class="btn sm" data-e="toc" aria-label="Inhaltsverzeichnis ein- oder ausblenden">☰ Inhalt</button><button class="btn sm" data-e="prev" aria-label="Voriges Kapitel">◀</button><span class="sm muted" data-ep style="min-width:110px;text-align:center"></span><button class="btn sm" data-e="next" aria-label="Nächstes Kapitel">▶</button><span style="flex:1"></span><button class="btn sm" data-e="sm" aria-label="Schrift kleiner">A−</button><button class="btn sm" data-e="lg" aria-label="Schrift größer">A+</button><button class="btn sm" data-e="th" title="Darstellung wechseln">Hell</button><a class="btn sm" href="${url(s.epub)}" download>Herunterladen</a></div><div class="matebody"><nav class="matetoc${st.toc ? '' : ' off'}" aria-label="Inhaltsverzeichnis">${toc.map((x) => `<button data-h="${esc(x.h)}" style="padding-left:${14 + x.lv * 16}px">${esc(x.t)}</button>`).join('')}</nav><iframe class="matefr" title="${esc(s.title)}" sandbox="allow-same-origin"></iframe></div>`;
+    const thn = { hell: 'Hell', sepia: 'Sepia', dunkel: 'Dunkel' }, setTh = () => { host.querySelector('[data-e=th]').textContent = thn[st.theme]; };
+    host.addEventListener('click', (e) => {
+      const bt = e.target.closest('button'); if (!bt) return;
+      if (bt.dataset.h) { const [pp, fg] = bt.dataset.h.split('#'); load(idx[pp], fg); st.pick = [...bt.parentNode.children].indexOf(bt); if (window.innerWidth <= 700) host.querySelector('.matetoc').classList.add('off'); return; }
+      const a = bt.dataset.e; if (!a) return;
+      if (a === 'toc') host.querySelector('.matetoc').classList.toggle('off');
+      else if (a === 'prev') load(st.i - 1); else if (a === 'next') load(st.i + 1);
+      else if (a === 'sm' || a === 'lg') { st.size = Math.max(70, Math.min(200, st.size + (a === 'lg' ? 10 : -10))); lsSet('matepub_size', st.size); load(st.i, null, fr().contentDocument ? fr().contentDocument.documentElement.scrollTop : 0); }
+      else if (a === 'th') { st.theme = st.theme === 'hell' ? 'sepia' : st.theme === 'sepia' ? 'dunkel' : 'hell'; lsSet('matepub_theme', st.theme); setTh(); load(st.i, null, fr().contentDocument ? fr().contentDocument.documentElement.scrollTop : 0); }
+    });
+    setTh(); load(last && last.i != null && last.i < spine.length ? last.i : 0, null, last && last.y);
+    const mo = new MutationObserver(() => { if (!document.body.contains(o)) { Object.values(blobs).forEach((u) => u && URL.revokeObjectURL(u)); mo.disconnect(); } }); mo.observe(document.body, { childList: true });
+  }
   async function popup(id) {
     const s = srcOf(id); if (!s) return;
     const o = document.createElement('div'); o.className = 'matask'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true');
@@ -976,6 +1061,7 @@ const MAT = (() => {
     if (kind === 'video' && s.file && !(s.dl && s.dl.file) && /\.(mp4|m4v|mov|webm|mkv)$/i.test(s.file)) body = `<video controls autoplay src="${url(s.file, '&inline=1')}" style="width:100%;height:100%;background:#000"></video>`;
     else if (kind === 'ppt' && s.file && /\.(pptx|ppsx|pptm)$/i.test(s.file)) body = `<div class="matppt"><div class="matpdftb"><button class="btn sm" data-pp="-" aria-label="Vorherige Folie">◀</button><span class="sm" data-ppn style="min-width:90px;text-align:center">…</span><button class="btn sm" data-pp="+" aria-label="Nächste Folie">▶</button><button class="btn sm" data-pp="fs" style="margin-left:8px">Vollbild</button><span style="flex:1"></span><a class="btn sm" href="${url(s.file)}" download>Herunterladen</a></div><div class="matpptv"><span class="muted">⏳ Präsentation wird geladen …</span></div></div>`;
     else if (kind === 'pdf' && s.file) body = `<iframe class="matpdfv" title="${esc(s.title)}" src="/pdfjs/web/viewer.html?file=${encodeURIComponent(url(s.file, '&inline=1'))}#zoom=page-width&pagemode=none&locale=de" style="width:100%;height:100%;border:0;background:#fff"></iframe>`;
+    else if (kind === 'epub' && s.epub) body = '<div class="matepub"><div style="padding:24px" class="muted">Buch wird geöffnet …</div></div>';
     else if (kind === 'video' && s.dl && s.dl.state === 'done' && s.dl.file) body = `<video controls autoplay src="${url(s.dl.file, '&inline=1')}" style="width:100%;height:100%;background:#000"></video>`;
     else {
       const t = await textOf(id), vid = ytVid(s.url);
@@ -988,7 +1074,7 @@ const MAT = (() => {
     const esc1 = (e) => { if (e.key === 'Escape') close(); };
     o.addEventListener('click', (e) => { if (e.target === o || e.target.closest('[data-x]')) close(); });
     document.addEventListener('keydown', esc1); document.body.appendChild(o);
-    if (kind === 'ppt' && s.file && /\.(pptx|ppsx|pptm)$/i.test(s.file)) showPptx(o, s, id);
+    if (kind === 'ppt' && s.file && /\.(pptx|ppsx|pptm)$/i.test(s.file)) showPptx(o, s, id);    if (kind === 'epub' && s.epub) showEpub(o, s, id);
   }
   const inView = () => U.view === 'material';
   /* Symbole der Seitenleiste per Drag-and-Drop anordnen (wird auf allen Geräten gespeichert) */
