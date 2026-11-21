@@ -16,7 +16,7 @@ document.getElementById('go').onclick=async()=>{
   if(ses.s!==200)return;
   const sv=await f('/api/version');const newSrv=sv.s===200;
   row(newSrv,'Server-Programm (server.js)',newSrv?'neue Version läuft ('+sv.j.version+')':'ALTE Version läuft. Die neue server.js ist auf der NAS nicht aktiv.');
-  row(!!(sv.j&&sv.j.convert),'Word → PDF (LibreOffice)',sv.j&&sv.j.convert?'installiert':'nicht installiert. Dafür Dockerfile und server.js ersetzen und den Container neu bauen.');
+  row(!!(sv.j&&sv.j.convert),'Word → PDF (LibreOffice)',sv.j&&sv.j.convert?'installiert ('+sv.j.convertInfo+')':(sv.j&&sv.j.convertInfo!==undefined?'nicht verfügbar. Grund laut Server: '+sv.j.convertInfo+(/ENOENT/.test(sv.j.convertInfo)?' (LibreOffice ist im laufenden Container nicht vorhanden: Image wurde nicht neu gebaut)':''):'Der Server ist noch die alte Version: neue server.js einsetzen und den Container neu starten.'));
   const fl=await f('/api/files?dir=Material');row(fl.s===200,'Dateiablage',fl.s===200?'vorhanden':'fehlt (Antwort: '+(fl.j&&fl.j.error||fl.s)+')');
   let put=await f('/api/file?path='+encodeURIComponent('Material/diagnose.txt'),{method:'PUT',body:'ok'});row(put.s===200,'Testdatei speichern',put.s===200?'funktioniert':'Fehler: '+(put.j&&put.j.error||put.s));
   if(put.s===200)await f('/api/file?path='+encodeURIComponent('Material/diagnose.txt'),{method:'DELETE'});
