@@ -768,7 +768,7 @@ const MAT = (() => {
     const id = s.id.replace(/^mat_/, ''), t = tagsOf(s), allTg = TAGS.map((x) => x[0]).filter((x) => !EPOCHS.includes(x)), restT = allTg.filter((x) => !t.tags.includes(x));
     const tog = (list, cur, ep) => list.map((x) => `<button class="mattag ${ep ? 'ep ' : ''}sel${cur.includes(x) ? ' on' : ''}"${ep ? epS(x) : ''} data-act="mattoggle" data-id="${id}" data-t="${esc(x)}">${esc(x)}</button>`).join('');
     const row = (k, v) => `<div class="kmkvr"><span class="kmk">${k}</span><span class="kmv">${v}</span></div>`;
-    const ang = [['Autor', s.author], ['Verlag', s.publisher], ['Sprache', s.lang], ['Jahr', s.year], ['Datei', s.fileName], ['Größe', s.size ? mb(s.size) : ''], ['Seiten', s.type === 'pdf' && s.pages ? s.pages : '']].filter((x) => x[1]).map(([k, v]) => row(k, esc(v))).join('');
+    const edAV = /^(epub|buch|pdf)$/.test(kindOf(s)), avIn = (f, lab) => row(lab, `<input class="matin" data-ch="matmeta" data-f="${f}" data-id="${id}" value="${esc(s[f] || '')}" placeholder="${lab} eintragen">`), ang = (edAV ? avIn('author', 'Autor') + avIn('publisher', 'Verlag') : '') + [!edAV && ['Autor', s.author], !edAV && ['Verlag', s.publisher], ['Sprache', s.lang], ['Jahr', s.year], ['Datei', s.fileName], ['Größe', s.size ? mb(s.size) : ''], ['Seiten', s.type === 'pdf' && s.pages ? s.pages : '']].filter((x) => x && x[1]).map(([k, v]) => row(k, esc(v))).join('');
     const yt = isYt(s.url) ? row('Kanal', s.channelUrl ? `<a href="${esc(s.channelUrl)}" target="_blank" rel="noopener">${esc(s.channel || '')}</a>` : esc(s.channel || '–')) + row('Video', `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.url)}</a>`) + row('Dauer', s.seconds != null ? esc(dur(s.seconds)) : '–') : s.url ? row('Adresse', `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.url)}</a>`) : '';
     return `<section class="card" id="matdetail" style="margin-top:14px"><div class="row" style="align-items:center;gap:8px"><h2 style="margin:0">Bearbeiten</h2><span style="flex:1"></span><button class="btn sm good" data-act="matopen" data-id="${id}" title="Änderungen sind gespeichert, Fenster schließen">Speichern</button></div>
       ${thumbBlock(s, id)}
@@ -934,6 +934,7 @@ const MAT = (() => {
     },
     matdurin: (e) => { const s = srcOf(e.dataset.id); if (!s) return; const ps = parseDur(e.value); if (Number.isNaN(ps)) return toast('Das Format kenne ich nicht. Bitte so eingeben: 12:34 oder 1:05:20'); put('settings', Object.assign({}, s, { seconds: ps })); render(); },
     matttl: (e) => { const s = srcOf(e.dataset.id); if (!s) return; const v = e.value.trim(); if (v) put('settings', Object.assign({}, s, s.vtitle ? { vtitle: v, title: v } : { title: v })); render(); },
+    matmeta: (e) => { const s = srcOf(e.dataset.id), f = e.dataset.f; if (s && /^(author|publisher)$/.test(f)) put('settings', Object.assign({}, s, { [f]: e.value.trim() })); },
     matnote: (e) => { const s = srcOf(e.dataset.id); if (s) put('settings', Object.assign({}, s, { notes: e.value })); },
     matsel: (e) => { const x = M().sel[+e.dataset.i]; if (x) x.t = e.value; },
     matqs: (e) => { M().q = e.value; },
