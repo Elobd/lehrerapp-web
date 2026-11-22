@@ -141,7 +141,7 @@ h3.gh.dy{cursor:pointer;position:relative}h3.gh.dy .dbm{display:block;margin:0 a
 .ttmenu .kmdiv{align-self:stretch;height:auto}.ttmenu .kmdiv::before{background:#8a9097;opacity:.7;left:7px;top:8px;bottom:8px}
 .setgrid{display:grid;grid-template-columns:240px minmax(0,1fr);gap:16px;align-items:start;margin-top:6px}
 .setmenu{display:flex;flex-direction:column;gap:8px}.setbox{text-align:left;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:14px 16px;font:600 14px var(--font-body);cursor:pointer}.setbox:hover{border-color:var(--accent)}.setbox.on{color:var(--accent);background:var(--accent-soft);border-color:var(--accent)}
-.setmain{padding:16px 18px}.setti{margin:0 0 12px;font:700 20px var(--font-head)}
+.setsec{margin:22px 0 10px;font:700 16px var(--font-head);padding-top:14px;border-top:1px solid var(--line)}.setmain{padding:16px 18px}.setti{margin:0 0 12px;font:700 20px var(--font-head)}
 .setdd{border:1px solid var(--line);border-radius:10px;margin-bottom:10px;background:var(--surface)}.setsum{cursor:pointer;padding:12px 14px;list-style:none;display:flex;align-items:center;gap:8px}.setsum::-webkit-details-marker{display:none}.setsum::before{content:'▸';color:var(--muted)}.setdd[open]>.setsum::before{content:'▾'}.setsum h3{margin:0;font:700 15px var(--font-head)}.setin{padding:4px 14px 14px}
 .skgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}.skcard{display:flex;align-items:center;gap:12px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:600 14px var(--font-body);cursor:pointer}.skcard.on{border-color:var(--accent);color:var(--accent)}.skcard i{display:inline-flex;border-radius:8px;overflow:hidden;border:1px solid var(--line)}.skcard i b{width:18px;height:28px;display:block}
 @media(max-width:800px){.setgrid{grid-template-columns:1fr}.setmenu{flex-direction:row}.setbox{flex:1}}
@@ -529,7 +529,7 @@ function wkDef(){const n=new Date(),d=n.getDay(),m=n.getHours()*60+n.getMinutes(
 function wkNow(){return typeof U.wk==='number'?U.wk:wkDef()}
 const TT_DEF=['Glaser','Stummvoll','Meier','Bayer','Hofmann'];
 function ttTeachers(){const d=S.settings.ttteach;return d&&Array.isArray(d.list)?d.list:TT_DEF.map((n,i)=>({id:'t'+(i+1),name:n}))}
-function ttMyLabel(){try{const kv=norm((S.settings.kmap||{}).kvClass||'');const G=groups().find(g=>norm(g.label)===kv);if(G)return G.label}catch(e){}return 'Meine Klasse'}
+function ttMyLabel(){return 'Ich'}
 function ttPage(){
   const tab=U.ttTab&&(U.ttTab==='me'||ttTeachers().some(t=>t.id===U.ttTab))?U.ttTab:'me';U.ttTab=tab;
   const chip=(id,name,drag)=>`<span class="ttchipw"><button class="ttchip${id===tab?' on':''}" data-act="ttsel" data-id="${id}" ${drag&&U.ttEdit?'draggable="true" title="Ziehen zum Verschieben"':''}>${esc(name)}</button></span>`;
@@ -690,7 +690,7 @@ function klassenView(){
     const bl=[];gs.forEach(G=>{const k=rank(G)<2?(rank(G)?'BSPK':'GPB'):G.subject||'Sonstige';let b=bl.find(x=>x.k===k);if(!b)bl.push(b={k,list:[]});b.list.push(G)});
     body=bl.map(b=>`<h3 class="gh">${esc(b.k)}</h3><div class="cgrid">${b.list.map(G=>card(G)).join('')}</div>`).join('');
   }
-  if(mode==='next'&&ttRows().length)body=`<div class="nsplit"><div style="min-width:0">${body}</div><aside class="nplan"><div class="npnav"><button class="btn sm" data-act="npprev" aria-label="Vorige Tage">‹</button><h3 class="gh" style="margin:0">${U.pdo?'Stundenplan':'Heute &amp; nächster Tag'}</h3><button class="btn sm" data-act="npnext" aria-label="Nächste Tage">›</button></div><section class="card npcard">${ttGridHtml(ttRows(),true,0,false,false,10)}</section></aside></div>`;
+  if(mode==='next'&&ttRows().length)body=`<div class="nsplit"><div style="min-width:0">${body}</div><aside class="nplan"><section class="card npcard"><div class="npnav"><button class="btn sm" data-act="npprev" aria-label="Vorige Tage">‹</button><h3 class="gh" style="margin:0">Stundenplan</h3><span class="row" style="gap:6px"><button class="btn sm${U.pdo?' good':''}" data-act="nptoday" title="Zurück zu heute">Aktueller Tag</button><button class="btn sm" data-act="npnext" aria-label="Nächste Tage">›</button></span></div>${ttGridHtml(ttRows(),true,0,false,false,10)}</section></aside></div>`;
   return `<section class="card${mode==='fach'?'':' nohd'}">${mode==='fach'?`<div class="hd"><h2>Klassenmappen</h2></div>`:''}${body}</section>`;
 }
 /* Tage, an denen diese Klasse Unterricht hat (Regelplan, ohne Ferien/Feiertage) */
@@ -989,7 +989,7 @@ function datenView(){
   const tab=U.setTab==='skin'?'skin':'data';
   let main;
   if(tab==='skin'){const SK=window.SKIN;main=`<h2 class="setti">Farbschema auswählen</h2><div class="skgrid">${SK?Object.entries(SK.list).map(([k,v])=>`<button class="skcard${SK.get()===k?' on':''}" data-act="setskin" data-v="${k}"><i>${v.sw.map(c=>`<b style="background:${c}"></b>`).join('')}</i><span>${esc(v.name)}</span></button>`).join(''):'<p class="muted">Designs nicht verfügbar.</p>'}</div>`}
-  else main=`<h2 class="setti">Dateneingabe</h2>${dd('sl','Schülerlisten',stuHtml)}${dd('te','Test eintragen',testHtml)}${dd('sf','Schulfreie Tage eintragen',autoBox())}`;
+  else main=`<h2 class="setti">Dateneingabe</h2><div class="row" style="gap:8px;margin-bottom:14px;flex-wrap:wrap"><button class="btn" data-act="wuprep" title="Bereitet Lernstoff und Fehlzeiten des ganzen Schuljahres für das WebUntis-Lesezeichen „WebUntis synchronisieren“ vor">Für WebUntis bereitstellen</button><button class="btn" data-act="wupull" title="Übernimmt, was ein WebUntis-Lesezeichen kopiert hat (Stundenplan, Schülerlisten oder Rückmeldung)">Von WebUntis übernehmen</button></div>${dd('sl','Schülerlisten',stuHtml)}<h3 class="setsec">Test eintragen</h3>${testHtml}<h3 class="setsec">Schulfreie Tage eintragen</h3>${autoBox()}`;
   return `<div class="setgrid"><nav class="setmenu" aria-label="Einstellungen"><button class="setbox${tab==='data'?' on':''}" data-act="settab" data-v="data">Dateneingabe</button><button class="setbox${tab==='skin'?' on':''}" data-act="settab" data-v="skin">Farbschema auswählen</button></nav><section class="card setmain">${main}</section></div>`;
 }
 function viewFromHash(){const h=(location.hash||'').replace(/^#/,'');return /^mappe/.test(h)||h==='material'||/^schueler-/.test(h)||h==='klassen'||h==='daten'||h==='jahresplan'||/^thema-/.test(h)||/^klasse-/.test(h)||/^tests-/.test(h)||/^stunde-/.test(h)?h:'uebersicht'}
@@ -1257,6 +1257,7 @@ const A={
   wktoday:()=>{U.wk=undefined;render()},
   ttsel:e=>{U.ttTab=e.dataset.id;render()},
   daytog:e=>{U.dayShut=Object.assign({},U.dayShut);U.dayShut[e.dataset.d]=!U.dayShut[e.dataset.d];render()},
+  nptoday:()=>{U.pdo=0;render()},
   npprev:()=>{U.pdo=stepWd(U.pdo||0,-1);render()},
   npnext:()=>{U.pdo=stepWd(U.pdo||0,1);render()},
   settab:e=>{U.setTab=e.dataset.v;render()},
