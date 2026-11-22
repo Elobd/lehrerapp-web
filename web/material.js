@@ -307,7 +307,8 @@ const MAT = (() => {
 
   /* ---------- Dokument-Bausteine -> Word und PDF ---------- */
   const xe = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-  const run = (t, o) => `<w:r>${o ? `<w:rPr>${o.b ? '<w:b/>' : ''}${o.i ? '<w:i/>' : ''}${o.sz ? `<w:sz w:val="${o.sz}"/>` : ''}${o.sup ? '<w:vertAlign w:val="superscript"/>' : ''}</w:rPr>` : ''}<w:t xml:space="preserve">${xe(t)}</w:t></w:r>`;
+  const docFont = () => (cfgM().docFont || 'Source Sans 3');
+  const run = (t, o) => `<w:r><w:rPr><w:rFonts w:ascii="${xe(docFont())}" w:hAnsi="${xe(docFont())}" w:cs="${xe(docFont())}" w:eastAsia="${xe(docFont())}"/>${o ? `${o.b ? '<w:b/>' : ''}${o.i ? '<w:i/>' : ''}${o.sz ? `<w:sz w:val="${o.sz}"/>` : ''}${o.sup ? '<w:vertAlign w:val="superscript"/>' : ''}` : ''}</w:rPr><w:t xml:space="preserve">${xe(t)}</w:t></w:r>`;
   const para = (t, o, after) => `<w:p><w:pPr><w:spacing w:after="${after == null ? 120 : after}"/></w:pPr>${t === '' ? '' : run(t, o)}</w:p>`;
   function bodyXml(blocks) {
     return blocks.map((b) => {
@@ -378,8 +379,12 @@ const MAT = (() => {
     const m = M(); m.busy = 'Datei wird erstellt …'; render();
     try {
       const dir = ODIR + '/' + slugify(title), base = kind + ' ' + slugify(title) + ' ' + new Date().toISOString().slice(0, 10);
-      const docx = await makeDocx(title, blocks), pdf = await makePdf(blocks);
-      await fput(dir + '/' + base + '.docx', docx); await fput(dir + '/' + base + '.pdf', pdf);
+      const docx = await makeDocx(title, blocks);
+      await fput(dir + '/' + base + '.docx', docx);
+      /* PDF bevorzugt auf dem Server aus der Word-Datei erzeugen, damit dieselbe Schrift (Source Sans 3) verwendet wird; sonst Notlösung im Browser */
+      let pdfDone = false;
+      if (await convertOk()) { try { const rr = await fetch('/api/convert', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ src: dir + '/' + base + '.docx', dst: dir + '/' + base + '.pdf' }) }); pdfDone = rr.ok; } catch (x) { /* */ } }
+      if (!pdfDone) await fput(dir + '/' + base + '.pdf', await makePdf(blocks));
       m.files = null; m.last = { dir, base };
       toast('Gespeichert in „' + dir + '“ (Word + PDF)');
       m.busy = ''; render(); return { dir, base, docx: dir + '/' + base + '.docx', pdf: dir + '/' + base + '.pdf' };
@@ -1311,7 +1316,7 @@ const MAT = (() => {
 .matgi{cursor:grab;padding-right:4px}.matgi .matgl{border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;padding:0}.matgx{border:0;background:transparent;color:inherit;opacity:.45;cursor:pointer;font:700 13px/1 var(--font-body);padding:0 2px}.matgx:hover{opacity:1;color:var(--bad)}.matgi.drag{opacity:.35}.matgi.over{box-shadow:inset 3px 0 0 var(--brand,var(--accent))}.matgrpx{margin-left:4px}
 .mattag.mini{margin:0 0 0 6px;font-size:10px;padding:0 6px;background:var(--accent-soft);color:var(--accent);border-color:transparent}
 .mataoov{background:rgba(10,12,8,.18)!important;display:block!important;padding:0!important;overflow:hidden!important}.mataoov .matedbox{position:fixed;overflow:auto;box-shadow:0 16px 48px rgba(0,0,0,.35);max-width:none}
-.matwed{position:fixed;inset:0;z-index:9500;background:rgba(10,12,8,.6);display:flex;align-items:stretch;justify-content:center;padding:2vh 2vw}.matwbox{background:var(--bg,#f4f6ef);border-radius:14px;width:100%;max-width:1000px;padding:14px 16px;display:flex;flex-direction:column;min-height:0}.matwtb{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0}.matwsep{width:1px;height:22px;background:var(--line)}.matwpagew{flex:1;min-height:0;overflow:auto;background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:16px}.matwpage{background:#fff;color:#111;max-width:794px;min-height:900px;margin:0 auto;padding:48px 56px;box-shadow:0 2px 12px rgba(0,0,0,.15);font:15px/1.5 Calibri,Arial,sans-serif;outline:none}.matwpage table{border-collapse:collapse;width:100%}.matwpage td,.matwpage th{border:1px solid #888;padding:4px 6px;vertical-align:top}.matwpage img{max-width:100%}
+.matwed{position:fixed;inset:0;z-index:9500;background:rgba(10,12,8,.6);display:flex;align-items:stretch;justify-content:center;padding:2vh 2vw}.matwbox{background:var(--bg,#f4f6ef);border-radius:14px;width:100%;max-width:1000px;padding:14px 16px;display:flex;flex-direction:column;min-height:0}.matwtb{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0}.matwsep{width:1px;height:22px;background:var(--line)}.matwpagew{flex:1;min-height:0;overflow:auto;background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:16px}.matwpage{background:#fff;color:#111;max-width:794px;min-height:900px;margin:0 auto;padding:48px 56px;box-shadow:0 2px 12px rgba(0,0,0,.15);font:15px/1.5 'Source Sans 3','Source Sans Pro',Calibri,Arial,sans-serif;outline:none}.matwpage table{border-collapse:collapse;width:100%}.matwpage td,.matwpage th{border:1px solid #888;padding:4px 6px;vertical-align:top}.matwpage img{max-width:100%}
 .mataows{margin-top:14px;padding:12px;border:1px solid var(--accent);border-radius:10px;background:var(--surface2)}.aoover{outline:3px solid var(--accent);outline-offset:2px}.mataot.drag{opacity:.4}
 .mataog{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;grid-auto-flow:row dense}.mataonew{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:12px;display:flex;flex-direction:column;gap:8px}.mataonew .matin{width:100%}.mataodz{border:2px dashed var(--line);border-radius:10px;padding:14px 10px;text-align:center;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;min-height:110px;justify-content:center}.mataodz:hover,.mataodz.over,.mataodz:focus{border-color:var(--accent);background:var(--accent-soft)}
 .mataop{grid-column:1/-1;border:1px solid var(--accent);border-radius:12px;padding:10px 14px;background:var(--surface2)}.mataot.on{outline:2px solid var(--accent)}
@@ -1437,7 +1442,7 @@ html:root .kmchip.matep{padding:3px 10px;font-size:12.5px;gap:4px;background:var
     async function save() {
       if (busy || !dirty) return; busy = true; sv.disabled = true; say('Wird gespeichert …');
       try {
-        const html = pg.innerHTML, r = await fetch('/api/html2docx', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dst: s.file, html }) });
+        const html = pg.innerHTML, r = await fetch('/api/html2docx', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dst: s.file, html, font: docFont() }) });
         if (!r.ok) throw new Error(((await r.json().catch(() => ({}))).error) || 'Fehler ' + r.status);
         const j = await r.json(), raw = (pg.textContent || '').replace(/\s+/g, ' ').trim(), cur = srcOf(id) || s;
         put('settings', Object.assign({}, cur, { size: j.size || cur.size, pages: raw.length >= 20 ? 1 : cur.pages }));
