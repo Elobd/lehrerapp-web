@@ -752,10 +752,10 @@ const MAT = (() => {
     if (m.ddN !== list.length) { m.ddN = list.length; setTimeout(dedupe, 600); }
     const banner = `${m.busy ? `<div class="muted sm" style="margin-bottom:8px">⏳ ${esc(m.busy)}</div>` : ''}${m.note ? `<div class="matnote ${m.note.k}" role="status"><span>${esc(m.note.t)}${/server\.js|Unbekannte API|Verbindung|Keine Verbindung/.test(m.note.t) ? ' <a href="/diagnose.html" style="color:inherit;text-decoration:underline">Diagnose öffnen</a>' : ''}</span><button data-act="matnote0" aria-label="Schließen">×</button></div>` : ''}`;
     const kinds = kindsOrdered();
-    const side = `<nav class="kmside" aria-label="Art"><div class="kmsidet">Art</div><button class="kmicon${!f.a ? ' on' : ''}" data-act="matfa" data-v="">${ico('all')}<small>Alle ${list.length}</small></button>${kinds.map(([k, n]) => `<button class="kmicon${f.a === k ? ' on' : ''}${list.some((x) => kindOf(x) === k) ? '' : ' zero'}" draggable="true" data-k="${k}" title="Ziehen zum Verschieben" data-act="matfa" data-v="${k}">${ico(k)}<small>${esc(n.split(' ')[0])} ${list.filter((x) => kindOf(x) === k).length}</small></button>`).join('')}<button class="kmicon${f.a === 'ao' ? ' on' : ''}${aoNames().length ? '' : ' zero'}" data-act="matfa" data-v="ao" title="Arbeitsaufträge: zusammengehörige Dateien">${ico('ao')}<small>Arbeitsaufträge ${aoNames().length}</small></button></nav>`;
+    const side = `<div class="kmcls"><div class="kmchips"><span class="kmchipw"><button class="kmchip${!f.a ? ' on' : ''}" data-act="matfa" data-v="">Alle ${list.length}</button></span>${kinds.map(([k, n]) => `<span class="kmchipw"><button class="kmchip${f.a === k ? ' on' : ''}${list.some((x) => kindOf(x) === k) ? '' : ' zero'}" draggable="true" data-k="${k}" title="Ziehen zum Verschieben" data-act="matfa" data-v="${k}">${esc(n.split(' ')[0])} ${list.filter((x) => kindOf(x) === k).length}</button></span>`).join('')}<span class="kmchipw"><button class="kmchip${f.a === 'ao' ? ' on' : ''}${aoNames().length ? '' : ' zero'}" data-act="matfa" data-v="ao" title="Arbeitsaufträge: zusammengehörige Dateien">Arbeitsaufträge ${aoNames().length}</button></span></div></div>`;
     const artName = f.a === 'ao' ? 'Arbeitsaufträge' : (KINDS.find(([k]) => k === f.a) || [0, 'Alle Quellen'])[1];
     const head = `<div class="kmh"><h1>Material<span class="kmsep kmh1">I</span><span class="muted" style="font-weight:500">${esc(f.e || 'Alle Epochen')}${f.a ? ' · ' + esc(artName) : ''}</span></h1></div>`;
-    return `<div class="km">${head}${banner}<div class="kmbody">${side}<section class="kmmain">${quellen()}</section></div></div>`;
+    return `<div class="km">${side}${head}${banner}<div class="kmbody kmnoside"><section class="kmmain">${quellen()}</section></div></div>`;
   }
   function metaLine(s) {
     const a = [['Autor', s.author], ['Verlag', s.publisher], ['Sprache', s.lang], ['Jahr', s.year], ['Datei', s.fileName], ['Größe', s.size ? mb(s.size) : ''], ['Seiten', s.type === 'pdf' && s.pages ? s.pages : '']].filter((x) => x[1]);
@@ -1233,9 +1233,9 @@ const MAT = (() => {
   });
   document.addEventListener('focusout', (e) => { if (e.target && e.target.classList && e.target.classList.contains('matte')) setTimeout(() => { if (M().editT) { M().editT = null; render(); } }, 120); });
   let kdrag = null;
-  const kicon = (e) => e.target && e.target.closest && e.target.closest('.kmside .kmicon[data-k], .matkindchip');
+  const kicon = (e) => e.target && e.target.closest && e.target.closest('.kmcls .kmchip[data-k], .matkindchip');
   document.addEventListener('dragstart', (e) => { const k = inView() && kicon(e); if (!k) return; kdrag = k.dataset.k; k.classList.add('drag'); try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', kdrag); } catch (x) { /* */ } });
-  document.addEventListener('dragover', (e) => { const k = kdrag && kicon(e); if (k && k.dataset.k !== kdrag) { e.preventDefault(); document.querySelectorAll('.kmicon.over,.matkindchip.over').forEach((x) => x.classList.remove('over')); k.classList.add('over'); } });
+  document.addEventListener('dragover', (e) => { const k = kdrag && kicon(e); if (k && k.dataset.k !== kdrag) { e.preventDefault(); document.querySelectorAll('.kmchip.over,.kmicon.over,.matkindchip.over').forEach((x) => x.classList.remove('over')); k.classList.add('over'); } });
   document.addEventListener('dragleave', (e) => { const k = kicon(e); if (k) k.classList.remove('over'); });
   document.addEventListener('drop', (e) => {
     const k = kdrag && kicon(e); if (!k) return; e.preventDefault(); e.stopImmediatePropagation();
