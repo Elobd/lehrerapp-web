@@ -126,6 +126,13 @@ label.f{display:grid;gap:3px;font-size:12px;color:var(--muted)}
 .ttchip{border:0;border-radius:0;background:transparent;color:#5b6068;padding:12px 20px;font:600 13px var(--font-body);cursor:pointer}.ttchip:hover{background:#e2e7ee}.ttchip.on{color:var(--accent)}.ttchip.drag{opacity:.4}.ttchip.over{outline:2px dashed var(--accent);outline-offset:-2px}
 .ttplus{border-left:1px solid #d5d9df;font-size:16px;padding:10px 18px}.ttx{border:0;background:none;color:#8a9097;cursor:pointer;font-size:16px;padding:0 10px 0 0}.ttx:hover{color:var(--bad)}
 .ttsp{flex:1}.ttact{font-weight:500;border-left:1px solid #d5d9df!important}.kmh.ttk{margin:10px 0 12px}.kmh.ttk h1{font-size:26px;margin:0}
+.ccard.nx a.cl b,.ccard.nx a.cl .sj,.ccard.nx a.cl .mt{color:var(--accent)}
+.ccard .ics .attb,.pastbox .attb{background:var(--hd-bg)!important;border-color:var(--hd-bg)!important;color:#fff!important}.ccard .ics .attb.open,.pastbox .attb.open{filter:brightness(1.15)}.attb .acnt{font-size:11px;font-weight:600;opacity:.9}
+.ccard .attl li .nm,.ccard .attl li .nm b,.ccard .thl a,.ccard .thl .tx,.ccard .thl .dc b,.ccard .thl .vs{color:#2f3338}.ccard .attt{display:flex;justify-content:space-between;gap:8px;color:#2f3338}.attt .attact{margin-left:auto;font-weight:600}
+h3.gh.dy{cursor:pointer;position:relative}h3.gh.dy .dbm{display:block;margin:0 auto 6px;opacity:.8}h3.gh.dy:hover .dbm{opacity:1}
+.dsec.closed{grid-template-columns:minmax(0,1fr)}.dsec.closed h3.gh.dy{display:flex;align-items:center;justify-content:center;gap:12px;padding:8px 12px}.dsec.closed h3.gh.dy .dbm{margin:0}.dsec.closed h3.gh.dy .di{display:flex;gap:10px;align-items:baseline}
+.npnav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 0 6px}.npbox{max-height:142px;overflow-y:auto;scrollbar-width:thin}
+.ttwrap{touch-action:pan-y}@keyframes ttin{from{transform:translateX(var(--sx,100%));opacity:.35}to{transform:none;opacity:1}}
 .ttro{pointer-events:none}.stl .stlr,.stl .stlh{padding-top:7px;padding-bottom:7px;column-gap:12px}.stl{margin-top:10px}
 @media(max-width:640px){.ttmenu{clip-path:none;box-shadow:none;margin:-4px 0 12px;overflow-x:auto;flex-wrap:nowrap}.ttchip{white-space:nowrap;padding:12px 14px}}
 
@@ -473,11 +480,11 @@ function lessonGap(slug,d){
 }
 function ttGridHtml(rows,dayMode,wkOff,fill){
   const mon=new Date();mon.setHours(12,0,0,0);mon.setDate(mon.getDate()-((mon.getDay()+6)%7)+7*wkOff);
-    const T=TIMES(),cur=wkOff===0?curLesson():null;const dm0={};if(dayMode){for(let i=0,n=0;i<10&&n<2;i++){const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()+i);const w=((d.getDay()+6)%7)+1;if(w<=5){dm0[w]=ymd(d);n++}}}else for(let w=1;w<=5;w++){const d=new Date(mon);d.setDate(mon.getDate()+w-1);dm0[w]=ymd(d)}
+    const T=TIMES(),cur=wkOff===0?curLesson():null;const dm0={};if(dayMode){for(let i=0,n=0;i<10&&n<2;i++){const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()+i+(U.pdo||0));const w=((d.getDay()+6)%7)+1;if(w<=5){dm0[w]=ymd(d);n++}}}else for(let w=1;w<=5;w++){const d=new Date(mon);d.setDate(mon.getDate()+w-1);dm0[w]=ymd(d)}
     const eff=Object.keys(dm0).flatMap(w=>rowsFor(dm0[w],rows).filter(r=>r.wd===+w)),blocks0=Object.keys(dm0).flatMap(w=>mergeRows(rowsFor(dm0[w],rows).filter(r=>r.wd===+w))),maxP=Math.max(6,...eff.map(r=>r.period),...rows.map(r=>r.period));
     let lp=0;for(let p=1;p<maxP;p++){const a=T[p],b=T[p+1];if(a&&hm(a.bis)!=null&&hm(a.bis)<=13*60+45&&hm(a.bis)>=13*60+30&&(!b||hm(b.von)>=14*60+15)){lp=p;break}}
     const dmap={},cols=[];
-    if(dayMode){for(let i=0;i<10&&cols.length<2;i++){const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()+i);const w=((d.getDay()+6)%7)+1;if(w<=5){cols.push(w);dmap[w]=ymd(d)}}}
+    if(dayMode){for(let i=0;i<10&&cols.length<2;i++){const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()+i+(U.pdo||0));const w=((d.getDay()+6)%7)+1;if(w<=5){cols.push(w);dmap[w]=ymd(d)}}}
     else for(let w=1;w<=5;w++){const d=new Date(mon);d.setDate(mon.getDate()+w-1);cols.push(w);dmap[w]=ymd(d)}
     const C=w=>cols.indexOf(+w)+2,isTd=w=>dmap[w]===TODAY,hol={};cols.forEach(w=>{const n=holFor(dmap[w]);if(n)hol[w]=n});
     const blocks=blocks0.filter(m=>!hol[m.wd]&&cols.includes(m.wd));
@@ -501,6 +508,7 @@ function ttGridHtml(rows,dayMode,wkOff,fill){
 }
 
 /* Stundenplan: Woche (bis Freitag 15 Uhr die aktuelle, danach die nächste) und Menü mit meiner Klasse und Lehrpersonen */
+function stepWd(off,dir){const d=new Date();d.setHours(12,0,0,0);let o=off;do{o+=dir;d.setTime(new Date().setHours(12,0,0,0));d.setDate(d.getDate()+o)}while(((d.getDay()+6)%7)+1>5);return o}
 function wkDef(){const n=new Date(),d=n.getDay(),m=n.getHours()*60+n.getMinutes();return (d===5&&m>=15*60)||d===6||d===0?1:0}
 function wkNow(){return typeof U.wk==='number'?U.wk:wkDef()}
 const TT_DEF=['Glaser','Stummvoll','Meier','Bayer','Hofmann'];
@@ -521,8 +529,11 @@ function ttOther(t){
   return h+`<div class="ttro">${ttGridHtml(rows,false,wkOff)}</div></section>`;
 }
 (()=>{let t0=null;
-  document.addEventListener('touchstart',ev=>{const w=ev.target.closest&&ev.target.closest('.ttwrap');if(!w||window.innerWidth>900){t0=null;return}const t=ev.touches[0];t0={x:t.clientX,y:t.clientY}},{passive:true});
-  document.addEventListener('touchend',ev=>{if(!t0)return;const t=ev.changedTouches[0],dx=t.clientX-t0.x,dy=t.clientY-t0.y;t0=null;if(Math.abs(dx)<60||Math.abs(dx)<Math.abs(dy)*1.5)return;if(dx<0)A.wknext();else A.wkprev()},{passive:true});
+  document.addEventListener('touchstart',ev=>{const w=ev.target.closest&&ev.target.closest('.ttwrap');if(!w||window.innerWidth>900){t0=null;return}const t=ev.touches[0];t0={x:t.clientX,y:t.clientY,w,drag:false}},{passive:true});
+  document.addEventListener('touchmove',ev=>{if(!t0)return;const t=ev.touches[0],dx=t.clientX-t0.x,dy=t.clientY-t0.y;if(!t0.drag){if(Math.abs(dx)>12&&Math.abs(dx)>Math.abs(dy)*1.5)t0.drag=true;else return}t0.w.style.transition='none';t0.w.style.transform='translateX('+Math.round(dx*.8)+'px)';t0.w.style.opacity=String(Math.max(.4,1-Math.abs(dx)/500))},{passive:true});
+  document.addEventListener('touchend',ev=>{if(!t0)return;const t=ev.changedTouches[0],dx=t.clientX-t0.x,dy=t.clientY-t0.y,w=t0.w;t0=null;
+    if(Math.abs(dx)<70||Math.abs(dx)<Math.abs(dy)*1.5){w.style.transition='transform .2s,opacity .2s';w.style.transform='';w.style.opacity='';return}
+    U.slide=dx<0?'l':'r';if(dx<0)A.wknext();else A.wkprev()},{passive:true});
   let dr=null;
   document.addEventListener('dragstart',ev=>{const c=ev.target.closest&&ev.target.closest('.ttchip[draggable="true"]');if(!c)return;dr=c.dataset.id;try{ev.dataTransfer.effectAllowed='move';ev.dataTransfer.setData('text/plain',dr)}catch(e){}c.classList.add('drag')});
   document.addEventListener('dragover',ev=>{const c=ev.target.closest&&ev.target.closest('.ttchip[draggable="true"]');if(c&&dr&&c.dataset.id!==dr){ev.preventDefault();c.classList.add('over')}});
@@ -610,7 +621,7 @@ function lessonStatus(G,o,run){
   const tl=iopen?logOf(cinfoV(G.slug)).filter(x=>x.text&&String(x.text).trim()&&x.date<=o.date&&x.date!==o.date):[];
   const panel2=iopen?`<div class="attp inhp">${`<ul class="thl">${`<li class="thh"><div class="le thh2">Vergangene Einheiten</div></li>`}${tl.map(x=>`<li><a href="#stunde-${G.slug}--${esc(x.id)}" data-act="go" data-v="stunde-${G.slug}--${esc(x.id)}"><span class="dc"><b>${dwd(x.date)}</b><span class="vs">|</span></span><span class="tx">${esc(x.text)}</span></a></li>`).join('')}</ul>`}</div>`:'';
   const AS=open?attStats(G):null;
-  const panel=open?`<div class="attp"><div class="attt">Bisherige Einheiten: <b>${AS.total}</b>${AS.chk?` <small>(${AS.chk} kontrolliert)</small>`:''}</div><ul class="attl">${stu.map((x,i)=>{const a=ab.has(x.id),pv=!a&&pa.has(x.id);return `<li class="${a?'ab':''}"><span class="n">${i+1}</span><span class="nm"><b>${esc(x.nn)}</b> ${esc(x.vn)}${multi?` <small>${esc(x.kl)}</small>`:''}</span>${(()=>{const q=AS.pct(x);return q?`<span class="pcs"><i class="ak">${q[0]}%</i>${subjKind(G.subject)==='gpb'?'':`<i class="pa">${q[1]}%</i>`}<i class="ab">${q[2]}%</i></span>`:''})()}<button type="button" class="btn sm ${a?'abs':pv?'pas':'pres'}" data-act="stcyc" data-slug="${G.slug}" data-id="${esc(e.id)}" data-sid="${esc(x.id)}">${a?'abwesend':pv?'passiv':'anwesend'}</button></li>`}).join('')}</ul><button type="button" class="btn sm attc${e.chk?' on':''}" data-act="stchk" data-slug="${G.slug}" data-id="${esc(e.id)}">${e.chk?'✓ Anwesenheit kontrolliert':'Anwesenheit kontrolliert'}</button></div>`:'';
+  const panel=open?`<div class="attp"><div class="attt"><span>Bisherige Einheiten: <b>${AS.total}</b>${AS.chk?` <small>(${AS.chk} kontrolliert)</small>`:''}</span>${subjKind(G.subject)==='bspk'?`<span class="attact">aktiv: <b>${stu.filter(x=>!ab.has(x.id)&&!pa.has(x.id)).length}</b></span>`:''}</div><ul class="attl">${stu.map((x,i)=>{const a=ab.has(x.id),pv=!a&&pa.has(x.id);return `<li class="${a?'ab':''}"><span class="n">${i+1}</span><span class="nm"><b>${esc(x.nn)}</b> ${esc(x.vn)}${multi?` <small>${esc(x.kl)}</small>`:''}</span>${(()=>{const q=AS.pct(x);return q?`<span class="pcs"><i class="ak">${q[0]}%</i>${subjKind(G.subject)==='gpb'?'':`<i class="pa">${q[1]}%</i>`}<i class="ab">${q[2]}%</i></span>`:''})()}<button type="button" class="btn sm ${a?'abs':pv?'pas':'pres'}" data-act="stcyc" data-slug="${G.slug}" data-id="${esc(e.id)}" data-sid="${esc(x.id)}">${a?'abwesend':pv?'passiv':'anwesend'}</button></li>`}).join('')}</ul><button type="button" class="btn sm attc${e.chk?' on':''}" data-act="stchk" data-slug="${G.slug}" data-id="${esc(e.id)}">${e.chk?'✓ Anwesenheit kontrolliert':'Anwesenheit kontrolliert'}</button></div>`:'';
   const icons=today?`<span class="ic ${attOk?'ok':'no'}" title="${attOk?'Anwesenheit kontrolliert':'Anwesenheit fehlt'}">${IC_HEAD}</span><span class="ic ${inhOk?'ok':'no'}" title="${inhOk?'Stundeninhalt eingetragen':'Stundeninhalt fehlt'}">${IC_PAD}</span>`:'';
   return {thema,ics:`<div class="ics${today&&attOk&&inhOk?' all':''}">${btn}${btn2}${icons}</div>${panel}${panel2}`}}
 function attStats(G){
@@ -632,7 +643,7 @@ function klassenView(){
   const gs=groups();
   if(!gs.length)return `<section class="card"><div class="hd"><h2>Klassen</h2></div><p class="muted">Klassen werden aus deinem Stundenplan angelegt. Sobald dieser vorhanden ist, erscheinen sie hier.</p></section>`;
   gs.forEach(G=>{G.nl=nextLesson(G)});
-  const mode=U.csort==='fach'?'fach':'next';
+  const mode=U.csort==='fach'?'fach':'next';let nxO=null;
   const card=(G,o)=>{
     if(G.sprech){const sp=mode==='next'&&o&&o.date===TODAY&&!o.past&&o.von&&o.bis,srun=sp&&(()=>{const n=new Date(),t=n.getHours()*60+n.getMinutes();return t>=hm(o.von)&&t<hm(o.bis)})();
       const sprg=sp?`<div class="prg" data-von="${esc(o.von)}" data-bis="${esc(o.bis)}"><i></i></div><span class="cdm" hidden><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg><b></b></span>`:'';
@@ -642,7 +653,7 @@ function klassenView(){
     const prg=mode==='next'&&nl&&nl.date===TODAY&&!nl.past&&nl.von&&nl.bis?`<div class="prg" data-von="${esc(nl.von)}" data-bis="${esc(nl.bis)}"><i></i></div><span class="cdm" hidden><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg><b></b></span>${subjKind(G.subject)==='bspk'?`<span class="cdm y" hidden><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg><b></b></span>`:''}`:'';
     const run=prg&&(()=>{const n=new Date(),t=n.getHours()*60+n.getMinutes();return t>=hm(nl.von)&&t<hm(nl.bis)})();
     const LS=lessonStatus(G,o,run);
-    return `<div class="ccard${run?' cur':''}" style="border-left-color:${kindColor(G)}">${prg}<a class="cl" href="#klasse-${G.slug}" data-act="go" data-v="klasse-${G.slug}" title="Zur Klasseninfo"><b>${LB(G)}</b><div class="sj">${esc(G.subject)}</div>${info.length?`<div class="mt">${info.join('<br>')}</div>`:''}</a>${LS.thema}${lg.length||tdy?`<div class="lg">${tdy?todayRow(G,o):''}${lg.map(e=>`<a class="le" href="#stunde-${G.slug}--${esc(e.id)}" data-act="go" data-v="stunde-${G.slug}--${esc(e.id)}"><span class="dc"><b>${dwd(e.date)}</b><span class="vs">|</span></span><span class="tx">${esc(e.text)}</span></a>`).join('')}</div>`:''}${mode==='next'&&ot.length?`<a class="nt" href="#klasse-${G.slug}" data-act="go" data-v="klasse-${G.slug}"><b>Nächster Test:</b> ${dshort(ot[0].date)}${ot[0].title?' · '+esc(ot[0].title):''}</a>`:''}${LS.ics}</div>`};
+    return `<div class="ccard${run?' cur':''}${o&&o===nxO?' nx':''}" style="border-left-color:${kindColor(G)}">${prg}<a class="cl" href="#klasse-${G.slug}" data-act="go" data-v="klasse-${G.slug}" title="Zur Klasseninfo"><b>${LB(G)}</b><div class="sj">${esc(G.subject)}</div>${info.length?`<div class="mt">${info.join('<br>')}</div>`:''}</a>${LS.thema}${lg.length||tdy?`<div class="lg">${tdy?todayRow(G,o):''}${lg.map(e=>`<a class="le" href="#stunde-${G.slug}--${esc(e.id)}" data-act="go" data-v="stunde-${G.slug}--${esc(e.id)}"><span class="dc"><b>${dwd(e.date)}</b><span class="vs">|</span></span><span class="tx">${esc(e.text)}</span></a>`).join('')}</div>`:''}${mode==='next'&&ot.length?`<a class="nt" href="#klasse-${G.slug}" data-act="go" data-v="klasse-${G.slug}"><b>Nächster Test:</b> ${dshort(ot[0].date)}${ot[0].title?' · '+esc(ot[0].title):''}</a>`:''}${LS.ics}</div>`};
   let body='';
   if(mode==='next'){
     const spR=ttRows().filter(r=>r.cls===SPR),spG=spR.length?{slug:'sprechstunde',label:'Sprechstunde',subject:'S',classes:[],rows:spR,sprech:true}:null;
@@ -651,19 +662,19 @@ function klassenView(){
       gs.concat(spG?[spG]:[]).forEach(G=>mergeRows(G.rows).filter(b=>b.wd===wd).forEach(b=>{const key=G.slug+'|'+b.wd+'|'+b.p1;if(seen.has(key))return;
         const a=T[b.p1],z=T[b.p2],von=a&&a.von||'',bis=z&&z.bis||'';if(i===0&&bis&&hm(bis)<=nowM){if(lastEnd==null||hm(bis)>hm(lastEnd))lastEnd=bis;seen.add(key);past.push({G,date:ds,von,bis,room:b.room,p1:b.p1,p2:b.p2,past:true});return}
         seen.add(key);occ.push({G,date:ds,von,bis,room:b.room,p1:b.p1,p2:b.p2})}))}
-    occ.sort((a,b)=>a.date.localeCompare(b.date)||(a.von||'99').localeCompare(b.von||'99')||a.G.label.localeCompare(b.G.label));
+    occ.sort((a,b)=>a.date.localeCompare(b.date)||(a.von||'99').localeCompare(b.von||'99')||a.G.label.localeCompare(b.G.label));nxO=occ[0]||null;
     const days=[];occ.forEach(o=>{let d=days.find(x=>x.k===o.date);if(!d)days.push(d={k:o.date,list:[]});d.list.push(o)});
     past.sort((a,b)=>(a.von||'').localeCompare(b.von||'')||a.G.label.localeCompare(b.G.label));
     if(past.length&&!days.some(x=>x.k===TODAY))days.unshift({k:TODAY,list:[]});
     body=days.map(d=>{const df=dayDiff(d.k),pd=parse(d.k),nm=df===0?'Heute':df===1?'Morgen':WDL[pd.getDay()],dt=pad(pd.getDate())+'.'+pad(pd.getMonth()+1)+'.';
-      return `<div class="dsec"><h3 class="gh dy${df===0?' td':''}"><div class="di"><div class="dn">${nm}</div><div class="dd">${dt}</div>${df>1?`<div class="dh">in ${df} Tagen</div>`:''}</div></h3><div class="cgrid">${d.k===TODAY?pastBox(past,card):''}${(d.k===TODAY&&lastEnd?brkHtml({bis:lastEnd},d.list[0],d.k):'')}${d.list.map((o,i)=>card(o.G,o)+brkHtml(o,d.list[i+1],d.k)).join('')}</div></div>`}).join('')||'<p class="muted">Keine kommenden Stunden gefunden.</p>';
+      const cl=U.dayShut&&U.dayShut[d.k];return `<div class="dsec${cl?' closed':''}"><h3 class="gh dy${df===0?' td':''}" data-act="daytog" data-d="${d.k}" role="button" tabindex="0" aria-expanded="${!cl}" title="Tag ein- oder ausklappen"><span class="dbm" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></span><div class="di"><div class="dn">${nm}</div><div class="dd">${dt}</div>${df>1?`<div class="dh">in ${df} Tagen</div>`:''}</div></h3>${cl?'':`<div class="cgrid">${d.k===TODAY?pastBox(past,card):''}${(d.k===TODAY&&lastEnd?brkHtml({bis:lastEnd},d.list[0],d.k):'')}${d.list.map((o,i)=>card(o.G,o)+brkHtml(o,d.list[i+1],d.k)).join('')}</div>`}</div>`}).join('')||'<p class="muted">Keine kommenden Stunden gefunden.</p>';
   }else{
     const rank=G=>{const k=subjKind(G.subject);return k==='gpb'?0:k==='bspk'?1:2};
     gs.sort((a,b)=>rank(a)-rank(b)||a.subject.localeCompare(b.subject)||a.label.localeCompare(b.label,'de',{numeric:true}));
     const bl=[];gs.forEach(G=>{const k=rank(G)<2?(rank(G)?'BSPK':'GPB'):G.subject||'Sonstige';let b=bl.find(x=>x.k===k);if(!b)bl.push(b={k,list:[]});b.list.push(G)});
     body=bl.map(b=>`<h3 class="gh">${esc(b.k)}</h3><div class="cgrid">${b.list.map(G=>card(G)).join('')}</div>`).join('');
   }
-  if(mode==='next'&&ttRows().length)body=`<div class="nsplit"><div style="min-width:0">${body}</div><aside class="nplan"><h3 class="gh" style="margin-top:4px">Heute &amp; nächster Tag</h3>${ttGridHtml(ttRows(),true,0,true)}</aside></div>`;
+  if(mode==='next'&&ttRows().length)body=`<div class="nsplit"><div style="min-width:0">${body}</div><aside class="nplan"><div class="npnav"><button class="btn sm" data-act="npprev" aria-label="Vorige Tage">‹</button><h3 class="gh" style="margin:0">${U.pdo?'Stundenplan':'Heute &amp; nächster Tag'}</h3><button class="btn sm" data-act="npnext" aria-label="Nächste Tage">›</button></div><div class="npbox">${ttGridHtml(ttRows(),true,0,false)}</div></aside></div>`;
   return `<section class="card${mode==='fach'?'':' nohd'}">${mode==='fach'?`<div class="hd"><h2>Klassenmappen</h2></div>`:''}${body}</section>`;
 }
 /* Tage, an denen diese Klasse Unterricht hat (Regelplan, ohne Ferien/Feiertage) */
@@ -1094,6 +1105,8 @@ function render(){
   Object.keys(keep).forEach(id=>{const el=document.getElementById(id);if(el&&el.type!=='hidden'&&!el.value)el.value=keep[id]});
   applyFb();
   placeLine();
+  try{const nb=document.querySelector('.npbox');if(nb){const b=nb.querySelector('.blk');if(b)nb.scrollTop=Math.max(0,b.offsetTop-nb.offsetTop-34)}}catch(e){}
+  if(U.slide){const w=document.querySelector('.ttwrap');if(w){w.style.setProperty('--sx',U.slide==='l'?'100%':'-100%');w.style.animation='ttin .28s ease-out'}U.slide=null}
 }
 
 /* Überschriftsbalken über die volle Breite (nur Karten in voller Breite) */
@@ -1225,6 +1238,9 @@ const A={
   wknext:()=>{U.wk=wkNow()+1;render()},
   wktoday:()=>{U.wk=undefined;render()},
   ttsel:e=>{U.ttTab=e.dataset.id;render()},
+  daytog:e=>{U.dayShut=Object.assign({},U.dayShut);U.dayShut[e.dataset.d]=!U.dayShut[e.dataset.d];render()},
+  npprev:()=>{U.pdo=stepWd(U.pdo||0,-1);render()},
+  npnext:()=>{U.pdo=stepWd(U.pdo||0,1);render()},
   ttedit:()=>{U.ttEdit=!U.ttEdit;render()},
   ttadd:()=>{const n=(prompt('Name der Lehrperson oder Klasse:')||'').trim();if(!n)return;const l=ttTeachers().concat([{id:'t'+Date.now().toString(36),name:n}]);put('settings',{id:'ttteach',list:l});U.ttTab=l[l.length-1].id},
   ttdel:e=>{const t=ttTeachers().find(x=>x.id===e.dataset.id);if(!t||!confirm(t.name+' aus dem Menü entfernen?'))return;put('settings',{id:'ttteach',list:ttTeachers().filter(x=>x.id!==t.id)});U.ttTab='me'},
@@ -1240,9 +1256,9 @@ const A={
   prnfs:e=>{const k=e.dataset.slug;prnSync(k);U.prn[k].fs=+e.dataset.fs;render()},
   pastopen:e=>{U.pastOpen=!U.pastOpen;render()},
   inhopen:e=>{const slug=e.dataset.slug,d=e.dataset.d;if(U.inhOpen===slug+'|'+d){U.inhOpen=null;return render()}
-    const ci=cinfo(slug);if(!(ci.log||[]).some(x=>x.date===d))saveLog(slug,log=>log.push({id:uid('l'),date:d,text:''}));U.inhOpen=slug+'|'+d;render()},
+    const ci=cinfo(slug);if(!(ci.log||[]).some(x=>x.date===d))saveLog(slug,log=>log.push({id:uid('l'),date:d,text:''}));U.attOpen=null;U.inhOpen=slug+'|'+d;render()},
   attopen:e=>{const slug=e.dataset.slug,d=e.dataset.d;if(U.attOpen===slug+'|'+d){U.attOpen=null;return render()}
-    const ci=cinfo(slug);if(!(ci.log||[]).some(x=>x.date===d))saveLog(slug,log=>log.push({id:uid('l'),date:d,text:''}));U.attOpen=slug+'|'+d;render()},
+    const ci=cinfo(slug);if(!(ci.log||[]).some(x=>x.date===d))saveLog(slug,log=>log.push({id:uid('l'),date:d,text:''}));U.inhOpen=null;U.attOpen=slug+'|'+d;render()},
   stcyc:e=>{saveLog(e.dataset.slug,log=>{const x=log.find(y=>y.id===e.dataset.id);if(!x)return;const sid=e.dataset.sid,ab=new Set(Array.isArray(x.abs)?x.abs:[]),pa=new Set(Array.isArray(x.pas)?x.pas:[]);
       if(ab.has(sid)){ab.delete(sid);pa.add(sid)}else if(pa.has(sid)){pa.delete(sid)}else{ab.add(sid)}
       x.abs=[...ab];x.pas=[...pa];x.chk=true});render()},
