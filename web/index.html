@@ -154,6 +154,10 @@ h3.gh.dy{cursor:pointer;position:relative}h3.gh.dy .dbm{display:block;margin:0 a
 .ccard .attp{background:var(--surface2);border-color:var(--line)}
 .ccard .attt,.ccard .attt b,.ccard .attt small,.ccard .attl li .nm,.ccard .attl li .nm b,.ccard .attl li .nm small,.ccard .attl li .n,.ccard .thh2,.ccard .inhp .thl .dc b,.ccard .inhp .thl .vs{color:var(--ink)!important}
 .npcard .wk .cell,.npcard .wk .pn{min-height:46px}
+.lfehl,.lfehl b,.lfl{color:#aab0b9!important;font-weight:500}.lfehl b{font-weight:600}.lfsep{margin:0 .35em;opacity:.7;font-size:1.1em}
+.sovl{display:flex;flex-wrap:wrap;align-items:center;margin:0 0 14px;font-size:13px}.sovi{background:none;border:0;color:var(--ink);padding:2px 9px;cursor:pointer;font:600 13px var(--font-body)}.sovi:first-child{padding-left:0}.sovi:hover{color:var(--accent)}.sovi.on{color:var(--accent)}.sovs{color:var(--muted);opacity:.6}
+.kmthin{display:block;width:100%;box-sizing:border-box;background:transparent;border:0;border-bottom:1px dashed transparent;padding:2px 0;margin:2px 0 6px;font:700 16px var(--font-body);color:#f0c030}.kmthin::placeholder{color:var(--bad);font-weight:700}.kmthin:hover{border-bottom-color:var(--line)}.kmthin:focus{outline:none;border-bottom-color:var(--accent)}
+.ccard .attp,.ccard .attp .attl,.ccard .attp .thl{color:var(--ink)}.ccard .attp{background:var(--surface);border:1px solid var(--line);box-shadow:0 2px 8px rgba(0,0,0,.08)}.ccard .attl li{border-bottom-color:var(--line)}
 .ttro{pointer-events:none}.stl .stlr,.stl .stlh{padding-top:7px;padding-bottom:7px;column-gap:12px}.stl{margin-top:10px}
 @media(max-width:640px){.ttmenu{clip-path:none;box-shadow:none;margin:-4px 0 12px;overflow-x:auto;flex-wrap:nowrap}.ttchip{white-space:nowrap;padding:12px 14px}}
 
@@ -542,7 +546,7 @@ function ttPage(){
   const ICH='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:middle"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>';
   const chip=(id,name,drag)=>`<span class="ttchipw"><button class="ttchip${id===tab?' on':''}" data-act="ttsel" data-id="${id}" ${id==='me'?'title="Mein Stundenplan" aria-label="Mein Stundenplan"':''} ${drag&&U.ttEdit?'draggable="true" title="Ziehen zum Verschieben"':''}>${id==='me'?ICH:esc(name)}</button></span>`;
   const menu=`<div class="ttmenu">${chip('me',ttMyLabel(),false)}${ttTeachers().map(t=>chip(t.id,t.name,true)).join('')}${U.ttEdit?`<button class="ttchip ttplus" data-act="ttadd" title="Lehrperson oder Klasse hinzufügen" aria-label="Hinzufügen">+</button>`:''}<span class="ttsp"></span><button class="ttchip ttact${U.ttEdit?' on':''}" data-act="ttedit" title="Menü bearbeiten: Reihenfolge ändern, Person hinzufügen">${U.ttEdit?'Fertig':'Bearbeiten'}</button></div>
-  <div class="kmh ttk"><h1>Stundenplan<span class="kmsep kmh1">I</span><span class="muted" style="font-weight:500">${esc(tab==='me'?ttMyLabel():(ttTeachers().find(t=>t.id===tab)||{}).name||'')}</span></h1></div>`;
+  <div class="kmh ttk"><h1>Stundenplan<span class="kmsep kmh1">I</span><span class="muted" style="font-weight:500">${tab==='me'?ICH.replace('width="18" height="18"','width="22" height="22"'):esc((ttTeachers().find(t=>t.id===tab)||{}).name||'')}</span></h1></div>`;
   return `<div style="grid-column:1/-1">${menu}<div class="ttclip"><div class="ttwrap">${tab==='me'?ttCard():ttOther(ttTeachers().find(t=>t.id===tab))}</div></div></div>`;
 }
 function ttOther(t){
@@ -774,7 +778,7 @@ const holLabel=(n,d)=>{if(autoList().some(a=>d>=a.from&&d<=(a.to||a.from)))retur
 function logAllBtn(G,ci){const n=logRows(G,ci).length;return n>5?`<button class="btn sm lall" data-act="logall" data-slug="${G.slug}">${U.logAll===G.slug?'Nur die letzten 5 zeigen':'Alle einblenden ('+n+')'}</button>`:''}
 function logListHtml(G,ci){
   const all=logRows(G,ci),shown=all,ml=(typeof MAT!=='undefined'&&MAT.list)?new Map(MAT.list().map(m=>[m.id,m])):new Map();
-  const stMap=new Map((Array.isArray(ci.students)?ci.students:[]).map(x=>[x.id,x])),fehlH=e=>{const n=(Array.isArray(e.abs)?e.abs:[]).map(id=>stMap.get(id)).filter(Boolean).map(x=>`<a class="lfl" href="#schueler-${G.slug}--${esc(x.id)}" data-act="kmstu" data-slug="${G.slug}" data-id="${esc(x.id)}" title="Profil öffnen">${esc(x.nn)} ${esc(x.vn)}</a>`);return n.length?`<span class="lfehl" title="An diesem Tag gefehlt"><b>Fehlende Schüler:</b> ${n.join('&nbsp;&nbsp;')}</span>`:''};
+  const stMap=new Map((Array.isArray(ci.students)?ci.students:[]).map(x=>[x.id,x])),fehlH=e=>{const n=(Array.isArray(e.abs)?e.abs:[]).map(id=>stMap.get(id)).filter(Boolean).map(x=>`<a class="lfl" href="#schueler-${G.slug}--${esc(x.id)}" data-act="kmstu" data-slug="${G.slug}" data-id="${esc(x.id)}" title="Profil öffnen">${esc(x.nn)} ${esc(x.vn)}</a>`);return n.length?`<span class="lfehl" title="An diesem Tag gefehlt"><b>Fehlende Schüler:</b> ${n.join(' <span class="lfsep">I</span> ')}</span>`:''};
   const matChips=e=>{const ids=Array.isArray(e.mats)?e.mats:[],sm=new Set(Array.isArray(e.smats)?e.smats:[]);return ids.map(id=>ml.get(id)).filter(Boolean).map(m=>`<button class="lmchip${sm.has(m.id)?' st':''}" data-act="matpop" data-id="${esc(m.id)}" title="Öffnen: ${esc(m.title)} (${esc(m.kindLabel)})${sm.has(m.id)?' · auch Schülermaterial':''}"><span class="lmth">${m.thumb}</span><span class="lmt">${esc(m.title)}</span></button>`).join('')};
   if(!all.length)return '<p class="muted" style="margin:6px 0 0">Noch keine Unterrichtstage im Stundenplan. Das Datum ergibt sich automatisch aus dem Stundenplan.</p>';
   const rowH=r=>{const d=r.d,e=r.e;
@@ -1342,6 +1346,7 @@ document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&U.dp){U.dp=null;r
 let planT=null;document.addEventListener('input',ev=>{const t=ev.target;if(t&&t.id==='lgf-p'){clearTimeout(planT);planT=setTimeout(()=>C.lgfield(t),700)}});
 document.addEventListener('toggle',ev=>{const t0=ev.target;if(t0&&t0.dataset&&t0.dataset.so){U.setOpen=Object.assign({},U.setOpen);U.setOpen[t0.dataset.so]=t0.open;return}if(t0&&t0.dataset&&t0.dataset.gk){U.jpo=U.jpo||{};U.jpo[t0.dataset.gk]=t0.open;return}
   const t=ev.target;if(t&&t.classList&&t.classList.contains('auto'))U.autoOpen=t.open},true);
+document.addEventListener('keydown',ev=>{if(ev.key!=='Enter'||ev.defaultPrevented||ev.isComposing)return;const t=ev.target;if(!t||t.tagName!=='INPUT')return;if(!/^(text|search|number|)$/.test(t.type||''))return;if(t.id==='dtt'||t.id==='an'||t.id==='matq'||t.id==='matfq')return;if(t.dataset&&(t.dataset.ch||t.classList.contains('lti')))t.blur()});
 document.addEventListener('click',ev=>{const e=ev.target.closest('[data-act]');if(e&&A[e.dataset.act]&&!e.disabled){if(e.tagName==='A')ev.preventDefault();A[e.dataset.act](e)}});
 document.addEventListener('change',ev=>{const e=ev.target;if(e.dataset&&e.dataset.ch&&C[e.dataset.ch])C[e.dataset.ch](e)});
 

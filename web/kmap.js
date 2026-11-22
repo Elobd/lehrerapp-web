@@ -471,7 +471,7 @@ const KM = (() => {
     const ORDW = ['Erster','Zweiter','Dritter','Vierter','Fünfter','Sechster','Siebter','Achter'], tOnly = grpTests(G).filter((t) => t.status === 'geplant' && t.date >= TODAY && TTEST.includes(t.kind)).slice(0, 8);
     const leistCard = !(kd === 'gpb' || /cs$/i.test(c.label)) ? '' : `<div class="card"><h2>Leistungserfassung</h2>${tOnly.length ? tOnly.map((t, i) => `<div class="kmli"><b>${i < ORDW.length ? ORDW[i] : (i + 1) + '.'} Test</b></div>`).join('') : '<div class="muted sm">Keine geplanten Tests</div>'}<a class="kmmore" href="#klasse-${G.slug}" data-act="kmtests" data-slug="${G.slug}">Zur Leistungserfassung ›</a></div>`;
     let cards = `<div class="kmgrid">
-      <div class="kmstack"><div class="card"><h2>Nächste Stunde</h2>${nl ? `<div class="kmbig" style="font-size:20px;color:var(--accent)">${esc(dshort(nl.date))}</div><div class="muted">${nl.von ? esc(nl.von) + (nl.bis ? '–' + esc(nl.bis) : '') : ''}${nl.room ? (nl.von ? '<span class="kmsep">I</span>' : '') + esc(nl.room) : ''}</div>${prepBtn(G, nl)}` : '<div class="muted sm">Keine kommende Stunde</div>'}</div>${leistCard}</div>
+      <div class="kmstack"><div class="card"><h2>Nächste Stunde</h2>${nl ? `<div class="kmbig" style="font-size:20px;color:var(--accent)">${esc(dshort(nl.date))}</div>${(() => { const le = (ci.log || []).find((x) => x.date === nl.date && x.text && String(x.text).trim()) || (ci.log || []).find((x) => x.date === nl.date); return `<input class="kmthin" data-ch="thmin" data-slug="${G.slug}" data-d="${nl.date}" value="${esc(le && le.text ? le.text : '')}" placeholder="Thema der Stunde eintragen" autocomplete="off" aria-label="Thema der Stunde">`; })()}<div class="muted">${nl.von ? esc(nl.von) + (nl.bis ? '–' + esc(nl.bis) : '') : ''}${nl.room ? (nl.von ? '<span class="kmsep">I</span>' : '') + esc(nl.room) : ''}</div>${prepBtn(G, nl)}` : '<div class="muted sm">Keine kommende Stunde</div>'}</div>${leistCard}</div>
       <div class="card"><h2>Letzte Stundeninhalte</h2>${lg.length ? lg.map((e) => `<div class="kmli"><a href="#stunde-${G.slug}--${esc(e.id)}" data-act="kmlpop" data-slug="${G.slug}" data-id="${esc(e.id)}"><b class="kmdt">${esc(dshort(e.date))}</b> ${esc(e.text)}</a></div>`).join('') : '<div class="muted sm">Noch kein Stoff eingetragen</div>'}<a class="kmmore" href="#klasse-${G.slug}" data-act="clspop" data-slug="${G.slug}">Stundenübersicht ›</a></div>
       ${kd === 'gpb' ? '' : sportRisk(G, all)}
     </div>`;
@@ -852,6 +852,7 @@ html{overflow-y:scroll;scrollbar-gutter:stable}
 .ttchip{padding:12px 9px!important}.ttchipw:first-child .ttchip{padding-left:14px!important}
 .kmtable .kmno,.kmtable .kmth>span:first-child{text-align:left!important}.kmtable .kmrow{padding-left:2px}.kmsortc{cursor:pointer}.kmsortc:hover{color:var(--accent)}
 .lspopb{background:var(--bg)}.kmpchip.on{background:transparent!important;color:var(--accent)!important}.kmpchip:hover{background:#e2e7ee}
+.lsc-letzt>.card,.lsc>.card{display:flex;flex-direction:column}.lsc>.card>a.kmmore{margin-top:auto!important;padding-top:10px}
 .kmbody.kmnoside{grid-template-columns:minmax(0,1fr)}
 .kmsubl{margin-top:6px;font-size:14px;color:var(--ink)}.kmsubl .kmsep{margin:0 .8em}.kmpen{margin-left:8px}.kmkvedit{margin-top:8px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}.kmkvedit .kminp{max-width:300px}
 .kmphwide{margin-top:14px}.kmphwide .card{width:100%}
@@ -1205,7 +1206,8 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
   });
 
   /* Popup „Stundenübersicht“ mit Klassenwahl; die Ansicht dahinter bleibt */
-  function clsPopHtml() {
+  function clsPopHtml() { return ''; }
+  function clsPopHtml_old() {
     const sl = U.cpop; if (!sl) return ''; const G = groups().find((g) => g.slug === sl); if (!G) return '';
     const cur = classes().find((k) => k.groups.some((g) => g.slug === G.slug) && k.kd === kind(G)), ci = cinfoV(G.slug);
     const chips = sorted().map((x) => { const g = primary(x.kd === 'gpb' ? x.gpb : x.bspk); return `<button class="kmpchip${g.slug === G.slug ? ' on' : ''}" data-act="clspopsel" data-slug="${g.slug}">${disp(x)} ${kdName(x)}</button>`; }).join('');
@@ -1224,7 +1226,7 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
     const c = classes().find((k) => k.groups.some((g) => g.slug === G.slug)), kd = kind(G), back = c ? route(c.key, kd === 'gpb' ? 'g' : kd === 'bspk' ? 's' : 'i') : 'klassen', ci = cinfoV(G.slug), tot = cTotal(ci);
     const tab = clsState()[slug] === 't' ? 't' : 's', nl = nextLesson(G), tests = grpTests(G), note = ci.notes || '';
     const side = Object.keys(CTABS).map((t) => `<button class="kmicon${t === tab ? ' on' : ''}" data-act="clstab" data-slug="${G.slug}" data-t="${t}" title="${CTABS[t]}" aria-label="${CTABS[t]}">${svg(CICON[t], 26)}<small>${CTABS[t]}</small></button>`).join('');
-    const head = `<div class="kmh">${backLink(back, c ? 'Klassenmappe ' + esc(c.label) : 'Klassenmappe', 'margin:0 0 6px')}<h1>Stundenübersicht<span class="kmsep kmh1">I</span><span class="muted" style="font-weight:500">${c ? 'Klasse ' + disp(c) : esc(G.label)} · ${SUBJ[kd] || esc(G.subject)}</span></h1></div>`;
+    const head = `<div class="kmh" style="margin-top:12px"><h1>Stundenübersicht<span class="kmsep kmh1">I</span><span class="muted" style="font-weight:500">${c ? 'Klasse ' + disp(c) : esc(G.label)} · ${SUBJ[kd] || esc(G.subject)}</span></h1></div>`;
     const kv = (k, v) => `<div class="kmkvr lsstk"><span class="kmk">${k}</span><span class="kmv">${v}</span></div>`;
     let body = '';
     if (tab === 's') {
@@ -1241,8 +1243,9 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
       body = `<section class="card"><div class="row" style="align-items:center;gap:8px;margin-bottom:8px"><h2 style="margin:0">Schülerliste</h2><span class="muted sm">${sts.length} Schüler</span><span style="flex:1"></span>${c ? `<a class="kmmore" href="#${back}" data-act="go" data-v="${back}" style="margin:0">Zur Klassenmappe (Liste bearbeiten) ›</a>` : ''}</div>${sts.length ? `<div class="kmtable" style="--kmgrid:24px 38px minmax(150px,1.6fr) 44px ${multi ? '56px' : ''};--kmmin:${multi ? 340 : 280}px">${sts.map((x, i) => `<div class="kmrow kmgo" data-act="kmstu" data-slug="${G.slug}" data-id="${esc(x.id)}" tabindex="0" role="link"><span class="kmno">${i + 1}</span>${avSpan(x, 'kmav')}<span class="kmnm"><b>${esc(up(x.nn))}</b> ${esc(x.vn)}</span><span class="kmpc kmgen">${esc(x.g === 'm' || x.g === 'w' || x.g === 'd' ? x.g : '–')}</span>${multi ? `<span class="kmcl">${esc(x.kl)}</span>` : ''}</div>`).join('')}</div>` : '<p class="muted" style="margin:0">Noch keine Schüler. Hole sie im Stundenplan über „Von WebUntis übernehmen“.</p>'}</section>`;
     }
     else body = `<section class="card"><h2 style="margin:0 0 8px">Notizen zur Klasse</h2><textarea class="cnotes" id="cnote" style="min-height:260px" data-slug="${G.slug}" data-ch="cnote" placeholder="Notizen zur Klasse (z. B. Stoffstand, Besonderheiten)">${esc(note)}</textarea><p class="muted sm" style="margin:6px 0 0">Änderungen werden automatisch gespeichert.</p></section>`;
-    const cmn = sorted().map((x) => { const g = primary(x.kd === 'gpb' ? x.gpb : x.bspk); return `<span class="ttchipw"><button class="ttchip${g.slug === G.slug ? ' on' : ''}" data-act="clsgo" data-slug="${g.slug}">${disp(x)} ${kdName(x)}</button></span>`; }).join('');
-    return `<div class="km"><div class="ttmenu">${cmn}</div>${head}<section class="kmmain">${body}</section>${clsPopHtml()}${lessonPopHtml()}</div>`;
+    const cmn = sorted().map((x) => `<span class="ttchipw"><button class="ttchip${c && x.key === c.key ? ' on' : ''}" data-act="kmsel" data-key="${x.key}">${disp(x)} ${kdName(x)}</button></span>`).join('');
+    const sov = '<div class="sovl">' + sorted().map((x) => { const g = primary(x.kd === 'gpb' ? x.gpb : x.bspk); return `<button class="sovi${g.slug === G.slug ? ' on' : ''}" data-act="clsgo" data-slug="${g.slug}">${disp(x)} ${kdName(x)}</button>`; }).join('<span class="sovs">|</span>') + '</div>';
+    return `<div class="km"><div class="ttmenu">${cmn}</div>${head}${sov}<section class="kmmain">${body}</section>${lessonPopHtml()}</div>`;
   }
   /* ====================================================================
      Testseite (Tests verwalten): Testliste, Statistik, Stoff, Ergebnisse, Materialien
@@ -1385,7 +1388,7 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
   document.addEventListener('dragover', (e) => { if (!tcDrag) return; const r = e.target.closest && e.target.closest('.tscat'); if (!r) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; const b = r.getBoundingClientRect(), bef = e.clientX < b.left + b.width / 2; document.querySelectorAll('.tscat').forEach((x) => x.classList.remove('tcb', 'tca')); if (r.dataset.ck !== tcDrag) r.classList.add(bef ? 'tcb' : 'tca'); });
   document.addEventListener('drop', (e) => { if (!tcDrag) return; const r = e.target.closest && e.target.closest('.tscat'), g = tcDrag; tcDrag = null; if (!r || r.dataset.ck === g) return tcClr(); e.preventDefault(); const b = r.getBoundingClientRect(), bef = e.clientX < b.left + b.width / 2, T = tcats().map((x) => [x[0], x[1]]), it = T.find((x) => x[0] === g); if (!it) return tcClr(); const o = T.filter((x) => x[0] !== g), t = o.findIndex((x) => x[0] === r.dataset.ck); o.splice(bef ? t : t + 1, 0, it); tcClr(); saveMenu(o); });
   document.addEventListener('dragend', () => { tcDrag = null; tcClr(); });
-  Object.assign(A, { clspop: (e) => { if (e.preventDefault) e.preventDefault(); U.cpop = e.dataset.slug; render(); }, clspopsel: (e) => { U.cpop = e.dataset.slug; render(); }, clspopclose: () => { U.cpop = null; render(); }, clspopgo: (e) => { U.cpop = null; setView('klasse-' + e.dataset.slug); } });
+  Object.assign(A, { clspop: (e) => { if (e.preventDefault) e.preventDefault(); setView('klasse-' + e.dataset.slug); }, clspopsel: (e) => { U.cpop = e.dataset.slug; render(); }, clspopclose: () => { U.cpop = null; render(); }, clspopgo: (e) => { U.cpop = null; setView('klasse-' + e.dataset.slug); } });
   document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && U.cpop && !U.lpv) { U.cpop = null; render(); } });
   Object.assign(A, { clstab: (e) => { clsState()[e.dataset.slug] = e.dataset.t; render(); } });
 
