@@ -61,8 +61,10 @@ const KM = (() => {
   }
   /* Tag | Zeit | I | Ort in ausgerichteten Spalten (Zeitangaben stehen untereinander) */
   const timeHtml = (rows, inline) => `<div class="kmtls${inline ? ' inl' : ''}">${rows.map((x) => `<div class="kmtl"><span class="kmd">${esc(x.d)}</span><span class="kmt">${esc(x.t)}</span>${x.r ? `<span class="kmsep">I</span><span class="kmr">${esc(x.r)}</span>` : '<span></span><span></span>'}</div>`).join('')}</div>`;
-  function stat(G, x) {
-    const log = (cinfo(G.slug).log || []).filter((e) => e.date <= TODAY && (e.chk || (Array.isArray(e.abs) && e.abs.length)));
+  /* Ort einer Einheit: Raum „Südstadt“ = Schwimmhalle, alles andere = Turnsaal */
+  const placeOf = (G, e) => { try { return /s[üu]dstadt/i.test(lessonInfo(G, e).room || '') ? 'sw' : 'tn'; } catch (x) { return 'tn'; } };
+  function stat(G, x, pl) {
+    const log = (cinfo(G.slug).log || []).filter((e) => e.date <= TODAY && (e.chk || (Array.isArray(e.abs) && e.abs.length)) && (!pl || placeOf(G, e) === pl));
     let a = 0, p = 0, b = 0;
     log.forEach((e) => { if (x.ein && e.date < x.ein) return; if (x.aus && e.date > x.aus) return; if ((e.abs || []).includes(x.id)) b++; else if ((e.pas || []).includes(x.id)) p++; else a++; });
     const t = a + p + b, pc = (v) => (t ? Math.round((v * 100) / t) : null);
@@ -382,7 +384,7 @@ const KM = (() => {
     });
     o.addEventListener('mouseover', (e) => { const t = e.target.closest('.kmfx, .kmfcr'); const i = t ? +t.dataset.i : -1; if (i !== st.hot) { st.hot = i; o.querySelectorAll('.kmfx,.kmfcr').forEach((x) => x.classList.toggle('hot', +x.dataset.i === i)); } });
     const hasFiles = (e) => [...(e.dataTransfer ? e.dataTransfer.types : [])].includes('Files');
-    o.addEventListener('dragover', (e) => { if (!hasFiles(e)) return; e.preventDefault(); o.classList.add('kmphdrop'); });
+    o.addEventListener('dragover', (e) => { if (!hasFiles(e)) return; e.preventDefault(); o.classList.add('kmphdrop'); const pl = e.target.closest && e.target.closest('.kmphplus'); o.querySelectorAll('.kmphplus.over').forEach((x) => { if (x !== pl) x.classList.remove('over'); }); if (pl) pl.classList.add('over'); });
     o.addEventListener('dragleave', (e) => { if (e.target === o || !o.contains(e.relatedTarget)) o.classList.remove('kmphdrop'); });
     o.addEventListener('drop', async (e) => {
       if (!hasFiles(e)) return; e.preventDefault(); o.classList.remove('kmphdrop');
@@ -504,6 +506,14 @@ const KM = (() => {
       const sg = gridOf('s', [{ k: 'nr', d: 'var(--nrw,24px)', w: 24 }, { k: 'av', d: '38px', w: 38 }, { k: 'nm', d: 'minmax(var(--nmw,150px),1.6fr)', w: 150 }, { k: 'g', d: '44px', w: 44 }].concat(multi ? [{ k: 'kl', d: '56px', w: 56 }] : [], [{ k: 'pa', d: 'minmax(84px,.7fr)', w: 84 }, { k: 'pp', d: 'minmax(84px,.7fr)', w: 84 }, { k: 'pb', d: 'minmax(84px,.7fr)', w: 84 }, { k: 'pt', d: 'minmax(66px,.5fr)', w: 66 }]));
       const rows = list.map((x, i) => { const s = stat(G, x); return `<div class="kmrow kmgo" data-act="kmstu" data-slug="${G.slug}" data-id="${esc(x.id)}" tabindex="0" role="link"><span class="kmno">${i + 1}</span>${avSpan(x, 'kmav', G)}<span class="kmnm"><b>${esc(up(x.nn))}</b> ${esc(x.vn)}</span><span class="kmpc kmgen kmgtog" data-act="kmgtog" data-slug="${G.slug}" data-id="${esc(x.id)}" role="button" tabindex="0" title="Klick wechselt zwischen m und w">${esc(x.g === 'm' || x.g === 'w' || x.g === 'd' ? x.g : '–')}</span>${multi ? `<span class="kmcl">${esc(x.kl)}</span>` : ''}${cnt(s.a, s.pa, 'ak')}${cnt(s.p, s.pp, 'pa')}${cnt(s.b, s.pb, 'ab')}<span class="kmpc"><b class="kmp" title="Abgehaltene Einheiten mit Anwesenheitskontrolle">${s.t || '–'}</b></span></div>`; }).join('');
       tbl = list.length ? `<div class="kmtable" data-kt="s" style="--kmgrid:${sg.grid};--kmmin:${sg.min}px"><div class="kmrow kmth">${hcell('nr', 'Nr', '', '', false)}${hcell('av', '', '', '', false)}${hcell('nm', 'Name' + (((U.kmsort || {})[G.slug]) === 'nm' ? ' ▾' : ''), 'kmsortc', ` data-act="kmsort" data-slug="${G.slug}" data-k="nm" title="Nach Nachname sortieren"`)}${hcell('g', 'm/w', 'kmpc kmgnh', ' title="Geschlecht"')}${multi ? hcell('kl', 'Klasse' + (((U.kmsort || {})[G.slug]) === 'kl' ? ' ▾' : ''), 'kmsortc', ` data-act="kmsort" data-slug="${G.slug}" data-k="kl" title="Nach Klasse, dann Nachname sortieren"`) : ''}${hcell('pa', 'aktiv', 'kmpc')}${hcell('pp', 'passiv', 'kmpc')}${hcell('pb', 'fehlt', 'kmpc')}${hcell('pt', 'Gesamt', 'kmpc', ' title="Abgehaltene Einheiten mit Anwesenheitskontrolle"')}</div>${rows}</div>${list.some((x) => stat(G, x).t) ? '' : '<p class="muted sm" style="margin:8px 0 0">Prozentwerte erscheinen, sobald du in den Stunden die Anwesenheit kontrollierst.</p>'}` : '<p class="muted" style="margin:0">Noch keine Schüler. Im Stundenplan „Von WebUntis übernehmen“ und „Alle Klassen holen“ nutzen.</p>';
+      if (G.rows.some((r) => /s[üu]dstadt/i.test(r.room || ''))) {
+        const GR = [['t', 'Turnsaal', 'tn'], ['w', 'Schwimmhalle', 'sw'], ['g', 'Gesamter Sportunterricht', null]], base = [{ k: 'nr', d: 'var(--nrw,24px)', w: 24 }, { k: 'av', d: '38px', w: 38 }, { k: 'nm', d: 'minmax(var(--nmw,150px),1.6fr)', w: 150 }, { k: 'g', d: '44px', w: 44 }].concat(multi ? [{ k: 'kl', d: '56px', w: 56 }] : []);
+        const defs = base.concat(...GR.map(([gk]) => ['a', 'p', 'b', 't'].map((q) => ({ k: gk + q, d: 'minmax(66px,.6fr)', w: 66 })))), sg2 = gridOf('s2', defs), nb = base.length;
+        const nmH = hcell('nm', 'Name' + (((U.kmsort || {})[G.slug]) === 'nm' ? ' ▾' : ''), 'kmsortc', ` data-act="kmsort" data-slug="${G.slug}" data-k="nm" title="Nach Nachname sortieren"`);
+        const hd = GR.map(([gk]) => hcell(gk + 'a', 'aktiv', 'kmpc') + hcell(gk + 'p', 'passiv', 'kmpc') + hcell(gk + 'b', 'fehlt', 'kmpc') + hcell(gk + 't', 'Gesamt', 'kmpc')).join('');
+        const rows2 = list.map((x, i) => { const cells = GR.map(([gk, n, pl]) => { const q = stat(G, x, pl); return cnt(q.a, q.pa, 'ak') + cnt(q.p, q.pp, 'pa') + cnt(q.b, q.pb, 'ab') + `<span class="kmpc"><b class="kmp">${q.t || '–'}</b></span>`; }).join(''); return `<div class="kmrow kmgo" data-act="kmstu" data-slug="${G.slug}" data-id="${esc(x.id)}" tabindex="0" role="link"><span class="kmno">${i + 1}</span>${avSpan(x, 'kmav', G)}<span class="kmnm"><b>${esc(up(x.nn))}</b> ${esc(x.vn)}</span><span class="kmpc kmgen kmgtog" data-act="kmgtog" data-slug="${G.slug}" data-id="${esc(x.id)}" role="button" tabindex="0" title="Klick wechselt zwischen m und w">${esc(x.g === 'm' || x.g === 'w' || x.g === 'd' ? x.g : '–')}</span>${multi ? `<span class="kmcl">${esc(x.kl)}</span>` : ''}${cells}</div>`; }).join('');
+        tbl = list.length ? `<div class="kmtable" data-kt="s2" style="--kmgrid:${sg2.grid};--kmmin:${sg2.min}px"><div class="kmrow kmth kmgrp">${'<span></span>'.repeat(nb)}${GR.map(([gk, n]) => `<span class="spgrp" style="grid-column:span 4">${n}</span>`).join('')}</div><div class="kmrow kmth">${hcell('nr', 'Nr', '', '', false)}${hcell('av', '', '', '', false)}${nmH}${hcell('g', 'm/w', 'kmpc kmgnh', ' title="Geschlecht"')}${multi ? hcell('kl', 'Klasse') : ''}${hd}</div>${rows2}</div><p class="muted sm" style="margin:8px 0 0">Schwimmhalle: Einheiten mit Raum „Südstadt“. Alle anderen Einheiten zählen zum Turnsaal.</p>` : '<p class="muted" style="margin:0">Noch keine Schüler.</p>';
+      }
     }
     if (isG) {
       const cols0 = visCols(c), risk = all.map((x) => ({ x, P: perfOf(G, x, cols0) })).filter((r) => r.P.note >= 4);
@@ -881,17 +891,19 @@ input.ktd{width:100%;box-sizing:border-box}.grpgrid{display:grid;grid-template-c
 .kmtable[data-kt] .kmrow{min-width:var(--kmmin,520px);box-sizing:border-box}.kmtable[data-kt]{overflow-x:auto}.kmtable[data-kt] .kmrow>:last-child{padding-right:8px}
 .kmtable[data-kt] .kmth>:nth-child(-n+3){background:var(--surface)}
 @media(max-width:700px){
-  .kmtable[data-kt]{--nrw:0px;--nmw:100px}
-  .kmtable[data-kt] .kmrow>:nth-child(1){width:0;min-width:0;overflow:hidden;padding:0;visibility:hidden;margin-right:-8px}
-  .kmtable[data-kt] .kmrow>:nth-child(2){left:0!important;margin-left:-8px}
+  .kmtable[data-kt]{--nmw:100px}
+  .kmtable[data-kt] .kmrow>:nth-child(1){position:static!important;box-shadow:none!important;background:transparent}
+  .kmtable[data-kt] .kmrow>:nth-child(2){left:0!important}
   .kmtable[data-kt] .kmrow>:nth-child(3){left:46px!important}
   .kmtable[data-kt] .kmrow>.kmnm{font-size:12.5px;line-height:1.25;white-space:normal}.kmtable[data-kt] .kmrow>.kmnm b,.kmtable[data-kt] .kmrow>.kmnm .lsnl b{display:block}
-  .kmtable[data-kt] .kmrow{padding-left:0}
 }
 .kmphrow{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px;align-items:stretch}.kmphleft{min-width:0}.kmphadd{justify-content:center}.kmphminis{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}.kmphmini{width:64px;height:48px;padding:0;border:2px solid var(--line);border-radius:8px;overflow:hidden;cursor:pointer;background:var(--surface2)}.kmphmini img{width:100%;height:100%;object-fit:cover;display:block}.kmphmini.on{border-color:var(--accent)}
 @media(max-width:700px){.kmphrow{grid-template-columns:1fr}}
 .spch{display:flex;align-items:center;justify-content:center;gap:4px;min-width:0}.spdate{width:100%;min-width:0;border:1px solid var(--line);border-radius:7px;padding:3px 4px;background:var(--surface);color:var(--ink);font:600 12px var(--font-body)}.spx{border:0;background:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0 2px}.spx:hover{color:var(--bad)}.spph{opacity:.7}
 .spin{width:100%;box-sizing:border-box;text-align:center;border:1px solid var(--line);border-radius:7px;padding:5px 4px;background:var(--surface);color:var(--ink);font:600 14px var(--font-body)}.spin:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+.spgrp{text-align:center;font:700 12px var(--font-head);text-transform:uppercase;letter-spacing:.05em;color:var(--accent);border-bottom:2px solid var(--accent);padding-bottom:3px}.kmgrp{border-top:0!important}.kmgrp>:nth-child(-n+3){background:var(--surface)}
+.kmphplus.over{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.km>.tscats~.kmmain{margin-top:-26px}
 .kmbody.kmnoside{grid-template-columns:minmax(0,1fr)}
 .kmsubl{margin-top:6px;font-size:14px;color:var(--ink)}.kmsubl .kmsep{margin:0 .8em}.kmpen{margin-left:8px}.kmkvedit{margin-top:8px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}.kmkvedit .kminp{max-width:300px}
 .kmphwide{margin-top:14px}.kmphwide .card{width:100%}
@@ -1145,7 +1157,7 @@ tr.kmbad td{background:var(--bad-soft)!important}tr.kmwarn td{background:var(--w
       const g = ev.target.closest('.kmbbg2'); if (g) { BD.bg = g.dataset.g; if (isDarkHex(BD.bg) && BD.color === '#111111') BD.color = '#ffffff'; if (!isDarkHex(BD.bg) && BD.color === '#ffffff') BD.color = '#111111'; drawBg(); mark(); return; }
       const t = ev.target.closest('.kmbt'); if (t) { BD.tpl = t.dataset.t; drawBg(); mark(); return; }
       const b = ev.target.closest('[data-b]'); if (!b) return; const k = b.dataset.b;
-      if (k === 'close') close(); else if (k === 'eraser') { BD.eraser = !BD.eraser; b.classList.toggle('good', BD.eraser); mark(); } else if (k === 'undo') { BD.strokes.pop(); redraw(); } else if (k === 'clear') { if (!BD.strokes.length || confirm('Tafel löschen?')) { BD.strokes = []; redraw(); } }
+      if (k === 'close') close(); else if (k === 'eraser') { BD.eraser = !BD.eraser; b.classList.toggle('good', BD.eraser); mark(); } else if (k === 'undo') { BD.strokes.pop(); redraw(); } else if (k === 'clear') { if (!BD.strokes.length || await window.askUI('Tafel löschen?')) { BD.strokes = []; redraw(); } }
       else if (k === 'more') { if (BD.pages < 8) { BD.pages++; size(); sc.scrollTop = sc.scrollHeight; } else toast('Mehr Platz ist nicht möglich (8 Seiten).'); }
       else if (k === 'finger') { BD.finger = !BD.finger; b.classList.toggle('good', BD.finger); b.textContent = 'Finger: ' + (BD.finger ? 'zeichnet' : 'scrollt'); }
       else if (k === 'save') {
