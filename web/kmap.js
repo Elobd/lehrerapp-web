@@ -132,12 +132,12 @@ const KM = (() => {
     const { list, c, tab, col } = parse(v);
     if (!list.length) return `<section class="card"><div class="hd"><h2>Klassenmappen</h2></div><p class="muted">Klassen entstehen aus deinem Stundenplan. Hole ihn im Stundenplan über „Von WebUntis übernehmen“.</p></section>`;
     try { localStorage.setItem('kmLast', JSON.stringify({ key: c.key })); } catch (e) { /* */ }
-    const chip = (x) => { const isKv = isKvEntry(x, list); return `<span class="kmchipw"><button class="kmchip${x.key === c.key ? ' on' : ''}" data-act="kmsel" data-key="${x.key}" data-tab="${tab}" ${isKv ? '' : 'draggable="true"'} title="${isKv ? 'Meine Klasse als Klassenvorstand' : 'Ziehen zum Verschieben'}"><span>${isKv ? '★ ' : ''}${disp(x)} ${kdName(x)}</span></button></span>`; };
+    const chip = (x) => { const isKv = isKvEntry(x, list); return `<span class="ttchipw"><button class="ttchip${x.key === c.key ? ' on' : ''}" data-act="kmsel" data-key="${x.key}" data-tab="${tab}" ${isKv ? '' : 'draggable="true"'} title="${isKv ? 'Meine Klasse als Klassenvorstand' : 'Ziehen zum Verschieben'}">${isKv ? '★ ' : ''}${disp(x)} ${kdName(x)}</button></span>`; };
     const kvC = list.find((x) => isKvEntry(x, list)), rest = list.filter((x) => x !== kvC), d = divAt(rest);
     const chips = (kvC ? chip(kvC) : '') + rest.map((x, i) => (i === d ? '<span class="kmdiv" draggable="true" data-key="|" title="Trennlinie, ziehbar"></span>' : '') + chip(x)).join('') + (d >= rest.length && rest.length ? '<span class="kmdiv" draggable="true" data-key="|" title="Trennlinie, ziehbar"></span>' : '');
     const body = tab === 'g' && col ? colPage(c, col) : subject(c, c.kd);
     const hm = /<!--H-->([\s\S]*?)<!--\/H-->/.exec(body), headH = hm ? hm[1] : '', bodyH = hm ? body.replace(hm[0], '') : body;
-    return `<div class="km"><div class="kmcls"><div class="kmchips">${chips}</div></div>
+    return `<div class="km"><div class="ttmenu">${chips}</div>
       ${headH}<div class="kmbody kmnoside"><section class="kmmain">${bodyH}</section></div>${clsPopHtml()}${lessonPopHtml()}</div>`;
   }
 
@@ -665,12 +665,12 @@ const KM = (() => {
   document.addEventListener('dragend', () => { dragCol = null; document.querySelectorAll('.kmcolh.drag,.kmcolh.over').forEach((x) => x.classList.remove('drag', 'over')); });
   /* Drag and Drop der Klassenleiste */
   let drag = null;
-  const chipOf = (ev) => ev.target && ev.target.closest && ev.target.closest('.kmchip,.kmdiv');
+  const chipOf = (ev) => ev.target && ev.target.closest && ev.target.closest('.kmchip,.kmdiv,.ttmenu .ttchip[data-key],.ttmenu .kmdiv');
   document.addEventListener('dragstart', (ev) => { const c = chipOf(ev); if (!c || c.getAttribute('draggable') !== 'true') return; drag = c.dataset.key; try { ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', drag); } catch (e) { /* */ } c.classList.add('drag'); });
   document.addEventListener('dragover', (ev) => { const c = chipOf(ev); if (c && drag && c.dataset.key !== drag && c.getAttribute('draggable') === 'true') { ev.preventDefault(); c.classList.add('over'); } });
   document.addEventListener('dragleave', (ev) => { const c = chipOf(ev); if (c) c.classList.remove('over'); });
   document.addEventListener('drop', (ev) => { const c = chipOf(ev); if (c && drag && c.getAttribute('draggable') === 'true') { ev.preventDefault(); const f = drag; drag = null; move(f, c.dataset.key); } });
-  document.addEventListener('dragend', () => { drag = null; document.querySelectorAll('.kmchip.drag,.kmchip.over,.kmdiv.drag,.kmdiv.over').forEach((x) => x.classList.remove('drag', 'over')); });
+  document.addEventListener('dragend', () => { drag = null; document.querySelectorAll('.kmchip.drag,.kmchip.over,.kmdiv.drag,.kmdiv.over,.ttchip.drag,.ttchip.over').forEach((x) => x.classList.remove('drag', 'over')); });
   document.addEventListener('keydown', (ev) => { const t1 = ev.target; if (ev.key === 'Enter' && t1 && t1.classList && t1.classList.contains('kmsmi')) { ev.preventDefault(); const all = [...document.querySelectorAll('.kmsmi[data-s="' + t1.dataset.s + '"]')], i = all.indexOf(t1); if (all[i + 1]) { all[i + 1].focus(); all[i + 1].select(); } else t1.blur(); return; } const t0 = ev.target; if (ev.key === 'Enter' && t0 && t0.classList && t0.classList.contains('kmept') === false && t0.closest && t0.closest('.kmin') && t0.dataset && t0.dataset.ch === 'kmept') { ev.preventDefault(); const all = [...document.querySelectorAll('.kmin input[data-eid="' + t0.dataset.eid + '"][data-sid]')], i = all.indexOf(t0); if (all[i + 1]) { all[i + 1].focus(); all[i + 1].select(); } return; } if (ev.key === 'Enter' && ev.target && ev.target.id === 'kmkvin') { ev.target.blur(); setTimeout(() => { if (U.kmKvEdit) { U.kmKvEdit = null; render(); } }, 50); return; } if (ev.key === 'Escape' && U.kmKvEdit) { U.kmKvEdit = null; render(); return; } if (ev.key === 'Enter' && ev.target && ev.target.classList && ev.target.classList.contains('kmgo')) A.kmstu(ev.target); });
   /* Spaltenbreiten der Schülerlisten per Ziehen ändern */
   { let rz = null, lastT = null;
@@ -812,7 +812,7 @@ html{overflow-y:scroll;scrollbar-gutter:stable}
 .kmpnav{display:flex;flex-wrap:wrap;background:#eef1f5;border-bottom:1px solid #d5d9df}.kmpchip{border:0;border-left:1px solid #d5d9df;border-radius:0;background:transparent;color:#5b6068;padding:10px 16px;font:600 13px var(--font-body);cursor:pointer}.kmpchip:first-child{border-left:0}.kmpchip:hover{background:#e2e7ee}.kmpchip.on{background:#dbe9fb;color:#1e8449}
 .km>.kmcls .kmchip.on{background:transparent!important;color:var(--accent)!important}
 .kmpchip.on{background:#3f4247;color:var(--accent)}
-.lspop{background:rgba(14,17,23,.66)}.lspopb{background:#d5dae1;border:1px solid #aab1bc;box-shadow:0 24px 70px rgba(30,35,45,.35)}.lspopb .card{background:var(--surface)}
+.lspop{background:rgba(0,0,0,.68)}.lspopb{background:var(--bg);color:var(--ink);border:1px solid var(--line);box-shadow:0 24px 70px rgba(30,35,45,.35)}.lspopb .card{background:var(--surface)}
 .lspopl{width:min(960px,100%)!important;max-height:88vh}.lsinpop .lstop>.btn{display:none}.lsinpop .lsc-stu{display:block!important}
 .kmsep.kmh1{margin:0 .25em!important}.kmsubl .kmsep{margin:0 .4em!important}
 .lscdr [data-cs]{display:inline-block;border:1px solid var(--line);border-radius:7px;padding:3px 9px;background:var(--surface);color:var(--ink);font-weight:600}
@@ -1343,8 +1343,8 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
     const head = `<div class="kmh">${backLink(back, c ? 'Klassenmappe ' + esc(c.label) : 'Klassenmappe', 'margin:0 0 6px')}<h1>Leistungserfassung<span class="kmsep kmh1">I</span><span class="muted" style="font-weight:500">${c ? 'Klasse ' + disp(c) : esc(G.label)} · ${SUBJ[kd] || esc(G.subject)}</span></h1></div>`;
     const edM = !!tsState().edMenu, menu = `<nav class="tscats" aria-label="Art der Leistungsüberprüfung">${tcats().map(([k, n]) => `<div class="tscat${tsCat(G.slug) === k ? ' on' : ''}" draggable="true" data-ck="${esc(k)}" data-act="tscat" data-slug="${G.slug}" data-c="${esc(k)}" title="Ziehen: Reihenfolge ändern">${esc(n)}${edM ? `<button class="tscx" data-act="tcdel" data-c="${esc(k)}" title="Entfernen" aria-label="${esc(n)} entfernen">×</button>` : ''}</div>`).join('')}${edM ? `<span class="tscnew"><input id="tcnew" placeholder="Neue Rubrik, z. B. Quiz Kahoot" maxlength="40"><button class="btn" data-act="tcadd">+ Hinzufügen</button></span>` : ''}<span style="flex:1"></span><button class="lsedit${edM ? ' on' : ''}" data-act="tcedit" title="${edM ? 'Fertig' : 'Menü bearbeiten: Rubriken hinzufügen oder entfernen'}" aria-label="Menü bearbeiten" aria-pressed="${edM}">${edM ? '✓' : '✎'}</button></nav>`;
     const oc = KCOL[tsCat(G.slug)] || tsCat(G.slug), old = resItems(G).filter((e) => e.col === oc).length, olink = old && c ? `<div class="muted sm" style="margin:-6px 0 12px">Zählt in der Klassenmappe als Spalte „${esc(((colsDef().find((k) => k.id === oc)) || {}).name || '')}". <a class="kmmore" href="#${route(c.key, 'g', oc)}" data-act="kmcolold" data-key="${c.key}" data-col="${oc}">Manuelle Einträge (${old}) ›</a></div>` : '';
-    const cm = sorted().filter((x) => x.kd === 'gpb').map((x) => { const g = primary(x.gpb); return `<span class="kmchipw"><button class="kmchip${g.slug === G.slug ? ' on' : ''}" data-act="kmtsel" data-slug="${g.slug}"><span>${disp(x)} ${kdName(x)}</span></button></span>`; }).join('');
-    return `<div class="km"><div class="kmcls"><div class="kmchips">${cm}</div></div>${head}${menu}${olink}<section class="kmmain">${testsPage(G, c, ci)}</section></div>`;
+    const cm = sorted().filter((x) => x.kd === 'gpb').map((x) => { const g = primary(x.gpb); return `<span class="ttchipw"><button class="ttchip${g.slug === G.slug ? ' on' : ''}" data-act="kmtsel" data-slug="${g.slug}">${disp(x)} ${kdName(x)}</button></span>`; }).join('');
+    return `<div class="km"><div class="ttmenu">${cm}</div>${head}${menu}${olink}<section class="kmmain">${testsPage(G, c, ci)}</section></div>`;
   }
   /* Neu angelegtes Material (Ablagezone der Stundenseite) gleich an die Stunde hängen */
   document.addEventListener('matcreated', (ev) => { const d = ev.detail || {}, a = d.attach; if (!a || !d.id) return; saveLog(a.slug, (log) => { const x = log.find((y) => y.id === a.lid); if (!x) return; const l = Array.isArray(x.mats) ? x.mats.slice() : []; if (!l.includes(d.id)) l.push(d.id); x.mats = l; }); if (a.student) A.lssmadd({ dataset: { slug: a.slug, id: a.lid, mid: d.id } }); });

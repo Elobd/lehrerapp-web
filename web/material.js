@@ -752,10 +752,9 @@ const MAT = (() => {
     if (m.ddN !== list.length) { m.ddN = list.length; setTimeout(dedupe, 600); }
     const banner = `${m.busy ? `<div class="muted sm" style="margin-bottom:8px">⏳ ${esc(m.busy)}</div>` : ''}${m.note ? `<div class="matnote ${m.note.k}" role="status"><span>${esc(m.note.t)}${/server\.js|Unbekannte API|Verbindung|Keine Verbindung/.test(m.note.t) ? ' <a href="/diagnose.html" style="color:inherit;text-decoration:underline">Diagnose öffnen</a>' : ''}</span><button data-act="matnote0" aria-label="Schließen">×</button></div>` : ''}`;
     const kinds = kindsOrdered();
-    const side = `<div class="kmcls"><div class="kmchips"><span class="kmchipw"><button class="kmchip${!f.a ? ' on' : ''}" data-act="matfa" data-v="">Alle ${list.length}</button></span>${kinds.map(([k, n]) => `<span class="kmchipw"><button class="kmchip${f.a === k ? ' on' : ''}${list.some((x) => kindOf(x) === k) ? '' : ' zero'}" draggable="true" data-k="${k}" title="Ziehen zum Verschieben" data-act="matfa" data-v="${k}">${esc(n.split(' ')[0])} ${list.filter((x) => kindOf(x) === k).length}</button></span>`).join('')}<span class="kmchipw"><button class="kmchip${f.a === 'ao' ? ' on' : ''}${aoNames().length ? '' : ' zero'}" data-act="matfa" data-v="ao" title="Arbeitsaufträge: zusammengehörige Dateien">Arbeitsaufträge ${aoNames().length}</button></span></div></div>`;
     const artName = f.a === 'ao' ? 'Arbeitsaufträge' : (KINDS.find(([k]) => k === f.a) || [0, 'Alle Quellen'])[1];
     const head = `<div class="kmh"><h1>Material<span class="kmsep kmh1">I</span><span class="muted" style="font-weight:500">${esc(f.e || 'Alle Epochen')}${f.a ? ' · ' + esc(artName) : ''}</span></h1></div>`;
-    return `<div class="km">${side}${head}${banner}<div class="kmbody kmnoside"><section class="kmmain">${quellen()}</section></div></div>`;
+    return `<div class="km">${head}${banner}<div class="kmbody kmnoside"><section class="kmmain">${quellen()}</section></div></div>`;
   }
   function metaLine(s) {
     const a = [['Autor', s.author], ['Verlag', s.publisher], ['Sprache', s.lang], ['Jahr', s.year], ['Datei', s.fileName], ['Größe', s.size ? mb(s.size) : ''], ['Seiten', s.type === 'pdf' && s.pages ? s.pages : '']].filter((x) => x[1]);
@@ -846,6 +845,11 @@ const MAT = (() => {
     return { zone, zoneBare, drafts };
   }
   const adder = (att) => { M().attach = att || null; return addParts(); };
+  /* Menü der Materialarten (zwischen „Neue Quelle“ und „Bibliothek“), Reihenfolge per Drag-and-Drop */
+  function kindMenu(list, f) {
+    const kinds = kindsOrdered(), ct = (n) => ` <small class="matcnt">(${n})</small>`;
+    return `<div class="matkm" aria-label="Art"><button class="matchip${!f.a ? ' on' : ''}" data-act="matfa" data-v="">Alle${ct(list.length)}</button>${kinds.map(([k, n]) => `<button class="matchip${f.a === k ? ' on' : ''}${list.some((x) => kindOf(x) === k) ? '' : ' zero'}" draggable="true" data-k="${k}" title="Ziehen zum Verschieben" data-act="matfa" data-v="${k}">${esc(n.split(' ')[0])}${ct(list.filter((x) => kindOf(x) === k).length)}</button>`).join('')}<button class="matchip${f.a === 'ao' ? ' on' : ''}${aoNames().length ? '' : ' zero'}" data-act="matfa" data-v="ao" title="Arbeitsaufträge: zusammengehörige Dateien">Arbeitsaufträge${ct(aoNames().length)}</button></div>`;
+  }
   function quellen() {
     const m = M(), list = sources(), f = filterOf(), shown = list.filter(matches), act = f.q || f.e || f.a || f.t.length;
     const { zone, drafts } = addParts(); m.attach = null;
@@ -883,7 +887,7 @@ const MAT = (() => {
       ${tg.length ? `<div class="chips" style="margin-bottom:12px"><span class="muted sm">Themen:</span>${top.map(tgb).join('')}${more.length ? `<details class="matmore"><summary class="mattag">Weitere ▾</summary><div>${more.map(tgb).join('')}</div></details>` : ''}</div>` : ''}
       ${body}</section>` : '';
     const open = list.find((x) => x.id.replace(/^mat_/, '') === m.open);
-    return zone + pendCard + drafts + lib + (open ? editCard(open) : '');
+    return zone + kindMenu(list, f) + pendCard + drafts + lib + (open ? editCard(open) : '');
   }
   function suche() {
     const m = M();
@@ -1233,9 +1237,9 @@ const MAT = (() => {
   });
   document.addEventListener('focusout', (e) => { if (e.target && e.target.classList && e.target.classList.contains('matte')) setTimeout(() => { if (M().editT) { M().editT = null; render(); } }, 120); });
   let kdrag = null;
-  const kicon = (e) => e.target && e.target.closest && e.target.closest('.kmcls .kmchip[data-k], .matkindchip');
+  const kicon = (e) => e.target && e.target.closest && e.target.closest('.matkm .matchip[data-k], .matkindchip');
   document.addEventListener('dragstart', (e) => { const k = inView() && kicon(e); if (!k) return; kdrag = k.dataset.k; k.classList.add('drag'); try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', kdrag); } catch (x) { /* */ } });
-  document.addEventListener('dragover', (e) => { const k = kdrag && kicon(e); if (k && k.dataset.k !== kdrag) { e.preventDefault(); document.querySelectorAll('.kmchip.over,.kmicon.over,.matkindchip.over').forEach((x) => x.classList.remove('over')); k.classList.add('over'); } });
+  document.addEventListener('dragover', (e) => { const k = kdrag && kicon(e); if (k && k.dataset.k !== kdrag) { e.preventDefault(); document.querySelectorAll('.matchip.over,.kmicon.over,.matkindchip.over').forEach((x) => x.classList.remove('over')); k.classList.add('over'); } });
   document.addEventListener('dragleave', (e) => { const k = kicon(e); if (k) k.classList.remove('over'); });
   document.addEventListener('drop', (e) => {
     const k = kdrag && kicon(e); if (!k) return; e.preventDefault(); e.stopImmediatePropagation();
@@ -1346,6 +1350,7 @@ const MAT = (() => {
 .matfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}.matnote.warn{background:var(--warn-soft);color:var(--warn);margin:10px 0}
 .matmore{display:inline}.matmore summary{list-style:none;cursor:pointer;display:inline-flex}.matmore[open] summary{background:var(--accent-soft)}.matmore>div{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
 html:root .kmchip.matep{padding:3px 10px;font-size:12.5px;gap:4px;background:var(--ec);border-color:var(--ec);color:#fff}html:root .kmchip.matep.dim{opacity:.45}html:root .kmchip.matep:hover{opacity:1}html:root .kmchip.matep.on{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ec)}html:root .kmchip.matep small,html:root .kmchip.matep.on small,html:root .kmchip.matep:hover small{color:#fff!important;opacity:1}
+.matkm{display:flex;flex-wrap:wrap;margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:4px}.matchip{border:0;background:transparent;color:var(--ink);padding:9px 16px;font:600 13px var(--font-body);cursor:pointer;border-radius:8px}.matchip:hover{background:var(--surface2)}.matchip.on{color:var(--accent)}.matchip.zero{opacity:.55}.matchip.over{outline:2px dashed var(--accent);outline-offset:-2px}.matchip.drag{opacity:.4}.matcnt{font-size:10.5px;font-weight:500;color:var(--muted)}
 .matdot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}.kmchip.zero{opacity:.55}.kmside .kmicon.zero{opacity:.5}.kmside .kmicon[draggable=true]{cursor:grab}.kmside .kmicon.drag{opacity:.35}.matkindchip[draggable=true]{cursor:grab}.matkindchip.drag{opacity:.35}.matkindchip.over{box-shadow:inset 3px 0 0 var(--brand,var(--accent))}.kmside .kmicon.over{box-shadow:inset 0 3px 0 var(--brand,#fff);background:rgba(255,255,255,.18)}.kmside .kmicon.zero:hover{opacity:1}.kmchip small{margin-left:4px}
 .matpanbig.matportrait{width:200px;aspect-ratio:2/3}.matdpic.matportrait{aspect-ratio:2/3;width:100%;max-width:200px}.matth2.matportrait{width:40px;height:56px}.matth2.matportrait .matph{font-size:10px}.matth2{display:block;width:64px;height:36px;border-radius:6px;overflow:hidden;background:var(--surface2);position:relative}.matth2 img{width:100%;height:100%;object-fit:cover;display:block}.matth2 .matph{font-size:11px}.matth2 .matcc{display:none}
 .kmtable .kmrow .kmnm{white-space:normal;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.25;font-size:13px;text-overflow:ellipsis}.kmtable .kmnm .mattitle{display:inline}
