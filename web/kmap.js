@@ -557,9 +557,9 @@ const KM = (() => {
     const top = Object.values(best).sort((a, b) => (low ? a.v - b.v : b.v - a.v)).slice(0, 3); if (!top.length) return '';
     return `<div class="spbest"><div class="spbh">Beste 3 der Klasse</div>${top.map((b, i) => { const q = st.find((y) => y.id === b.sid); return `<div class="spbr"><span class="spbn">${i + 1}.</span><span class="spbname">${q ? esc(up(q.nn) + ' ' + q.vn) : '–'}</span><span class="muted sm">${esc(dshort(b.date).replace(/^[A-Za-z]+, /, ''))}${schoolYear(b.date) !== schoolYear(TODAY) ? ' ' + b.date.slice(0, 4) : ''}</span><b>${esc(b.raw)}</b></div>`; }).join('')}</div>`;
   }
-  function spChart(o) {
+  function spChart(o, big) {
     const pts = o.pts.filter((q) => q.v != null); if (pts.length < 2) return '';
-    const W = 320, H = 134, L = 52, R = 34, Tp = 18, B = 28, vs = pts.map((q) => q.v), mn = Math.min(...vs), mx = Math.max(...vs), pad2 = (mx - mn) * .15 || Math.max(1, Math.abs(mx) * .1), lo = mn - pad2, hi = mx + pad2, last = pts.slice(-12);
+    const W = big ? 900 : 320, H = big ? 400 : 134, L = big ? 70 : 52, R = big ? 50 : 34, Tp = big ? 30 : 18, B = big ? 44 : 28, vs = pts.map((q) => q.v), mn = Math.min(...vs), mx = Math.max(...vs), pad2 = (mx - mn) * .15 || Math.max(1, Math.abs(mx) * .1), lo = mn - pad2, hi = mx + pad2, last = big ? pts : pts.slice(-12);
     const lower = spLower(o), unit = spUnit(o.pts[0].raw), isMin = /min/i.test(unit), af = (v) => (isMin ? Math.floor(v / 60) + ':' + pad(Math.round(v % 60)) : fmt(Math.round(v * 100) / 100) + (unit ? ' ' + unit : '')), yrs = new Set(last.map((q) => q.date.slice(0, 4))).size > 1;
     const X = (i) => L + (last.length === 1 ? 0 : i * (W - L - R) / (last.length - 1)), Y = (v) => Tp + (hi - v) / (hi - lo) * (H - Tp - B);
     const d = last.map((q, i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(q.v).toFixed(1)).join(' ');
@@ -568,10 +568,12 @@ const KM = (() => {
     const best = pts.reduce((a, q) => (better(q.v, a.v) ? q : a), pts[0]);
     return `<div class="spch2"><svg viewBox="0 0 ${W} ${H}" class="spsvg" role="img" aria-label="Leistungskurve ${esc(o.name)}"><line x1="${L}" y1="${H - B}" x2="${W - R}" y2="${H - B}" stroke="var(--line)"/><line x1="${L}" y1="${Tp}" x2="${L}" y2="${H - B}" stroke="var(--line)"/><text x="${L - 4}" y="${Tp + 4}" text-anchor="end" class="spt">${af(hi)}</text><text x="${L - 4}" y="${H - B}" text-anchor="end" class="spt">${af(lo)}</text><path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linejoin="round"/>${last.map((q, i) => `<circle cx="${X(i).toFixed(1)}" cy="${Y(q.v).toFixed(1)}" r="3.6" fill="var(--accent)"/><text x="${X(i).toFixed(1)}" y="${(Y(q.v) - 7).toFixed(1)}" text-anchor="middle" class="spv">${esc(q.raw)}</text><text x="${X(i).toFixed(1)}" y="${H - 10}" text-anchor="middle" class="spt">${lab(q)}</text>`).join('')}</svg><div class="sptr ${same ? '' : up2 ? 'good' : 'bad'}">${same ? '→ gleich geblieben' : up2 ? '▲ verbessert' : '▼ verschlechtert'} <span class="muted sm">gegenüber ${esc(l1.raw)} · Bestleistung ${esc(best.raw)}</span></div></div>`;
   }
+  const SPZ = { list: [], Gs: null };
   function sportCard(x, Gs) {
     const R2 = sportResults(x);
     if (!R2.length) return `<div class="card kmwide2"><h2>Sportleistungen</h2><div class="muted sm">Noch keine Leistungen eingetragen. Du trägst sie unter Leistungserfassung ein.</div></div>`;
-    return `<div class="card kmwide2"><h2>Sportleistungen</h2><div class="spgrid">${R2.map((o) => { const byY = {}; o.pts.forEach((q) => { (byY[schoolYear(q.date)] = byY[schoolYear(q.date)] || []).push(q); }); return `<div class="spdisc"><div class="spdh"><b>${esc(o.name)}</b><span class="muted sm">${o.pts.length} ${o.pts.length === 1 ? 'Eintrag' : 'Einträge'}</span></div>${spChart(o)}${classBest(Gs, o)}<div class="spyl">${Object.keys(byY).sort((a, b) => b - a).map((y) => `<div><span class="spy">${yearLbl(+y)}</span> ${byY[y].slice().reverse().map((q) => `<span class="spe"><span class="muted">${esc(dshort(q.date).replace(/^[A-Za-z]+, /, ''))}</span> <b>${esc(q.raw)}</b></span>`).join('')}</div>`).join('')}</div></div>`; }).join('')}</div></div>`;
+    SPZ.list = R2; SPZ.Gs = Gs;
+    return `<div class="card kmwide2"><h2>Sportleistungen</h2><div class="spgrid">${R2.map((o, idx) => { const byY = {}; o.pts.forEach((q) => { (byY[schoolYear(q.date)] = byY[schoolYear(q.date)] || []).push(q); }); return `<div class="spdisc"><div class="spdh"><b>${esc(o.name)}</b><span class="muted sm">${o.pts.length} ${o.pts.length === 1 ? 'Eintrag' : 'Einträge'}</span></div>${spChart(o) ? `<div class="spzoom" data-act="spzoom" data-i="${idx}" role="button" tabindex="0" title="Klicken: Diagramm vergrößern">${spChart(o)}</div>` : ''}${classBest(Gs, o)}<div class="spyl">${Object.keys(byY).sort((a, b) => b - a).map((y) => `<div><span class="spy">${yearLbl(+y)}</span> ${byY[y].slice().reverse().map((q) => `<span class="spe"><span class="muted">${esc(dshort(q.date).replace(/^[A-Za-z]+, /, ''))}</span> <b>${esc(q.raw)}</b></span>`).join('')}</div>`).join('')}</div></div>`; }).join('')}</div></div>`;
   }
   function studentPage(slug, id) {
     const G = groups().find((g) => g.slug === slug), x = G && (cinfo(slug).students || []).find((s) => s.id === id);
@@ -624,6 +626,13 @@ const KM = (() => {
     kmgf: (e) => { U.kmgf = U.kmgf || {}; const c = U.kmgf[e.dataset.slug] || ''; U.kmgf[e.dataset.slug] = c === '' ? 'm' : c === 'm' ? 'w' : ''; render(); },
     clsgo: (e) => setView('klasse-' + e.dataset.slug),
     kmsort: (e) => { U.kmsort = Object.assign({}, U.kmsort); const cur = U.kmsort[e.dataset.slug]; U.kmsort[e.dataset.slug] = cur === e.dataset.k ? '' : e.dataset.k; render(); },
+    spzoom: (e) => {
+      const o = SPZ.list[+e.dataset.i]; if (!o) return; const el = document.createElement('div'); el.className = 'lspop lspopr'; el.style.zIndex = 5000;
+      const byY = {}; o.pts.forEach((q) => { (byY[schoolYear(q.date)] = byY[schoolYear(q.date)] || []).push(q); });
+      el.innerHTML = `<div class="lspopb spbig" role="dialog" aria-label="Diagramm ${esc(o.name)}"><div class="lspoph"><h2>${esc(o.name)}<span class="kmsep kmh1">I</span><span class="muted" style="font-weight:500">${o.pts.length} Einträge</span></h2><button class="btn sm" data-x="close">Schließen</button></div><div class="lspopc">${spChart(o, true)}${classBest(SPZ.Gs, o)}<div class="spyl" style="margin-top:10px">${Object.keys(byY).sort((a, b) => b - a).map((y) => `<div><span class="spy">${yearLbl(+y)}</span> ${byY[y].slice().reverse().map((q) => `<span class="spe"><span class="muted">${esc(dshort(q.date).replace(/^[A-Za-z]+, /, ''))}</span> <b>${esc(q.raw)}</b></span>`).join('')}</div>`).join('')}</div></div></div>`;
+      document.body.appendChild(el); const close = () => { document.removeEventListener('keydown', onK, true); el.remove(); }, onK = (ev) => { if (ev.key === 'Escape') { ev.stopPropagation(); close(); } };
+      document.addEventListener('keydown', onK, true); el.addEventListener('click', (ev) => { if (ev.target === el || ev.target.closest('[data-x="close"]')) close(); });
+    },
     kmstperf: (e) => { U.stuPerf = { slug: e.dataset.slug, sid: e.dataset.id, k: e.dataset.k }; render(); },
     kmstlist: () => { U.stuPop = true; render(); },
     kmstlistx: () => { U.stuPop = false; render(); },
@@ -958,6 +967,9 @@ input.ktd{width:100%;box-sizing:border-box}.grpgrid{display:grid;grid-template-c
 .spmbox{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:-4px 0 14px}.spmbox .tscats{margin:0!important;border:0!important;border-radius:0!important}.spmbox .spdisc2{background:color-mix(in srgb,var(--ink) 13%,var(--surface))!important;border-top:1px solid var(--line)!important}.spmbox .spdisc2 .tscat{background:color-mix(in srgb,var(--ink) 4%,var(--surface))}.spmbox .spdisc2 .tscat.on{background:var(--accent);color:var(--accent-ink)}
 [data-sd].over{outline:2px dashed var(--accent);outline-offset:1px}[data-sd].dragging{opacity:.45}
 .kmsb{margin-top:8px}.kmsb .kmmore{margin:0}
+.xsel{background:var(--accent-soft)!important;outline:2px solid var(--accent);outline-offset:-2px}.xanc{outline-color:var(--accent)!important}body.xdrag,body.xdrag input{user-select:none!important;cursor:cell}.xsel-h{cursor:pointer;color:var(--muted);padding:0 4px;font-size:11px}.xsel-h:hover{color:var(--accent)}.kmtable .kmth>span{user-select:none}
+.spzoom{cursor:zoom-in}.spzoom:hover{outline:2px solid var(--accent-soft);border-radius:8px}
+.spbig{width:min(980px,100%)!important}.spbig .spsvg{width:100%;height:auto}.spbig .spt{font-size:11px}.spbig .spv{font-size:12px}
 .kmbody.kmnoside{grid-template-columns:minmax(0,1fr)}
 .kmsubl{margin-top:6px;font-size:14px;color:var(--ink)}.kmsubl .kmsep{margin:0 .8em}.kmpen{margin-left:8px}.kmkvedit{margin-top:8px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}.kmkvedit .kminp{max-width:300px}
 .kmphwide{margin-top:14px}.kmphwide .card{width:100%}
@@ -1634,16 +1646,89 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
     const m = /^(\d+(?:\.\d+)?)\s*(s|sek|m)?$/.exec(t); if (!m) return v; const n = parseFloat(m[1]);
     return (k === 'sec' ? n.toFixed(1) : n.toFixed(2)).replace('.', ',') + (k === 'sec' ? ' s' : ' m');
   }
-  /* Leistungstabelle: Enter = nächste Zeile, Tab = nächste Zelle (Fokus bleibt trotz Neuzeichnen erhalten) */
-  const spFocus = () => { const n = U.spNext; if (!n) return; const el = document.querySelector('.spin[data-sid="' + n.sid + '"][data-col="' + n.col + '"]'); if (el && document.activeElement !== el) { el.focus(); el.select(); U.spNext = null; } else if (el) U.spNext = null; };
-  document.addEventListener('keydown', (ev) => {
-    const t = ev.target; if (!t || !t.classList || !t.classList.contains('spin') || (ev.key !== 'Enter' && ev.key !== 'Tab')) return;
-    const rows = [...document.querySelectorAll('.kmrow.tsrow')].map((r) => r.dataset.sid), nc = t.closest('.kmrow').querySelectorAll('.spin').length, ri = rows.indexOf(t.dataset.sid), ci = +t.dataset.col; let tr = ri, tc = ci;
-    if (ev.key === 'Enter') { tr = Math.min(rows.length - 1, ri + (ev.shiftKey ? -1 : 1)); if (tr < 0) tr = 0; } else if (ev.shiftKey) { tc = ci - 1; if (tc < 0) { tr = ri - 1; tc = nc - 1; } } else { tc = ci + 1; if (tc >= nc) { tr = ri + 1; tc = 0; } }
-    if (tr < 0 || tr >= rows.length) { if (ev.key === 'Tab') return; tr = ri; }
-    ev.preventDefault(); ev.stopPropagation(); U.spNext = { sid: rows[tr], col: tc }; t.blur(); [0, 120, 350].forEach((d) => setTimeout(spFocus, d));
+  /* ---------- Tabellen wie Excel: markieren (ziehen), Spalte/Zeile markieren, Pfeiltasten, Enter/Tab, Kopieren, Einfügen, Entf ---------- */
+  const CELL = 'input:not([type=checkbox]):not([type=date]):not([type=hidden]):not([type=range]):not([type=file]):not([readonly])';
+  const XS = { gi: -1, a: null, b: null, drag: false, moved: false };
+  const xGrids = () => [...document.querySelectorAll('.kmtable')];
+  const xRows = (g) => [...g.querySelectorAll('.kmrow:not(.kmth)')].filter((r) => r.querySelector(CELL));
+  const xAt = (gi, r, c) => { const g = xGrids()[gi]; if (!g) return null; const row = xRows(g)[r]; return row ? [...row.querySelectorAll(CELL)][c] || null : null; };
+  function xCell(el) {
+    const inp = el && el.closest ? el.closest('input') : null; if (!inp || !inp.matches(CELL)) return null; const row = inp.closest('.kmrow'); if (!row || row.classList.contains('kmth')) return null; const g = row.closest('.kmtable'); if (!g) return null;
+    const r = xRows(g).indexOf(row), c = [...row.querySelectorAll(CELL)].indexOf(inp); return r < 0 || c < 0 ? null : { gi: xGrids().indexOf(g), r, c, inp };
+  }
+  const xRect = () => (XS.a && XS.b ? { r1: Math.min(XS.a.r, XS.b.r), r2: Math.max(XS.a.r, XS.b.r), c1: Math.min(XS.a.c, XS.b.c), c2: Math.max(XS.a.c, XS.b.c) } : null);
+  const xMulti = () => { const q = xRect(); return !!q && (q.r1 !== q.r2 || q.c1 !== q.c2); };
+  function xPaint() {
+    document.querySelectorAll('.xsel,.xanc').forEach((x) => x.classList.remove('xsel', 'xanc'));
+    const q = xRect(); if (!q || XS.gi < 0 || !xMulti()) return;
+    for (let r = q.r1; r <= q.r2; r++) for (let c = q.c1; c <= q.c2; c++) { const el = xAt(XS.gi, r, c); if (el) el.classList.add('xsel'); }
+    const an = xAt(XS.gi, XS.a.r, XS.a.c); if (an) an.classList.add('xanc');
+  }
+  let xRaf = 0; new MutationObserver(() => { cancelAnimationFrame(xRaf); xRaf = requestAnimationFrame(xPaint); }).observe(document.getElementById('main') || document.body, { childList: true, subtree: true });
+  window.addEventListener('hashchange', () => { XS.a = XS.b = null; XS.gi = -1; });
+  const xFocus = (gi, r, c) => { const el = xAt(gi, r, c); if (el) { el.focus(); try { el.select(); } catch (x) { /* */ } } return !!el; };
+  const xRetry = (gi, r, c) => { U.xNext = { gi, r, c }; [0, 120, 350].forEach((d) => setTimeout(() => { const n = U.xNext; if (!n) return; const el = xAt(n.gi, n.r, n.c); if (el && document.activeElement !== el) { xFocus(n.gi, n.r, n.c); U.xNext = null; } else if (el) U.xNext = null; }, d)); };
+  function spBulk(gi, pairs) {
+    const first = xAt(gi, pairs[0].r, pairs[0].c); if (!first) return; const G = groups().find((q) => q.slug === first.dataset.slug); if (!G) return;
+    const items = resItems(G).map((x) => Object.assign({}, x)), created = {};
+    pairs.forEach((p) => { const inp = xAt(gi, p.r, p.c); if (!inp) return; const iid = inp.dataset.iid, sid = inp.dataset.sid; let it = iid ? items.find((x) => x.id === iid) : created['c' + p.c];
+      if (!iid && !it && p.v !== '') { const nmx = ((spcats(G.slug).find((q) => q[0] === inp.dataset.cat) || [])[1]) || inp.dataset.cat; it = { id: uid('sp'), sp: inp.dataset.cat, spn: nmx, sar: spArea(G.slug).name, date: TODAY, pts: {} }; items.push(it); created['c' + p.c] = it; }
+      if (!it) return; it.pts = Object.assign({}, it.pts); if (p.v) it.pts[sid] = spFormat(p.v, it.sp, it.spn); else delete it.pts[sid]; });
+    saveRes(G, items); render();
+  }
+  async function xApply(gi, pairs) {
+    if (!pairs.length) return; const g = xGrids()[gi]; if (!g) return;
+    if (g.dataset.kt === 'sp') return spBulk(gi, pairs);
+    for (const p of pairs) { const inp = xAt(gi, p.r, p.c); if (!inp || inp.value === p.v) continue; inp.value = p.v; inp.dispatchEvent(new Event('change', { bubbles: true })); await new Promise((ok) => setTimeout(ok, 70)); }
+  }
+  const xClear = () => { const q = xRect(); if (!q) return; const pairs = []; for (let r = q.r1; r <= q.r2; r++) for (let c = q.c1; c <= q.c2; c++) pairs.push({ r, c, v: '' }); xApply(XS.gi, pairs); };
+  const xDims = (gi) => { const g = xGrids()[gi], rows = g ? xRows(g) : []; return { nr: rows.length, nc: rows.length ? Math.max(...rows.map((r) => r.querySelectorAll(CELL).length)) : 0 }; };
+  /* Maus: ziehen = Bereich markieren */
+  document.addEventListener('mousedown', (ev) => {
+    if (ev.button !== 0) return; const t = ev.target, cell = xCell(t);
+    if (cell) { if (ev.shiftKey && XS.gi === cell.gi && XS.a) { ev.preventDefault(); XS.b = { r: cell.r, c: cell.c }; xPaint(); return; } XS.gi = cell.gi; XS.a = { r: cell.r, c: cell.c }; XS.b = { r: cell.r, c: cell.c }; XS.drag = true; XS.moved = false; xPaint(); return; }
+    const row = t.closest && t.closest('.kmrow'); if (!row || !row.closest('.kmtable')) return; const g = row.closest('.kmtable'), gi = xGrids().indexOf(g), rows = xRows(g); if (!rows.length) return;
+    const inter = t.closest('input,button,a,select,textarea,[data-act],.kmrs');
+    if (row.classList.contains('kmth')) { const sh = t.closest('.xsel-h'); if (inter && !sh) return; const hc = [...row.children].find((h) => h.contains(t)); if (!hc) return; const cells = [...rows[0].querySelectorAll(CELL)], hr = hc.getBoundingClientRect(), cx = hr.left + hr.width / 2; let col = -1; cells.forEach((el, i) => { const rr = (el.closest('.kmpc') || el).getBoundingClientRect(); if (col < 0 && cx >= rr.left - 4 && cx <= rr.right + 4) col = i; }); if (col < 0) return; ev.preventDefault(); XS.gi = gi; XS.a = { r: 0, c: col }; XS.b = { r: rows.length - 1, c: col }; xPaint(); return; }
+    if (t.closest('.kmno')) { const r = rows.indexOf(row); if (r < 0) return; ev.preventDefault(); const nc = row.querySelectorAll(CELL).length; XS.gi = gi; XS.a = { r, c: 0 }; XS.b = { r, c: nc - 1 }; xPaint(); }
   }, true);
-  document.addEventListener('focusin', (ev) => { const t = ev.target; if (t && t.classList && t.classList.contains('spin')) setTimeout(() => { try { t.select(); } catch (x) { /* */ } }, 0); });
+  document.addEventListener('mousemove', (ev) => {
+    if (!XS.drag || !(ev.buttons & 1)) { if (XS.drag) { XS.drag = false; document.body.classList.remove('xdrag'); } return; }
+    const el = document.elementFromPoint(ev.clientX, ev.clientY); if (!el) return; const sp = el.closest && el.closest('.kmpc,.kmrow > span'); const inp = el.matches && el.matches(CELL) ? el : (sp ? sp.querySelector(CELL) : null), cell = xCell(inp);
+    if (!cell || cell.gi !== XS.gi || (cell.r === XS.b.r && cell.c === XS.b.c)) return;
+    if (!XS.moved && !(cell.r === XS.a.r && cell.c === XS.a.c)) { XS.moved = true; document.body.classList.add('xdrag'); try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); window.getSelection().removeAllRanges(); } catch (x) { /* */ } }
+    XS.b = { r: cell.r, c: cell.c }; xPaint();
+  });
+  document.addEventListener('mouseup', () => { if (XS.drag) { XS.drag = false; document.body.classList.remove('xdrag'); } });
+  document.addEventListener('focusin', (ev) => { const cell = xCell(ev.target); if (cell) { if (!(xMulti() && XS.gi === cell.gi && XS.moved)) { XS.gi = cell.gi; XS.a = { r: cell.r, c: cell.c }; XS.b = { r: cell.r, c: cell.c }; XS.moved = false; xPaint(); } setTimeout(() => { try { cell.inp.select(); } catch (x) { /* */ } }, 0); } });
+  /* Tastatur */
+  document.addEventListener('keydown', (ev) => {
+    const t = ev.target, cell = xCell(t), K = ev.key;
+    if (ev.ctrlKey || ev.metaKey) { if (K === 'a' && cell) { const d = xDims(cell.gi); ev.preventDefault(); XS.gi = cell.gi; XS.a = { r: 0, c: 0 }; XS.b = { r: d.nr - 1, c: d.nc - 1 }; XS.moved = true; xPaint(); } return; }
+    if (K === 'Escape' && xMulti()) { XS.b = XS.a; xPaint(); return; }
+    const act = cell || (XS.a && !(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) ? { gi: XS.gi, r: XS.b.r, c: XS.b.c, inp: null } : null); if (!act) return;
+    if ((K === 'Delete' || K === 'Backspace') && xMulti()) { ev.preventDefault(); xClear(); return; }
+    if (K === 'Delete' && !cell) { ev.preventDefault(); xClear(); return; }
+    const d = xDims(act.gi), mv = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1], Enter: [ev.shiftKey ? -1 : 1, 0], Tab: [0, ev.shiftKey ? -1 : 1] }[K]; if (!mv) return;
+    if (cell && (K === 'ArrowLeft' || K === 'ArrowRight') && !ev.shiftKey) { const i = cell.inp, all = i.selectionStart === 0 && i.selectionEnd === i.value.length; if (!all && !((K === 'ArrowLeft' && i.selectionStart === 0 && i.selectionEnd === 0) || (K === 'ArrowRight' && i.selectionStart === i.value.length))) return; }
+    if (cell && (K === 'ArrowLeft' || K === 'ArrowRight') && ev.shiftKey) { const i = cell.inp; if (!(i.selectionStart === 0 && i.selectionEnd === i.value.length)) return; }
+    let r = act.r + mv[0], c = act.c + mv[1];
+    if (K === 'Tab') { if (c >= d.nc) { c = 0; r = act.r + 1; } if (c < 0) { c = d.nc - 1; r = act.r - 1; } if (r < 0 || r >= d.nr) return; } else { r = Math.max(0, Math.min(d.nr - 1, r)); c = Math.max(0, Math.min(d.nc - 1, c)); }
+    ev.preventDefault(); ev.stopImmediatePropagation();
+    if (ev.shiftKey && (K.startsWith('Arrow'))) { if (!XS.a || XS.gi !== act.gi) { XS.gi = act.gi; XS.a = { r: act.r, c: act.c }; } XS.b = { r, c }; XS.moved = true; xPaint(); return; }
+    XS.a = XS.b = { r, c }; XS.gi = act.gi; XS.moved = false; xPaint();
+    if (cell) cell.inp.blur(); xRetry(act.gi, r, c); xFocus(act.gi, r, c);
+  }, true);
+  /* Kopieren und Einfügen */
+  document.addEventListener('copy', (ev) => { const q = xRect(); if (!q || !xMulti() || !ev.clipboardData) return; const rows = []; for (let r = q.r1; r <= q.r2; r++) { const line = []; for (let c = q.c1; c <= q.c2; c++) { const el = xAt(XS.gi, r, c); line.push(el ? el.value : ''); } rows.push(line.join('\t')); } ev.clipboardData.setData('text/plain', rows.join('\n')); ev.preventDefault(); });
+  document.addEventListener('paste', (ev) => {
+    const cell = xCell(ev.target), txt = ev.clipboardData ? ev.clipboardData.getData('text/plain') : ''; if (!txt || (!cell && !(XS.a && xMulti()))) return;
+    const grid = txt.replace(/\r/g, '').replace(/\n$/, '').split('\n').map((l) => l.split('\t')), single = grid.length === 1 && grid[0].length === 1, q = xRect();
+    if (single && !xMulti()) return; ev.preventDefault(); const pairs = [], gi = cell ? cell.gi : XS.gi;
+    if (single) { for (let r = q.r1; r <= q.r2; r++) for (let c = q.c1; c <= q.c2; c++) pairs.push({ r, c, v: grid[0][0].trim() }); }
+    else { const r0 = xMulti() ? q.r1 : (cell ? cell.r : q.r1), c0 = xMulti() ? q.c1 : (cell ? cell.c : q.c1); grid.forEach((line, i) => line.forEach((v, j) => { if (xAt(gi, r0 + i, c0 + j)) pairs.push({ r: r0 + i, c: c0 + j, v: v.trim() }); })); }
+    xApply(gi, pairs);
+  });
   /* Bereiche und Disziplinen per Drag and Drop anordnen */
   (() => {
     let dr = null; const q = (ev) => ev.target.closest && ev.target.closest('[data-sd]');
@@ -1667,7 +1752,7 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
     const items = spItems(G, cat, yr), xk = G.slug + '|' + cat + '|' + yr, extra = (tsState().spx || {})[xk] || 0, nPh = Math.max(0, 6 - items.length) + extra;
     const cols = items.map((q) => ({ q })).concat(Array.from({ length: nPh }, (_, i) => ({ q: null, i })));
     const grid = ['var(--nrw,24px)', '38px', 'minmax(var(--nmw,150px),1.4fr)'].concat(cols.map(() => 'minmax(104px,1fr)')).join(' '), minW = 24 + 38 + 150 + cols.length * 104 + (cols.length + 3) * 8 + 16;
-    const head = cols.map((k) => (k.q ? `<span class="kmpc spch"><input type="date" class="spdate" data-ch="spdate" data-slug="${G.slug}" data-iid="${esc(k.q.id)}" value="${esc(k.q.date)}" aria-label="Datum der Leistung"><button class="spx" data-act="spcoldel" data-slug="${G.slug}" data-iid="${esc(k.q.id)}" title="Spalte löschen" aria-label="Spalte löschen">×</button></span>` : `<span class="kmpc spch"><span class="muted sm spph">Datum folgt</span></span>`)).join('');
+    const head = cols.map((k) => (k.q ? `<span class="kmpc spch"><span class="xsel-h" title="Ganze Spalte markieren">▾</span><input type="date" class="spdate" data-ch="spdate" data-slug="${G.slug}" data-iid="${esc(k.q.id)}" value="${esc(k.q.date)}" aria-label="Datum der Leistung"><button class="spx" data-act="spcoldel" data-slug="${G.slug}" data-iid="${esc(k.q.id)}" title="Spalte löschen" aria-label="Spalte löschen">×</button></span>` : `<span class="kmpc spch"><span class="xsel-h" title="Ganze Spalte markieren">▾</span><span class="muted sm spph">Datum folgt</span></span>`)).join('');
     const rows = sts.map((x, i) => `<div class="kmrow tsrow" data-sid="${esc(x.id)}"><span class="kmno">${i + 1}</span>${avSpan(x, 'kmav')}<span class="kmnm"><a class="lsnl" href="#schueler-${G.slug}--${esc(x.id)}" data-act="kmstu" data-slug="${G.slug}" data-id="${esc(x.id)}" title="Profil öffnen"><b>${esc(up(x.nn))}</b> ${esc(x.vn)}</a></span>${cols.map((k, ci2) => `<span class="kmpc"><input class="spin" data-col="${ci2}" data-ch="sppt" data-slug="${G.slug}" data-cat="${esc(cat)}" data-iid="${k.q ? esc(k.q.id) : ''}" data-sid="${esc(x.id)}" value="${k.q && k.q.pts && k.q.pts[x.id] != null ? esc(k.q.pts[x.id]) : ''}" autocomplete="off" aria-label="${esc(nm0)} ${esc(x.nn)}"></span>`).join('')}</div>`).join('');
     const res = `<section class="card aares"><div class="row" style="align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><h2 style="margin:0">Schülerübersicht · ${esc(nm0)} · ${yearLbl(yr)}</h2><span class="muted sm">Das Datum der Spalte setzt sich beim ersten Eintrag automatisch auf heute.</span><span style="flex:1"></span><button class="btn sm" data-act="spmore" data-slug="${G.slug}" data-c="${esc(cat)}" data-y="${yr}">+ Spalte</button></div>${sts.length ? `<div class="kmtable" style="--kmgrid:${grid};--kmmin:${minW}px" data-kt="sp"><div class="kmrow kmth"><span>Nr</span><span></span><span>Name</span>${head}</div>${rows}</div>` : '<p class="muted" style="margin:0">Noch keine Schüler in dieser Klasse.</p>'}</section>`;
     return menu + `<div class="aaboard">${res}</div>`;
