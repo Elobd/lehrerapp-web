@@ -44,6 +44,7 @@ html:root[data-skin] .kmrow.kmgo:hover{background:var(--accent-soft)}
   const get = () => { try { return localStorage.getItem('skin') || 'standard'; } catch (e) { return 'standard'; } };
   const apply = (k) => { if (!SKINS[k]) k = 'standard'; if (k === 'standard') document.documentElement.removeAttribute('data-skin'); else document.documentElement.setAttribute('data-skin', k); try { localStorage.setItem('skin', k); } catch (e) { /* */ } try { document.querySelector('meta[name=theme-color]').content = SKINS[k].sw[0]; } catch (e) { /* */ } };
   apply(get());
+  window.SKIN = { list: SKINS, get, apply };
   const hero = document.querySelector('.hero'); if (!hero) return;
   hero.style.position = 'relative';
   const btn = document.createElement('button'); btn.className = 'skbtn'; btn.title = 'Design wählen'; btn.setAttribute('aria-label', 'Design wählen');
