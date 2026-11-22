@@ -55,19 +55,4 @@ html:root[data-skin] .kmrow.kmgo:hover{background:var(--accent-soft)}
   const apply = (k) => { if (!SKINS[k]) k = 'standard'; if (k === 'standard') document.documentElement.removeAttribute('data-skin'); else document.documentElement.setAttribute('data-skin', k); try { localStorage.setItem('skin', k); } catch (e) { /* */ } try { document.querySelector('meta[name=theme-color]').content = SKINS[k].sw[0]; } catch (e) { /* */ } };
   apply(get());
   window.SKIN = { list: SKINS, get, apply };
-  const hero = document.querySelector('.hero'); if (!hero) return;
-  hero.style.position = 'relative';
-  const btn = document.createElement('button'); btn.className = 'skbtn'; btn.title = 'Design wählen'; btn.setAttribute('aria-label', 'Design wählen');
-  btn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1 .8-1.7 1.8-1.7H17a4 4 0 0 0 4-4c0-4.4-4-8-9-8z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10.5" cy="7" r="1"/><circle cx="15.5" cy="7.5" r="1"/></svg>';
-  hero.appendChild(btn);
-  let menu = null;
-  const close = () => { if (menu) { menu.remove(); menu = null; } };
-  btn.onclick = (e) => {
-    e.stopPropagation(); if (menu) return close();
-    menu = document.createElement('div'); menu.className = 'skmenu';
-    menu.innerHTML = Object.entries(SKINS).map(([k, v]) => `<button data-k="${k}" class="${get() === k ? 'on' : ''}"><i>${v.sw.map((c) => `<b style="background:${c}"></b>`).join('')}</i>${v.name}</button>`).join('');
-    menu.onclick = (ev) => { const b = ev.target.closest('button[data-k]'); if (b) { apply(b.dataset.k); close(); } };
-    document.body.appendChild(menu);
-  };
-  document.addEventListener('click', (e) => { if (menu && !menu.contains(e.target)) close(); });
 })();

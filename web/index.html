@@ -143,6 +143,15 @@ h3.gh.dy{cursor:pointer;position:relative}h3.gh.dy .dbm{display:block;margin:0 a
 .setmenu{display:flex;flex-direction:column;gap:8px}.setbox{text-align:left;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:14px 16px;font:600 14px var(--font-body);cursor:pointer}.setbox:hover{border-color:var(--accent)}.setbox.on{color:var(--accent);background:var(--accent-soft);border-color:var(--accent)}
 .setsec{margin:22px 0 10px;font:700 16px var(--font-head);padding-top:14px;border-top:1px solid var(--line)}.setmain{padding:16px 18px}.setti{margin:0 0 12px;font:700 20px var(--font-head)}
 .setdd{border:1px solid var(--line);border-radius:10px;margin-bottom:10px;background:var(--surface)}.setsum{cursor:pointer;padding:12px 14px;list-style:none;display:flex;align-items:center;gap:8px}.setsum::-webkit-details-marker{display:none}.setsum::before{content:'▸';color:var(--muted)}.setdd[open]>.setsum::before{content:'▾'}.setsum h3{margin:0;font:700 15px var(--font-head)}.setin{padding:4px 14px 14px}
+.hero{position:relative}.burger{display:none;position:absolute;right:max(16px,env(safe-area-inset-right,0px));top:12px;width:40px;height:40px;place-items:center;border-radius:10px;background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.28);cursor:pointer;z-index:40}
+@media(max-width:640px){.burger{display:grid}#nav a[data-v=daten]{display:none}.ttmenu.setbar,.km>.ttmenu.setbar{position:static!important;bottom:auto;margin:-4px 0 12px!important;box-shadow:none;border-top:0;border-bottom:1px solid #d5d9df;overflow-x:auto;flex-wrap:nowrap}.gbg{grid-template-columns:1fr!important}}
+.setbar+.ttmenu{margin-top:0!important}.setbar{margin-bottom:12px}
+.drw{position:fixed;inset:0;z-index:300;visibility:hidden;transition:visibility 0s .28s}.drw.open{visibility:visible;transition-delay:0s}.drwbg{position:absolute;inset:0;background:rgba(0,0,0,.45);opacity:0;transition:opacity .28s}.drw.open .drwbg{opacity:1}.drwp{position:absolute;top:0;right:0;bottom:0;width:min(330px,86vw);background:var(--surface);color:var(--ink);transform:translateX(100%);transition:transform .28s ease;padding:14px;box-shadow:-6px 0 24px rgba(0,0,0,.25);overflow-y:auto;box-sizing:border-box;padding-top:max(14px,env(safe-area-inset-top,0px))}.drw.open .drwp{transform:none}
+.drwh{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;font:700 17px var(--font-head)}.drwc{background:transparent;border:0;color:inherit;font-size:28px;line-height:1;cursor:pointer;padding:0 6px}
+.drwi{display:flex;align-items:center;gap:6px;margin-bottom:8px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}.drwi.on{border-color:var(--accent)}.drwi.dragging{box-shadow:0 6px 18px rgba(0,0,0,.25);background:var(--accent-soft);position:relative;z-index:2}.drwg{touch-action:none;cursor:grab;background:transparent;border:0;color:var(--muted);font-size:22px;padding:12px 6px 12px 12px;line-height:1}.drwt{flex:1;text-align:left;background:transparent;border:0;color:var(--ink);font:600 15px var(--font-body);padding:14px 12px 14px 0;cursor:pointer}.drwi.on .drwt{color:var(--accent)}
+.gbox{border:1px solid var(--line)!important;border-radius:10px!important;background:var(--surface)!important;padding:0!important}.gbox>.gbh{padding:12px 14px;margin:0!important}.gbox>.gbh::before{color:var(--muted)!important;content:'▸'}.gbox[open]>.gbh::before{content:'▾'}.gbox .gbh h3{font:700 15px var(--font-head)}.gbox .gbn{color:var(--muted)!important;font-weight:600}.gbox>:not(summary){margin-left:14px;margin-right:14px}.gbox>:last-child{margin-bottom:14px}.gbox textarea{width:calc(100% - 28px)!important;box-sizing:border-box}
+.gbg{display:grid;grid-template-columns:minmax(150px,240px) minmax(0,1fr);gap:6px 18px;padding:12px 0;border-top:1px solid var(--line)}.gbg:first-child{border-top:0;padding-top:2px}.gbg .gbe{margin:0;padding:0;border:0;font:700 14px var(--font-head);text-transform:none;letter-spacing:0;color:var(--ink)}.gbm{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.gbmc{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:99px;background:var(--surface2);max-width:100%}.gbmb{background:transparent;border:0;color:var(--ink);font:600 12px var(--font-body);padding:4px 4px 4px 10px;cursor:pointer;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.gbmx{background:transparent;border:0;color:var(--muted);cursor:pointer;padding:2px 8px 2px 2px;font-size:15px}.gbms{max-width:100%;font:600 12px var(--font-body);padding:4px 8px;border:1px dashed var(--line);border-radius:99px;background:transparent;color:var(--muted)}
+
 .skgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}.skcard{display:flex;align-items:center;gap:12px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:600 14px var(--font-body);cursor:pointer}.skcard.on{border-color:var(--accent);color:var(--accent)}.skcard i{display:inline-flex;border-radius:8px;overflow:hidden;border:1px solid var(--line)}.skcard i b{width:18px;height:28px;display:block}
 @media(max-width:800px){.setgrid{grid-template-columns:1fr}.setmenu{flex-direction:row}.setbox{flex:1}}
 .ttclip{overflow:hidden}html,body{overflow-x:clip}
@@ -302,11 +311,13 @@ select optgroup{font-weight:700;font-style:normal}
   <header class="hero">
     <div><div class="clock" id="clk" aria-live="off">--:--<small>--</small></div><div class="date" id="dt" style="margin-top:4px"></div></div>
     <div class="side"><div class="muted sm" id="sub"></div></div>
+    <button class="burger" id="burger" aria-label="Einstellungen öffnen" title="Einstellungen"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   </header>
   <nav class="nav" id="nav"></nav>
   <main id="main" class="wrap" style="padding:0"></main>
 </div>
 <div id="appver" class="muted sm" style="text-align:center;padding:4px 0 18px;opacity:.7">Version 20.11.2026 · Klassenmappen Etappe 1 · Designs</div>
+<div id="drw" class="drw" aria-hidden="true"><div class="drwbg" data-act="drwx"></div><aside class="drwp" role="dialog" aria-label="Einstellungen"><div class="drwh"><b>Einstellungen</b><button class="drwc" data-act="drwx" aria-label="Schließen">×</button></div><div id="drwl" class="drwl"></div><p class="muted sm" style="margin:12px 4px 0">Am Symbol ⠿ ziehen, um die Reihenfolge zu ändern.</p></aside></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script src="/shim.js"></script>
@@ -882,17 +893,94 @@ function themaView(slug){
   const f=jpFind(slug);if(!f)return crumbs([{t:'Jahresplanung',v:'jahresplan'},{t:'Thema'}])+'<section class="card"><div class="bd"><p class="muted">Dieses Thema gibt es nicht mehr.</p></div></section>';
   const sub=((S.settings.jahresplan||{}).sub||{})[slug]||{},m=f.line.match(/\((\d+)\s*Std\.?\)\s*$/),title=f.line.replace(/\s*\(\d+\s*Std\.?\)\s*$/,'');
   const fld=(k,lab,ph,h)=>`<label class="f" style="display:block;margin:0 0 14px">${lab}<textarea class="cnotes" style="min-height:${h}px" data-ch="jpsub" data-k="${slug}" data-f="${k}" placeholder="${ph}">${esc(sub[k]||'')}</textarea></label>`;
-  return crumbs([{t:'Jahresplanung',v:'jahresplan'},{t:esc(title)}])+`<section class="card"><div class="hd"><div class="hl"><h2>${esc(title)}</h2></div><span class="btn sm lall sta cnt">${f.k}. Klasse GPB${m?' · '+m[1]+(m[1]==='1'?' Stunde':' Stunden'):''}</span></div>
+  return setBar('jahresplan')+crumbs([{t:'Jahresplanung',v:'jahresplan'},{t:esc(title)}])+`<section class="card"><div class="hd"><div class="hl"><h2>${esc(title)}</h2></div><span class="btn sm lall sta cnt">${f.k}. Klasse GPB${m?' · '+m[1]+(m[1]==='1'?' Stunde':' Stunden'):''}</span></div>
   <div class="bd" style="padding:14px 16px">${fld('ziele','Lernziele und Kompetenzen','Was sollen die Schüler:innen am Ende können?',110)}${fld('ablauf','Stundenablauf und Inhalte','Einstieg, Erarbeitung, Sicherung, Methoden, Tafelbild …',260)}${fld('mat','Materialien, Quellen und Links','Arbeitsblätter, Quellen, Schulbuchseiten, Links …',110)}${bookBlock(slug,sub)}${fld('ha','Hausübung und Wiederholung','',80)}${fld('notiz','Notizen','',80)}<p class="muted sm" style="margin:6px 0 0">Änderungen werden automatisch gespeichert.</p></div></section>`;
 }
+
+const SETSEC={jahresplan:'Jahresplanung',material:'Material',daten:'Dateneingabe',skin:'Farbschema'};
+function setOrder(){const o=((S.settings.setnav||{}).order||[]).filter(k=>SETSEC[k]);Object.keys(SETSEC).forEach(k=>{if(!o.includes(k))o.push(k)});return o}
+function setActive(v){return v==='jahresplan'||/^thema-/.test(v)?'jahresplan':v==='material'?'material':v==='daten'?(U.setTab==='skin'?'skin':'daten'):''}
+function setBar(v){const a=setActive(v);return `<div class="ttmenu setbar">${setOrder().map(k=>`<span class="ttchipw"><button class="ttchip${a===k?' on':''}" data-act="setnav" data-v="${k}">${SETSEC[k]}</button></span>`).join('')}</div>`}
+const JP_TPL={g5:`## Einführung und Grundlagen
+Was ist Geschichte? Quellen, Methoden und Zeitrechnung (3 Std.)
+Politische Bildung: Demokratie, Politik und Partizipation (3 Std.)
+## Frühe Kulturen und Antike
+Von der Urgeschichte zu den frühen Hochkulturen (4 Std.)
+Das antike Griechenland: Polis und Demokratie (4 Std.)
+Das Römische Reich: Republik, Kaiserzeit und Untergang (5 Std.)
+## Mittelalter
+Völkerwanderung und Frühmittelalter (3 Std.)
+Feudalismus, Kirche und Herrschaft im Hochmittelalter (4 Std.)
+Stadt, Handel und Alltag im Mittelalter (4 Std.)`,
+g6:`## Wende zur Neuzeit
+Humanismus, Renaissance und Reformation (6 Std.)
+Entdeckungen und frühe Kolonialisierung (5 Std.)
+Habsburg und Europa im 16. und 17. Jahrhundert (5 Std.)
+## Absolutismus und Aufklärung
+Absolutismus und Merkantilismus (5 Std.)
+Aufklärung und Menschenrechte (5 Std.)
+Maria Theresia und Josef II. (4 Std.)
+## Revolutionen
+Amerikanische und Französische Revolution (6 Std.)
+Napoleon und der Wiener Kongress (4 Std.)
+Revolution 1848 in Europa und Österreich (5 Std.)
+## Das 19. Jahrhundert
+Industrielle Revolution und soziale Frage (6 Std.)
+Nationalstaaten und Nationalismus (5 Std.)
+Politische Bildung: Verfassung, Grundrechte und Gewaltenteilung (4 Std.)`,
+g7:`## Imperialismus und Erster Weltkrieg
+Imperialismus und Kolonialismus (5 Std.)
+Bündnissysteme und Weg in den Ersten Weltkrieg (4 Std.)
+Der Erste Weltkrieg und das Ende der Monarchie (7 Std.)
+## Zwischenkriegszeit
+Die Republik Österreich: Gründung, Krisen und Ständestaat (6 Std.)
+Russische Revolution und Sowjetunion (4 Std.)
+Faschismus in Italien und Weltwirtschaftskrise (5 Std.)
+## Nationalsozialismus
+Machtübernahme und nationalsozialistische Herrschaft (6 Std.)
+Anschluss und Österreich unter NS-Herrschaft (4 Std.)
+Rassismus, Verfolgung und Holocaust (7 Std.)
+## Zweiter Weltkrieg
+Kriegsverlauf und Kriegsalltag (5 Std.)
+Widerstand, Befreiung und Kriegsende (4 Std.)
+Erinnerungskultur und Gedenken (3 Std.)`,
+g8:`## Nachkriegszeit und Kalter Krieg
+Neuordnung Europas und Beginn des Kalten Krieges (5 Std.)
+Besatzungszeit und Staatsvertrag Österreichs (5 Std.)
+Entspannung, Mauerfall und Ende des Ostblocks (5 Std.)
+## Österreich nach 1945
+Zweite Republik: Politik, Gesellschaft und Neutralität (5 Std.)
+Gesellschaftlicher Wandel seit 1960: Frauen, Jugend, Migration (5 Std.)
+Österreich in der Europäischen Union (5 Std.)
+## Gegenwart und Globalisierung
+Europäische Integration und die Zukunft der EU (4 Std.)
+Globalisierung, Weltwirtschaft und Nord-Süd-Konflikt (5 Std.)
+Nahostkonflikt und Konflikte der Gegenwart (4 Std.)
+Migration, Flucht und Menschenrechte (4 Std.)
+## Politische Bildung und Matura
+Politisches System Österreichs: Wahlen, Parteien, Medien (5 Std.)
+Medienkompetenz und politische Urteilsbildung (4 Std.)
+Wiederholung und Maturavorbereitung (4 Std.)`};
+function jpBMat(h){const sl='b-'+jpSlug(h),ids=(((S.settings.jahresplan||{}).sub||{})[sl]||{}).mats||[],lib=typeof MAT!=='undefined'&&MAT.list?MAT.list():[],by=new Map(lib.map(m=>[m.id,m]));
+  return `<div class="gbm">${ids.map(id=>by.get(id)).filter(Boolean).map(m=>`<span class="gbmc"><button class="gbmb" data-act="matpop" data-id="${esc(m.id)}" title="Öffnen">${esc(m.title)}</button><button class="gbmx" data-act="jpmrm" data-k="${sl}" data-id="${esc(m.id)}" title="Zuordnung entfernen" aria-label="Zuordnung entfernen">×</button></span>`).join('')}<select class="gbms" data-ch="jpmadd" data-k="${sl}" aria-label="Material zuordnen"><option value="">+ Material zuordnen</option>${lib.filter(m=>!ids.includes(m.id)).map(m=>`<option value="${esc(m.id)}">${esc(m.title)}</option>`).join('')}</select></div>`}
+
+function drwList(){const v=U.view||'',a=setActive(v);const l=document.getElementById('drwl');if(l)l.innerHTML=setOrder().map(k=>`<div class="drwi${a===k?' on':''}" data-k="${k}"><button class="drwg" aria-label="Verschieben" title="Ziehen: Reihenfolge ändern">⠿</button><button class="drwt" data-act="setnav" data-v="${k}">${SETSEC[k]}</button></div>`).join('')}
+function drwOpen(){drwList();const d=document.getElementById('drw');d.classList.add('open');d.setAttribute('aria-hidden','false')}
+function drwClose(){const d=document.getElementById('drw');if(d){d.classList.remove('open');d.setAttribute('aria-hidden','true')}}
+document.addEventListener('click',e=>{if(e.target.closest&&e.target.closest('#burger'))drwOpen()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')drwClose()});
+(()=>{let dr=null;document.addEventListener('pointerdown',e=>{const g=e.target.closest&&e.target.closest('.drwg');if(!g)return;e.preventDefault();dr=g.closest('.drwi');dr.classList.add('dragging');try{g.setPointerCapture(e.pointerId)}catch(x){}});
+document.addEventListener('pointermove',e=>{if(!dr)return;const l=dr.parentNode,its=[...l.children].filter(x=>x!==dr);let before=null;for(const it of its){const r=it.getBoundingClientRect();if(e.clientY<r.top+r.height/2){before=it;break}}l.insertBefore(dr,before)});
+const end=()=>{if(!dr)return;dr.classList.remove('dragging');const order=[...dr.parentNode.children].map(x=>x.dataset.k);dr=null;put('settings',Object.assign({},S.settings.setnav||{},{id:'setnav',order}))};
+document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end)})();
 function jpCount(t){return String(t).split('\n').filter(l=>l.trim()&&!/^##\s*/.test(l)).length}
-function jpRender(t,off){const L=String(t).split('\n').filter(l=>l.trim());if(!L.length)return '<p class="muted sm">Noch keine Themen. Mit „Bearbeiten“ eintragen.</p>';let i=off||0;return L.map(l=>{if(/^##\s*/.test(l))return `<h4 class="gbe">${esc(l.replace(/^##\s*/,''))}</h4>`;const sg=jpSlug(l);return `<div class="gbi"><span class="no">${++i}</span><a class="lnk" href="#thema-${sg}" data-act="go" data-v="thema-${sg}">${esc(l)}</a></div>`}).join('')}
+function jpRender(t,off){const L=String(t).split('\n').filter(l=>l.trim());if(!L.length)return '<p class="muted sm">Noch keine Themen. Mit „Bearbeiten“ eintragen.</p>';let i=off||0;const gr=[];let cur=null;L.forEach(l=>{if(/^##\s*/.test(l)){cur={h:l.replace(/^##\s*/,''),it:[]};gr.push(cur)}else{if(!cur){cur={h:'',it:[]};gr.push(cur)}cur.it.push(l)}});return gr.map(g=>`<div class="gbg"><div class="gbl">${g.h?`<h4 class="gbe">${esc(g.h)}</h4>${jpBMat(g.h)}`:''}</div><div class="gbr">${g.it.map(l=>{const sg=jpSlug(l);return `<div class="gbi"><span class="no">${++i}</span><a class="lnk" href="#thema-${sg}" data-act="go" data-v="thema-${sg}">${esc(l)}</a></div>`}).join('')}</div></div>`).join('')}
 function jahresView(){
   const gs=groups().filter(G=>!G.sprech),kd=U.jpk==='s'?'bspk':'gpb',pf=kd==='bspk'?'s':'g',nm=kd==='bspk'?'BSPK':'GPB';
   const jj=S.settings.jahresplan||{},jhours=k=>{let n=0,any=false;gs.filter(x=>subjKind(x.subject)===kd&&parseInt(x.label)===k).forEach(x=>{any=true;const bl=mergeRows(x.rows);lessonDates(x,null,dayDiff(JP_START),dayDiff(JP_END)).filter(d=>d>=JP_START&&d<=JP_END).forEach(d=>{const wd=((parse(d).getDay()+6)%7)+1;bl.filter(b=>b.wd===wd).forEach(b=>{n+=(b.p2-b.p1+1)})})});return any?n:null};
-  const gbox=[5,6,7,8].map(k=>`<details class="gbox" data-gk="${pf}${k}"${U.jpo&&U.jpo[pf+k]?' open':''}><summary class="gbh"><h3>${k}. Klasse ${nm}</h3><span class="gbn">${jhours(k)==null?'keine Stunden im Stundenplan':jhours(k)+' Stunden im Schuljahr'}</span></summary>${U.jpe===pf+k?`<textarea data-ch="jpstufe" data-k="${pf}${k}" placeholder="Lehrplan, Themen und Inhalte für die ${k}. Klasse (ein Thema pro Zeile, Überschrift mit ## davor)" aria-label="${k}. Klasse ${nm}">${esc(jj[pf+k]||'')}</textarea><button class="btn sm" data-act="jpedit" data-v="" style="margin-top:8px">Fertig</button>`:`<div class="gbv">${jpRender(jj[pf+k]||'',[5,6,7,8].filter(q=>q<k).reduce((a,q)=>a+jpCount(jj[pf+q]||''),0))}</div><button class="btn sm" data-act="jpedit" data-v="${pf}${k}" style="margin-top:8px">Bearbeiten</button>`}</details>`).join('');
+  const gbox=[5,6,7,8].map(k=>`<details class="gbox" data-gk="${pf}${k}"${U.jpo&&U.jpo[pf+k]?' open':''}><summary class="gbh"><h3>${k}. Klasse ${nm}</h3><span class="gbn">${jhours(k)==null?'keine Stunden im Stundenplan':jhours(k)+' Stunden im Schuljahr'}</span></summary>${U.jpe===pf+k?`<textarea data-ch="jpstufe" data-k="${pf}${k}" placeholder="Lehrplan, Themen und Inhalte für die ${k}. Klasse (ein Thema pro Zeile, Überschrift mit ## davor)" aria-label="${k}. Klasse ${nm}">${esc(jj[pf+k]||'')}</textarea><button class="btn sm" data-act="jpedit" data-v="" style="margin-top:8px">Fertig</button>`:`<div class="gbv">${jpRender(jj[pf+k]||'',[5,6,7,8].filter(q=>q<k).reduce((a,q)=>a+jpCount(jj[pf+q]||''),0))}</div><button class="btn sm" data-act="jpedit" data-v="${pf}${k}" style="margin-top:8px">Bearbeiten</button>${pf==='g'&&!String(jj[pf+k]||'').trim()?` <button class="btn sm good" data-act="jptpl" data-k="${pf}${k}" style="margin-top:8px" title="Setzt einen Vorschlag nach dem Lehrplan Geschichte und Politische Bildung (Sekundarstufe 2) ein, den du danach frei ändern kannst">Lehrplan-Vorschlag einsetzen</button>`:''}`}</details>`).join('');
   const menu=`<div class="ttmenu"><button class="ttchip${kd==='gpb'?' on':''}" data-act="jpk" data-v="g">Geschichte</button><span class="ttchipw"><button class="ttchip${kd==='bspk'?' on':''}" data-act="jpk" data-v="s">Bewegung und Sport</button></span></div>`;
-  return `${menu}<div class="kmh ttk"><h1>Jahresplanung<span class="kmsep kmh1">I</span><span class="muted" style="font-weight:500">${kd==='bspk'?'Bewegung und Sport':'Geschichte'}</span></h1></div><section class="card"><div class="gboxes">${gbox}</div></section>`;
+  return `${setBar('jahresplan')}${menu}<div class="kmh ttk"><h1>Jahresplanung<span class="kmsep kmh1">I</span><span class="muted" style="font-weight:500">${kd==='bspk'?'Bewegung und Sport':'Geschichte'}</span></h1></div><section class="card"><div class="gboxes">${gbox}</div></section>`;
 }
 function schuelerCard(G){
   const all=Array.isArray(cinfo(G.slug).students)?cinfo(G.slug).students:[],multi=G.classes.length>1,act=stAct(all).length;
@@ -1015,7 +1103,7 @@ function datenView(){
   let main;
   if(tab==='skin'){const SK=window.SKIN;main=`<h2 class="setti">Farbschema auswählen</h2><div class="skgrid">${SK?Object.entries(SK.list).map(([k,v])=>`<button class="skcard${SK.get()===k?' on':''}" data-act="setskin" data-v="${k}"><i>${v.sw.map(c=>`<b style="background:${c}"></b>`).join('')}</i><span>${esc(v.name)}</span></button>`).join(''):'<p class="muted">Designs nicht verfügbar.</p>'}</div>`}
   else main=`<h2 class="setti">Dateneingabe</h2><div class="row" style="gap:8px;margin-bottom:14px;flex-wrap:wrap"><button class="btn" data-act="wuprep" title="Bereitet Lernstoff und Fehlzeiten des ganzen Schuljahres für das WebUntis-Lesezeichen „WebUntis synchronisieren“ vor">Für WebUntis bereitstellen</button><button class="btn" data-act="wupull" title="Übernimmt, was ein WebUntis-Lesezeichen kopiert hat (Stundenplan, Schülerlisten oder Rückmeldung)">Von WebUntis übernehmen</button></div>${dd('sl','Schülerlisten',stuHtml)}<h3 class="setsec">Test eintragen</h3>${testHtml}<h3 class="setsec">Schulfreie Tage eintragen</h3>${autoBox()}`;
-  return `<div class="setgrid"><nav class="setmenu" aria-label="Einstellungen"><button class="setbox${tab==='data'?' on':''}" data-act="settab" data-v="data">Dateneingabe</button><button class="setbox${tab==='skin'?' on':''}" data-act="settab" data-v="skin">Farbschema auswählen</button></nav><section class="card setmain">${main}</section></div>`;
+  return `${setBar('daten')}<section class="card setmain">${main}</section>`;
 }
 function viewFromHash(){const h=(location.hash||'').replace(/^#/,'');return /^mappe/.test(h)||h==='material'||/^schueler-/.test(h)||h==='klassen'||h==='daten'||h==='jahresplan'||h==='leistungen'||/^thema-/.test(h)||/^klasse-/.test(h)||/^tests-/.test(h)||/^stunde-/.test(h)?h:'uebersicht'}
 function savePos(){try{U.pos=U.pos||{};U.pos[U.view]={y:window.scrollY||document.documentElement.scrollTop||0,inner:[...document.querySelectorAll('.lscroll,.lslist')].map(x=>x.scrollTop)}}catch(e){}}
@@ -1142,13 +1230,13 @@ function render(){
   const today=holFor(TODAY)?0:rows.filter(r=>r.wd===dow).length;
   const sub=$('#sub');if(sub)sub.textContent=synced==='local'?'nur auf diesem Gerät gespeichert':'';
   const v=U.view||'uebersicht',nav=$('#nav');
-  const navH=`<a href="#klassen" data-act="nhome" class="${v==='klassen'?'on':''}" aria-label="Home" title="Home"><svg class="ni" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg><span class="nt">Home</span></a><a href="#" data-act="go" data-v="uebersicht" class="${v==='uebersicht'?'on':''}" aria-label="Stundenplan" title="Stundenplan"><svg class="ni" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span class="nt">Stundenplan</span></a><a href="#mappe" data-act="go" data-v="mappe" class="${/^(mappe|schueler-|stunde-|klasse-)/.test(v)?'on':''}" aria-label="Klassenmappen" title="Klassenmappen"><svg class="ni" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><span class="nt">Klassenmappen</span></a><a href="#leistungen" data-act="go" data-v="leistungen" class="${v==='leistungen'||/^tests-/.test(v)?'on':''}" aria-label="Leistungen" title="Leistungen"><svg class="ni" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5M4 19h16"/><path d="M8 15l4-5 3 3 5-6"/></svg><span class="nt">Leistungen</span></a><a href="#material" data-act="go" data-v="material" class="${/^material/.test(v)?'on':''}" aria-label="Material" title="Material"><svg class="ni" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg><span class="nt">Material</span></a><a href="#jahresplan" data-act="go" data-v="jahresplan" class="${v==='jahresplan'||/^thema-/.test(v)?'on':''}" aria-label="Jahresplanung" title="Jahresplanung"><svg class="ni" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h6M9 18h3"/></svg><span class="nt">Jahresplanung</span></a><a href="#daten" data-act="go" data-v="daten" class="${v==='daten'?'on':''}" aria-label="Einstellungen" title="Einstellungen"><svg class="ni" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span class="nt">Einstellungen</span></a>`;
+  const navH=`<a href="#klassen" data-act="nhome" class="${v==='klassen'?'on':''}" aria-label="Home" title="Home"><svg class="ni" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg><span class="nt">Home</span></a><a href="#" data-act="go" data-v="uebersicht" class="${v==='uebersicht'?'on':''}" aria-label="Stundenplan" title="Stundenplan"><svg class="ni" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span class="nt">Stundenplan</span></a><a href="#mappe" data-act="go" data-v="mappe" class="${/^(mappe|schueler-|stunde-|klasse-)/.test(v)?'on':''}" aria-label="Klassenmappen" title="Klassenmappen"><svg class="ni" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><span class="nt">Klassenmappen</span></a><a href="#leistungen" data-act="go" data-v="leistungen" class="${v==='leistungen'||/^tests-/.test(v)?'on':''}" aria-label="Leistungen" title="Leistungen"><svg class="ni" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5M4 19h16"/><path d="M8 15l4-5 3 3 5-6"/></svg><span class="nt">Leistungen</span></a><a href="#daten" data-act="go" data-v="daten" class="${setActive(v)?'on':''}" aria-label="Einstellungen" title="Einstellungen"><svg class="ni" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span class="nt">Einstellungen</span></a>`;
   if(nav&&nav._h!==navH){nav.innerHTML=navH;nav._h=navH}
-  $('#main').innerHTML=v==='material'?`<div style="grid-column:1/-1">${typeof MAT!=='undefined'?MAT.view():''}</div>`:/^mappe/.test(v)?`<div style="grid-column:1/-1">${typeof KM!=='undefined'?KM.view(v):''}</div>`:/^schueler-/.test(v)?`<div style="grid-column:1/-1">${typeof KM!=='undefined'?(()=>{const p=v.slice(9).split('--');return KM.studentPage(p[0],p[1])})():''}</div>`:/^thema-/.test(v)?`<div style="grid-column:1/-1">${themaView(v.slice(6))}</div>`:v==='jahresplan'?`<div style="grid-column:1/-1">${jahresView()}</div>`:v==='daten'?`<div style="grid-column:1/-1">${datenView()}</div>`:v==='klassen'?`<div style="grid-column:1/-1">${klassenView()}</div>`:/^stunde-/.test(v)?`<div style="grid-column:1/-1">${(()=>{const p=v.slice(7).split('--');return typeof KM!=='undefined'&&KM.lessonPage?KM.lessonPage(p[0],p[1]):stundeView(p[0],p[1])})()}</div>`:/^tests-/.test(v)||v==='leistungen'?`<div style="grid-column:1/-1">${typeof KM!=='undefined'&&KM.testPage?KM.testPage(v==='leistungen'?'':v.slice(6)):''}</div>`:/^klasse-/.test(v)?`<div style="grid-column:1/-1">${typeof KM!=='undefined'&&KM.classPage?KM.classPage(v.slice(7)):klasseView(v.slice(7))}</div>`:ttPage();
+  $('#main').innerHTML=v==='material'?`<div style="grid-column:1/-1">${setBar('material')}${typeof MAT!=='undefined'?MAT.view():''}</div>`:/^mappe/.test(v)?`<div style="grid-column:1/-1">${typeof KM!=='undefined'?KM.view(v):''}</div>`:/^schueler-/.test(v)?`<div style="grid-column:1/-1">${typeof KM!=='undefined'?(()=>{const p=v.slice(9).split('--');return KM.studentPage(p[0],p[1])})():''}</div>`:/^thema-/.test(v)?`<div style="grid-column:1/-1">${themaView(v.slice(6))}</div>`:v==='jahresplan'?`<div style="grid-column:1/-1">${jahresView()}</div>`:v==='daten'?`<div style="grid-column:1/-1">${datenView()}</div>`:v==='klassen'?`<div style="grid-column:1/-1">${klassenView()}</div>`:/^stunde-/.test(v)?`<div style="grid-column:1/-1">${(()=>{const p=v.slice(7).split('--');return typeof KM!=='undefined'&&KM.lessonPage?KM.lessonPage(p[0],p[1]):stundeView(p[0],p[1])})()}</div>`:/^tests-/.test(v)||v==='leistungen'?`<div style="grid-column:1/-1">${typeof KM!=='undefined'&&KM.testPage?KM.testPage(v==='leistungen'?'':v.slice(6)):''}</div>`:/^klasse-/.test(v)?`<div style="grid-column:1/-1">${typeof KM!=='undefined'&&KM.classPage?KM.classPage(v.slice(7)):klasseView(v.slice(7))}</div>`:ttPage();
   Object.keys(keep).forEach(id=>{const el=document.getElementById(id);if(el&&el.type!=='hidden'&&!el.value)el.value=keep[id]});
   applyFb();
   placeLine();
-  try{const nv=document.getElementById('nav');if(nv)document.documentElement.style.setProperty('--navh',nv.offsetHeight+'px');document.body.classList.toggle('hassub',!!document.querySelector('#main .ttmenu'))}catch(e){}
+  try{const nv=document.getElementById('nav');if(nv)document.documentElement.style.setProperty('--navh',nv.offsetHeight+'px');document.body.classList.toggle('hassub',!!document.querySelector('#main .ttmenu:not(.setbar)'))}catch(e){}
   if(U.npSlide){const w=document.querySelector('.npcard .wkw');if(w){w.style.setProperty('--sx',U.npSlide==='l'?'100%':'-100%');w.style.animation='ttin .28s ease-out'}U.npSlide=null}
   if(U.slide){const w=document.querySelector('.ttwrap');if(w){w.style.setProperty('--sx',U.slide==='l'?'100%':'-100%');w.style.animation='ttin .28s ease-out'}U.slide=null}
 }
@@ -1288,6 +1376,10 @@ const A={
   npprev:()=>{U.pdo=stepWd(U.pdo||0,-1);render()},
   npnext:()=>{U.pdo=stepWd(U.pdo||0,1);render()},
   settab:e=>{U.setTab=e.dataset.v;render()},
+  setnav:e=>{const v=e.dataset.v;if(v==='skin')U.setTab='skin';else if(v==='daten')U.setTab='data';drwClose();setView(v==='skin'?'daten':v);render()},
+  drwx:()=>drwClose(),
+  jptpl:e=>{const d=S.settings.jahresplan||{id:'jahresplan'},k=e.dataset.k;if(!JP_TPL[k]||String(d[k]||'').trim())return;put('settings',Object.assign({},d,{id:'jahresplan',[k]:JP_TPL[k]}));U.jpo=Object.assign({},U.jpo,{[k]:true});toast('Lehrplan-Vorschlag eingesetzt – du kannst ihn jederzeit ändern');render()},
+  jpmrm:e=>{const d=S.settings.jahresplan||{id:'jahresplan'},sub=Object.assign({},d.sub||{}),it=Object.assign({},sub[e.dataset.k]||{});it.mats=(it.mats||[]).filter(x=>x!==e.dataset.id);sub[e.dataset.k]=it;put('settings',Object.assign({},d,{id:'jahresplan',sub}));render()},
   setskin:e=>{if(window.SKIN)window.SKIN.apply(e.dataset.v);render()},
   ttedit:()=>{U.ttEdit=!U.ttEdit;render()},
   ttadd:()=>{const n=(prompt('Name der Lehrperson oder Klasse:')||'').trim();if(!n)return;const l=ttTeachers().concat([{id:'t'+Date.now().toString(36),name:n}]);put('settings',{id:'ttteach',list:l});U.ttTab=l[l.length-1].id},
@@ -1333,6 +1425,7 @@ const C={
     const cd=e.closest('.ccard'),ics=cd&&cd.querySelector('.ics');if(ics&&ics.children[1]){ics.children[1].className='ic '+(v?'ok':'no');ics.classList.toggle('all',!!v&&ics.children[0].classList.contains('ok'))}},
   stpr:e=>{saveLog(e.dataset.slug,log=>{const x=log.find(y=>y.id===e.dataset.id);if(!x)return;const m=mitMap({mit:x.pasr});m[e.dataset.sid]=e.value.trim().replace(/\n/g,' ');x.pasr=mitList(m)})},
   jpplan:e=>{const ci=cinfo(e.dataset.slug),jp=Object.assign({},ci.jp&&typeof ci.jp==='object'?ci.jp:{});const v=e.value.trim();if(v)jp[e.dataset.d]=v;else delete jp[e.dataset.d];put('settings',Object.assign({},ci,{id:'cn_'+e.dataset.slug,jp}))},
+  jpmadd:e=>{if(!e.value)return;const d=S.settings.jahresplan||{id:'jahresplan'},sub=Object.assign({},d.sub||{}),it=Object.assign({},sub[e.dataset.k]||{}),l=(it.mats||[]).slice();if(!l.includes(e.value))l.push(e.value);it.mats=l;sub[e.dataset.k]=it;put('settings',Object.assign({},d,{id:'jahresplan',sub}));render()},
   jpsub:e=>{const d=S.settings.jahresplan||{id:'jahresplan'},sub=Object.assign({},d.sub||{}),it=Object.assign({},sub[e.dataset.k]||{});it[e.dataset.f]=e.value;sub[e.dataset.k]=it;put('settings',Object.assign({},d,{id:'jahresplan',sub}))},
   jpstufe:e=>{const d=S.settings.jahresplan||{id:'jahresplan'};put('settings',Object.assign({},d,{id:'jahresplan',[e.dataset.k]:e.value}))},
   lgfield:e=>{const k=e.dataset.k;saveLog(e.dataset.slug,log=>{const x=log.find(y=>y.id===e.dataset.id);if(x){x[k]=(k==='text')?e.value.trim():e.value}})},

@@ -555,7 +555,7 @@ const KM = (() => {
     if (!Gs) return ''; const doc = S.settings['kmr_' + Gs.slug], st = cinfo(Gs.slug).students || [], low = spLower(o); if (!doc || !Array.isArray(doc.items)) return '';
     const best = {}; doc.items.filter((e) => e.sp === o.key && e.pts).forEach((e) => { Object.keys(e.pts).forEach((sid) => { const raw = String(e.pts[sid]).trim(), v = spNum(raw); if (v == null) return; const b = best[sid]; if (!b || (low ? v < b.v : v > b.v)) best[sid] = { sid, v, raw, date: e.date }; }); });
     const top = Object.values(best).sort((a, b) => (low ? a.v - b.v : b.v - a.v)).slice(0, 3); if (!top.length) return '';
-    return `<div class="spbest"><div class="spbh">Klassenbestleistungen</div>${top.map((b, i) => { const q = st.find((y) => y.id === b.sid); return `<div class="spbr"><span class="spbn">${i + 1}.</span><span class="spbname">${q ? esc(up(q.nn) + ' ' + q.vn) : '–'}</span><span class="muted sm">${esc(dshort(b.date).replace(/^[A-Za-z]+, /, ''))}${schoolYear(b.date) !== schoolYear(TODAY) ? ' ' + b.date.slice(0, 4) : ''}</span><b>${esc(b.raw)}</b></div>`; }).join('')}</div>`;
+    return `<div class="spbest"><div class="spbh">Klassenbestleistungen</div>${top.map((b, i) => { const q = st.find((y) => y.id === b.sid); return `<div class="spbr"><span class="spbn">${i + 1}.</span>${q ? `<a class="spbname lsnl" href="#schueler-${Gs.slug}--${esc(q.id)}" data-act="kmstu" data-slug="${Gs.slug}" data-id="${esc(q.id)}" title="Profil öffnen">${esc(up(q.nn) + ' ' + q.vn)}</a>` : '<span class="spbname">–</span>'}<span class="muted sm">${esc(dshort(b.date).replace(/^[A-Za-z]+, /, ''))}${schoolYear(b.date) !== schoolYear(TODAY) ? ' ' + b.date.slice(0, 4) : ''}</span><b>${esc(b.raw)}</b></div>`; }).join('')}</div>`;
   }
   function spChart(o, big) {
     const pts = o.pts.filter((q) => q.v != null); if (pts.length < 2) return '';
@@ -973,6 +973,8 @@ input.ktd{width:100%;box-sizing:border-box}.grpgrid{display:grid;grid-template-c
 .spmbox .tscat{text-transform:none!important;letter-spacing:0!important;font-weight:600;background:color-mix(in srgb,var(--ink) 7%,var(--surface))!important;color:var(--ink)}.spmbox .tscat.on{background:color-mix(in srgb,var(--ink) 16%,var(--surface))!important;color:var(--accent)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 22%,transparent)}
 .spmbox .tscren{border:0;background:transparent;color:inherit;font:600 13px var(--font-body);padding:0;margin:0;outline:none;min-width:40px;cursor:text}.spmbox .tscren:focus{border-bottom:1px dashed currentColor}
 .spmbox .tscnew input{text-transform:none}
+.spbxs{display:grid;gap:14px;margin-top:14px}.spbgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}.spbd{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--surface)}.spbdh{font:700 13px var(--font-head);margin-bottom:4px}.spbd .spbr{display:flex;gap:8px;align-items:baseline;padding:3px 0;border-top:1px solid var(--line);font-size:13px}.spbd .spbr:first-of-type{border-top:0}.spbd .spbname{flex:1;min-width:0;text-decoration:none;color:var(--ink)}.spbname.lsnl:hover{color:var(--accent);text-decoration:underline}
+.kmtable[data-kt] .kmrow{padding:0 8px 0 2px!important}.kmtable[data-kt] .kmrow>:nth-child(-n+3){align-self:stretch;display:flex;align-items:center;padding-top:6px;padding-bottom:6px;box-sizing:border-box}.kmtable[data-kt] .kmrow>:nth-child(n+4){margin:6px 0}.kmtable[data-kt] .kmth{padding-bottom:0!important}
 .kmbody.kmnoside{grid-template-columns:minmax(0,1fr)}
 .kmsubl{margin-top:6px;font-size:14px;color:var(--ink)}.kmsubl .kmsep{margin:0 .8em}.kmpen{margin-left:8px}.kmkvedit{margin-top:8px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}.kmkvedit .kminp{max-width:300px}
 .kmphwide{margin-top:14px}.kmphwide .card{width:100%}
@@ -1750,6 +1752,21 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
   })();
   const spUnitOf = (key, name) => ({ ms: 'min', sec: 's', m: 'm' })[spKind(key, name)] || '';
   const spWithUnit = (key, name) => { const n = String(name).trim(), u = spUnitOf(key, n); return u && !/\[[^\]]*\]\s*$/.test(n) ? n + ' [' + u + ']' : n; };
+  function spBoxes(G, sts, AR, yr) {
+    const byS = new Map(sts.map((x) => [x.id, x])), st0 = tsState(), dd = (d) => dshort(d).replace(/^[A-Za-z]+, /, '');
+    const cards = AR.map((q) => {
+      const discs = q.items.map(([k, n]) => {
+        const best = {}; let low = ['sec', 'ms'].includes(spKind(k, n));
+        spItems(G, k, yr).forEach((it) => Object.keys(it.pts || {}).forEach((sid) => { const raw = String(it.pts[sid]).trim(), v = spNum(raw); if (v == null || !byS.has(sid)) return; if (!low && spLower({ name: n, pts: [{ raw }] })) low = true; (best[sid] = best[sid] || []).push({ sid, v, raw, date: it.date }); }));
+        const list = Object.values(best).map((a) => a.reduce((m, b) => ((low ? b.v < m.v : b.v > m.v) ? b : m), a[0])).sort((a, b) => (low ? a.v - b.v : b.v - a.v) || a.date.localeCompare(b.date));
+        return { k, n, list };
+      }).filter((d) => d.list.length);
+      if (!discs.length) return '';
+      const key = G.slug + '|' + q.id, all = (st0.spshow || {})[key] === 'all';
+      return `<section class="card spbox"><div class="row" style="align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap"><h2 style="margin:0">${esc(q.name)}</h2><span class="muted sm">Bestenliste ${yearLbl(yr)}</span><span style="flex:1"></span><label class="spyr">Anzeige <select data-ch="spshow" data-slug="${G.slug}" data-a="${esc(q.id)}"><option value="5"${all ? '' : ' selected'}>Beste 5</option><option value="all"${all ? ' selected' : ''}>Ganze Klasse</option></select></label></div><div class="spbgrid">${discs.map((d) => `<div class="spbd"><div class="spbdh">${esc(d.n)}</div>${(all ? d.list : d.list.slice(0, 5)).map((b, i) => { const x = byS.get(b.sid); return `<div class="spbr"><span class="spbn">${i + 1}.</span><a class="spbname lsnl" href="#schueler-${G.slug}--${esc(b.sid)}" data-act="kmstu" data-slug="${G.slug}" data-id="${esc(b.sid)}" title="Profil öffnen">${esc(up(x.nn) + ' ' + x.vn)}</a><b>${esc(b.raw)}</b><span class="muted sm">${esc(dd(b.date))}</span></div>`; }).join('')}</div>`).join('')}</div></section>`;
+    }).join('');
+    return cards ? `<div class="spbxs">${cards}</div>` : '';
+  }
   function sportPage(G, c, ci) {
     if (!cfg().spUnitsDone) { saveCfg({ spUnitsDone: true, spAreas: spAreas().map((q) => Object.assign({}, q, { items: q.items.map(([k, n]) => [k, spWithUnit(k, n)]) })) }); }
     const AR = spAreas(), ar = spArea(G.slug), T = spcats(G.slug), cat = spCat(G.slug), nm0 = ((T.find((x) => x[0] === cat) || [])[1]) || '', sts = studentsSorted(G), edM = !!tsState().edSp;
@@ -1763,12 +1780,13 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
     const head = cols.map((k) => (k.q ? `<span class="kmpc spch"><span class="xsel-h" title="Ganze Spalte markieren">▾</span><input type="date" class="spdate" data-ch="spdate" data-slug="${G.slug}" data-iid="${esc(k.q.id)}" value="${esc(k.q.date)}" aria-label="Datum der Leistung"><button class="spx" data-act="spcoldel" data-slug="${G.slug}" data-iid="${esc(k.q.id)}" title="Spalte löschen" aria-label="Spalte löschen">×</button></span>` : `<span class="kmpc spch"><span class="xsel-h" title="Ganze Spalte markieren">▾</span><span class="muted sm spph">Datum folgt</span></span>`)).join('');
     const rows = sts.map((x, i) => `<div class="kmrow tsrow" data-sid="${esc(x.id)}"><span class="kmno">${i + 1}</span>${avSpan(x, 'kmav')}<span class="kmnm"><a class="lsnl" href="#schueler-${G.slug}--${esc(x.id)}" data-act="kmstu" data-slug="${G.slug}" data-id="${esc(x.id)}" title="Profil öffnen"><b>${esc(up(x.nn))}</b> ${esc(x.vn)}</a></span>${cols.map((k, ci2) => `<span class="kmpc"><input class="spin" data-col="${ci2}" data-ch="sppt" data-slug="${G.slug}" data-cat="${esc(cat)}" data-iid="${k.q ? esc(k.q.id) : ''}" data-sid="${esc(x.id)}" value="${k.q && k.q.pts && k.q.pts[x.id] != null ? esc(k.q.pts[x.id]) : ''}" autocomplete="off" aria-label="${esc(nm0)} ${esc(x.nn)}"></span>`).join('')}</div>`).join('');
     const res = `<section class="card aares"><div class="row" style="align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><h2 style="margin:0">Schülerübersicht · ${esc(nm0)} · ${yearLbl(yr)}</h2><span class="muted sm">Das Datum der Spalte setzt sich beim ersten Eintrag automatisch auf heute.</span><span style="flex:1"></span><button class="btn sm" data-act="spmore" data-slug="${G.slug}" data-c="${esc(cat)}" data-y="${yr}">+ Spalte</button></div>${sts.length ? `<div class="kmtable" style="--kmgrid:${grid};--kmmin:${minW}px" data-kt="sp"><div class="kmrow kmth"><span>Nr</span><span></span><span>Name</span>${head}</div>${rows}</div>` : '<p class="muted" style="margin:0">Noch keine Schüler in dieser Klasse.</p>'}</section>`;
-    return menu + `<div class="aaboard">${res}</div>`;
+    return menu + `<div class="aaboard">${res}</div>` + spBoxes(G, sts, AR, yr);
   }
   Object.assign(C, {
     sprenarea: (e) => { const v = e.value.trim(); if (!v) return render(); saveCfg({ spAreas: spAreas().map((q) => (q.id === e.dataset.a ? Object.assign({}, q, { name: v }) : q)) }); },
     sprendisc: (e) => { const v = e.value.trim(); if (!v) return render(); saveCfg({ spAreas: spAreas().map((q) => Object.assign({}, q, { items: q.items.map((it) => (it[0] === e.dataset.c ? [it[0], v] : it)) })) }); },
     sppt: (e) => { const G = groups().find((g) => g.slug === e.dataset.slug); if (!G) return; const v = e.value.trim(), items = resItems(G).map((x) => Object.assign({}, x)), sid = e.dataset.sid; if (e.dataset.iid) { const it = items.find((x) => x.id === e.dataset.iid); if (!it) return; it.pts = Object.assign({}, it.pts); if (v) it.pts[sid] = spFormat(v, it.sp, it.spn); else delete it.pts[sid]; } else { if (!v) return; const nmx = ((spcats(G.slug).find((q) => q[0] === e.dataset.cat) || [])[1]) || e.dataset.cat, ar0 = spArea(G.slug); items.push({ id: uid('sp'), sp: e.dataset.cat, spn: nmx, sar: ar0.name, date: TODAY, pts: { [sid]: spFormat(v, e.dataset.cat, nmx) } }); } saveRes(G, items); render(); },
+    spshow: (e) => { const st0 = tsState(); st0.spshow = Object.assign({}, st0.spshow, { [e.dataset.slug + '|' + e.dataset.a]: e.value }); render(); },
     spyear: (e) => { const st0 = tsState(); st0.spyear = Object.assign({}, st0.spyear, { [e.dataset.slug]: +e.value }); render(); },
     spdate: (e) => { const G = groups().find((g) => g.slug === e.dataset.slug); if (!G || !e.value) return; saveRes(G, resItems(G).map((x) => (x.id === e.dataset.iid ? Object.assign({}, x, { date: e.value }) : x))); render(); },
   });
