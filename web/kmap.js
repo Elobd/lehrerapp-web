@@ -23,24 +23,36 @@ const KM = (() => {
   function classes() {
     const m = {};
     groups().filter((G) => !G.sprech && G.label !== SPR).forEach((G) => {
-      const c = (m[G.label] = m[G.label] || { label: G.label, key: norm(G.label), groups: [], gpb: [], bspk: [], names: [] });
-      c.groups.push(G); if (kind(G) === 'gpb') c.gpb.push(G); else if (kind(G) === 'bspk') c.bspk.push(G);
+      const c = (m[G.label] = m[G.label] || { label: G.label, base: norm(G.label), groups: [], names: [] });
+      c.groups.push(G);
       G.classes.forEach((n) => { if (!c.names.includes(n)) c.names.push(n); });
     });
-    return Object.values(m).map((c) => Object.assign(c, { jg: parseInt(c.label) || 0 }));
+    /* Jede Klasse wird je Unterrichtsfach getrennt geführt: „5CS GPB“ und „5CS BSPK“ sind zwei Einträge.
+       base = gemeinsamer Schlüssel der Klasse (Klassenvorstand, Klassenfoto), key = Schlüssel des Eintrags. */
+    const out = [];
+    Object.values(m).forEach((c) => {
+      const jg = parseInt(c.label) || 0, gl = c.groups.filter((G) => kind(G) === 'gpb'), bl = c.groups.filter((G) => kind(G) === 'bspk');
+      if (gl.length) out.push(Object.assign({}, c, { key: c.base + 'gpb', kd: 'gpb', gpb: gl, bspk: [], jg, sib: !!bl.length }));
+      if (bl.length) out.push(Object.assign({}, c, { key: c.base + 'bspk', kd: 'bspk', gpb: [], bspk: bl, jg, sib: !!gl.length }));
+    });
+    return out;
   }
+  const kdName = (c) => (c.kd === 'gpb' ? 'GPB' : 'BSPK');
+  /* Der Eintrag, der als „meine Klasse“ (Klassenvorstand) ganz vorne steht: das GPB-Fach der Klasse, sonst das erste vorhandene */
+  const isKvEntry = (x, list) => x.base === norm(cfg().kvClass || '') && (x.kd === 'gpb' || !(list || classes()).some((y) => y.base === x.base && y.kd === 'gpb'));
   function sorted() {
-    const cs = classes(), c = cfg(), kv = norm(c.kvClass || '');
-    const auto = (a, b) => (a.key === kv ? -1 : b.key === kv ? 1 : 0) || (a.gpb.length ? 0 : 1) - (b.gpb.length ? 0 : 1) || a.jg - b.jg || a.label.localeCompare(b.label, 'de');
-    if (c.manual && Array.isArray(c.order)) {
-      const idx = new Map(c.order.map((k, i) => [k, i]));
-      return cs.sort((a, b) => (a.key === kv ? -1 : b.key === kv ? 1 : 0) || ((idx.has(a.key) ? idx.get(a.key) : 1e6) - (idx.has(b.key) ? idx.get(b.key) : 1e6)) || auto(a, b));
+    const cs = classes(), c = cfg();
+    const kvf = (a, b) => (isKvEntry(a, cs) ? -1 : isKvEntry(b, cs) ? 1 : 0);
+    const auto = (a, b) => kvf(a, b) || (a.kd === 'gpb' ? 0 : 1) - (b.kd === 'gpb' ? 0 : 1) || (a.kd === 'gpb' ? 0 : (a.sib ? 0 : 1) - (b.sib ? 0 : 1)) || a.jg - b.jg || a.label.localeCompare(b.label, 'de');
+    if (c.manual2 && Array.isArray(c.order2)) {
+      const idx = new Map(c.order2.map((k, i) => [k, i]));
+      return cs.sort((a, b) => kvf(a, b) || ((idx.has(a.key) ? idx.get(a.key) : 1e6) - (idx.has(b.key) ? idx.get(b.key) : 1e6)) || auto(a, b));
     }
     return cs.sort(auto);
   }
   /* Trennlinie: Position = Anzahl der Klassen (ohne KV) links davon. Standard: vor der ersten Klasse ohne Geschichte, sonst am Ende. */
-  function divAt(rest) { const d = cfg().div; if (Number.isInteger(d)) return Math.max(0, Math.min(rest.length, d)); const i = rest.findIndex((x) => !x.gpb.length); return i < 0 ? rest.length : i; }
-  const tabsOf = (c) => ['i'].concat(c.gpb.length ? ['g'] : [], c.bspk.length ? ['s'] : []);
+  function divAt(rest) { const d = cfg().div2; if (Number.isInteger(d)) return Math.max(0, Math.min(rest.length, d)); const i = rest.findIndex((x) => x.kd !== 'gpb'); return i < 0 ? rest.length : i; }
+  const tabsOf = (c) => [c.kd === 'gpb' ? 'g' : 's'];
   const primary = (list) => list.slice().sort((a, b) => (cinfo(b.slug).students || []).length - (cinfo(a.slug).students || []).length)[0];
   const studentsOf = (c) => { const m = new Map(); c.groups.forEach((G) => stAct(Array.isArray(cinfo(G.slug).students) ? cinfo(G.slug).students : []).forEach((s) => { const k = (s.nn + '|' + s.vn).toLowerCase(); if (!m.has(k)) m.set(k, s); })); return [...m.values()]; };
   function timeRows(G) {
@@ -95,10 +107,10 @@ const KM = (() => {
   function parse(v) {
     const m = /^mappe(?:-([a-z0-9äöü]+)(?:-([igs])(?:-([a-z0-9]+))?)?)?$/.exec(v) || [];
     const list = sorted(); let c = list.find((x) => x.key === m[1]);
+    if (!c && m[1]) c = list.find((x) => x.base === m[1] && x.kd === (m[2] === 's' ? 'bspk' : 'gpb')) || list.find((x) => x.base === m[1]);
     if (!c) { let last = null; try { last = JSON.parse(localStorage.getItem('kmLast')); } catch (e) { /* */ } c = list.find((x) => last && x.key === last.key) || list[0]; }
-    let tab = m[2]; if (c && !tabsOf(c).includes(tab)) tab = null;
-    if (c && !tab) tab = c.gpb.length ? 'g' : c.bspk.length ? 's' : 'i';
-    return { list, c, tab: tab || 'i', col: tab === 'g' ? m[3] : null };
+    const tab = c ? (c.kd === 'gpb' ? 'g' : 's') : 'g';
+    return { list, c, tab, col: tab === 'g' ? m[3] : null };
   }
 
   /* ---------- Ansicht ---------- */
@@ -120,25 +132,23 @@ const KM = (() => {
     const { list, c, tab, col } = parse(v);
     if (!list.length) return `<section class="card"><div class="hd"><h2>Klassenmappen</h2></div><p class="muted">Klassen entstehen aus deinem Stundenplan. Hole ihn im Stundenplan über „Von WebUntis übernehmen“.</p></section>`;
     try { localStorage.setItem('kmLast', JSON.stringify({ key: c.key })); } catch (e) { /* */ }
-    const kvKey = norm(cfg().kvClass || '');
-    const chip = (x) => { const isKv = x.key === kvKey; return `<span class="kmchipw"><button class="kmchip${x.key === c.key ? ' on' : ''}" data-act="kmsel" data-key="${x.key}" data-tab="${tab}" ${isKv ? '' : 'draggable="true"'} title="${isKv ? 'Meine Klasse als Klassenvorstand' : 'Ziehen zum Verschieben'}"><span>${isKv ? '★ ' : ''}${disp(x)}</span><small>${[x.gpb.length ? 'GPB' : '', x.bspk.length ? 'BSPK' : ''].filter(Boolean).join(' · ')}</small></button></span>`; };
-    const kvC = list.find((x) => x.key === kvKey), rest = list.filter((x) => x.key !== kvKey), d = divAt(rest);
+    const chip = (x) => { const isKv = isKvEntry(x, list); return `<span class="kmchipw"><button class="kmchip${x.key === c.key ? ' on' : ''}" data-act="kmsel" data-key="${x.key}" data-tab="${tab}" ${isKv ? '' : 'draggable="true"'} title="${isKv ? 'Meine Klasse als Klassenvorstand' : 'Ziehen zum Verschieben'}"><span>${isKv ? '★ ' : ''}${disp(x)} ${kdName(x)}</span></button></span>`; };
+    const kvC = list.find((x) => isKvEntry(x, list)), rest = list.filter((x) => x !== kvC), d = divAt(rest);
     const chips = (kvC ? chip(kvC) : '') + rest.map((x, i) => (i === d ? '<span class="kmdiv" draggable="true" data-key="|" title="Trennlinie, ziehbar"></span>' : '') + chip(x)).join('') + (d >= rest.length && rest.length ? '<span class="kmdiv" draggable="true" data-key="|" title="Trennlinie, ziehbar"></span>' : '');
-    const side = tabsOf(c).map((t) => `<button class="kmicon${t === tab ? ' on' : ''}" data-act="kmtab" data-key="${c.key}" data-tab="${t}" title="${t === 'i' ? 'Allgemeine Informationen' : t === 'g' ? 'Geschichte' : 'Bewegung und Sport'}" aria-label="${t === 'i' ? 'Allgemein' : t === 'g' ? 'Geschichte' : 'Sport'}">${svg(t, 26)}<small>${t === 'i' ? 'Allgemein' : t === 'g' ? 'Geschichte' : 'Sport'}</small></button>`).join('');
-    const body = tab === 'i' ? general(c) : tab === 'g' && col ? colPage(c, col) : subject(c, tab === 'g' ? 'gpb' : 'bspk');
+    const body = tab === 'g' && col ? colPage(c, col) : subject(c, c.kd);
     const hm = /<!--H-->([\s\S]*?)<!--\/H-->/.exec(body), headH = hm ? hm[1] : '', bodyH = hm ? body.replace(hm[0], '') : body;
     return `<div class="km"><div class="kmcls"><div class="kmchips">${chips}</div></div>
-      ${headH}<div class="kmbody"><nav class="kmside" aria-label="Bereiche"><div class="kmsidet">Klasse<b${c.names.length > 1 ? ' class="m"' : ''}>${disp(c)}</b></div>${side}</nav><section class="kmmain">${bodyH}</section></div></div>`;
+      ${headH}<div class="kmbody kmnoside"><section class="kmmain">${bodyH}</section></div></div>`;
   }
 
   /* ---------- Klassenfoto, Gesichtserkennung (lokal im Browser) und Profilfotos ---------- */
   const skey = (x) => (x.kv ? '__kv__' : ((x.nn || '') + '|' + (x.vn || '')).toLowerCase());
   const dname = (x) => (x.kv ? 'Klassenvorstand' + (x.full ? ': ' + x.full : '') : x.nn + ' ' + x.vn);
   function kvNameOf(c) {
-    const c0 = cfg(), isKv = norm(c0.kvClass || '') === c.key; let fb = ''; for (const G of c.groups) { const t = kvText(G, cinfo(G.slug)); if (t) { fb = t; break; } }
-    return (c0.kvn && c0.kvn[c.key]) || fb || (isKv ? 'Ich' : '');
+    const c0 = cfg(), isKv = norm(c0.kvClass || '') === c.base; let fb = ''; for (const G of c.groups) { const t = kvText(G, cinfo(G.slug)); if (t) { fb = t; break; } }
+    return (c0.kvn && c0.kvn[c.base]) || fb || (isKv ? 'Ich' : '');
   }
-  const kvPh = (c) => ((cfg().kvph || {})[c.key]) || null;
+  const kvPh = (c) => ((cfg().kvph || {})[c.base]) || null;
   function kvPerson(c) {
     const full = kvNameOf(c), real = full && full !== 'Ich' ? full : '', toks = real.replace(/\b(mag|dr|dipl|ing|prof|mmag|msc|bsc|ba|ma|bed|med|di|ofr|fachlehrer)\b\.?/gi, ' ').replace(/\(.*?\)/g, ' ').split(/[\s,]+/).filter((t) => t.length > 1), ph = kvPh(c) || {};
     return { kv: true, full: real, nn: toks.length ? toks[toks.length - 1] : 'Klassenvorstand', vn: toks.slice(0, -1).join(' '), photo: ph.photo || '', pv: ph.pv, pfrom: ph.pfrom || '' };
@@ -158,7 +168,7 @@ const KM = (() => {
   const updPhoto = (key, id, patch) => { const m = cmeta(key); if (!m) return; saveCm(key, Object.assign({}, m, { photos: m.photos.map((x) => (x.id === id ? Object.assign({}, x, patch) : x)) })); };
   const delPhoto = (key, id) => { const m = cmeta(key); if (!m) return; const ph = m.photos.filter((x) => x.id !== id); saveCm(key, { photos: ph, main: ph.some((x) => x.id === m.main) ? m.main : (ph[0] ? ph[0].id : '') }); };
   const allSids = (key, exceptId) => { const m = cmeta(key), out = new Set(); (m ? m.photos : []).forEach((p) => { if (p.id !== exceptId) (p.faces || []).forEach((f) => { if (f.sid) out.add(f.sid); }); }); return out; };
-  const pkey = (c, n) => (c.names.length > 1 ? c.key + '::' + norm(n) : c.key);
+  const pkey = (c, n) => (c.names.length > 1 ? c.base + '::' + norm(n) : c.base);
   const subStudents = (c, part) => studentsOf(c).filter((x) => !part || !x.kl || norm(x.kl) === part);
   function classPhotoCard(c) {
     const multi = c.names.length > 1, parts = multi ? c.names : [c.label];
@@ -196,7 +206,7 @@ const KM = (() => {
     cv.getContext('2d').drawImage(img, cx - side / 2, cy - side / 2, side, side, 0, 0, size, size); return cv;
   }
   function patchStudent(c, key, patch) {
-    if (key === '__kv__') { const a = Object.assign({}, cfg().kvph || {}); if (patch.photo) a[c.key] = { photo: patch.photo, pv: patch.pv || Date.now(), pfrom: patch.pfrom || '' }; else delete a[c.key]; return saveCfg({ kvph: a }); }
+    if (key === '__kv__') { const a = Object.assign({}, cfg().kvph || {}); if (patch.photo) a[c.base] = { photo: patch.photo, pv: patch.pv || Date.now(), pfrom: patch.pfrom || '' }; else delete a[c.base]; return saveCfg({ kvph: a }); }
     c.groups.forEach((G) => { const ci = cinfo(G.slug); if (!Array.isArray(ci.students) || !ci.students.some((x) => skey(x) === key)) return; put('settings', Object.assign({}, ci, { id: 'cn_' + G.slug, students: ci.students.map((x) => (skey(x) === key ? Object.assign({}, x, patch) : x)) })); });
   }
   const phPath = (key) => 'Schuelerfotos/' + key.replace(/[^a-z0-9äöüß]+/gi, '_') + '.jpg';
@@ -252,7 +262,7 @@ const KM = (() => {
   }
   async function openPhoto(key, autoDetect, pid, focusSid) {
     if (document.getElementById('kmphov')) return;
-    const ck = key.split('::')[0], part = key.includes('::') ? key.split('::')[1] : '', getC = () => classes().find((k) => k.key === ck); if (!getC() || !cphoto(key)) return;
+    const ck = key.split('::')[0], part = key.includes('::') ? key.split('::')[1] : '', getC = () => classes().find((k) => k.base === ck); if (!getC() || !cphoto(key)) return;
     const partName = () => { const c = getC(); return part && c ? (c.names.find((n) => norm(n) === part) || part) : ''; }, subs = () => peopleOf(getC(), part);
     const o = document.createElement('div'); o.id = 'kmphov'; o.className = 'kmphov'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); document.body.appendChild(o);
     const st = { cur: pid || (cmeta(key) || {}).main, img: null, act: -1, pend: null, pop: null, popEl: null, hot: -1, draw: false, busy: false, msg: '', thumbs: {} };
@@ -411,27 +421,6 @@ const KM = (() => {
   document.addEventListener('click', (e) => { const z = e.target.closest && e.target.closest('.kmphdz'); if (z && !e.target.matches('input')) { const i = z.querySelector('input.kmphf'); if (i) i.click(); } });
   document.addEventListener('change', (e) => { const i = e.target; if (i.classList && i.classList.contains('kmphf')) { const f = i.files[0]; if (f) newClassPhoto(i.dataset.key, f); i.value = ''; } });
 
-  function general(c) {
-    const sts = studentsOf(c), m = sts.filter((s) => s.g === 'm').length, w = sts.filter((s) => s.g === 'w').length, o = sts.length - m - w;
-    const c0 = cfg(), isKv = norm(c0.kvClass || '') === c.key, editKv = U.kmKvEdit === c.key;
-    const kvName = kvNameOf(c), kvp = kvPh(c);
-    const subj = c.groups.filter((G) => kind(G)).map((G) => `<div class="kmsj"><b>${SUBJ[kind(G)]}</b>${G.day ? ' <span class="muted sm">(' + esc(G.day) + ')</span>' : ''}${timeRows(G).length ? timeHtml(timeRows(G)) : '<div class="muted sm">keine Stunden im Stundenplan</div>'}</div>`).join('');
-    const kvRow = editKv
-      ? `<input class="kminp" id="kmkvin" data-ch="kmkvn" data-key="${c.key}" value="${esc(kvName === 'Ich' && !(c0.kvn && c0.kvn[c.key]) ? '' : kvName)}" placeholder="Name des Klassenvorstands" autocomplete="off">`
-      : `<span class="kmv kmkvv">${kvp && kvp.photo ? `<button class="kmkvph" data-act="kmimgview" data-src="${esc(fileUrl(kvp.photo, kvp.pv))}" title="Klick zum Vergrößern" aria-label="Foto des Klassenvorstands vergrößern"><img src="${fileUrl(kvp.photo, kvp.pv)}" alt=""></button>` : ''}${kvName ? esc(kvName) : '<span class="muted">nicht eingetragen</span>'}</span>`;
-    return `<!--H--><div class="kmh"><h1>Klasse ${disp(c)}</h1></div><!--/H-->
-    <div class="kmgrid">
-      <div class="card"><h2>Überblick</h2>
-        <div class="kmkvr"><span class="kmk">Klassenvorstand</span><span style="flex:1"></span><button class="kmpen" data-act="kmkvedit" data-key="${c.key}" title="${editKv ? 'Fertig' : 'Klassenvorstand bearbeiten'}" aria-label="Klassenvorstand bearbeiten">${editKv ? '✓' : '✎'}</button></div>
-        <div class="kmkvr kmkv2">${kvRow}</div>
-        <div class="kmkvr"><span class="kmk">Schüleranzahl</span><span class="kmv">${sts.length ? sts.length + ' (' + m + 'm / ' + w + 'w' + (o ? ' / ' + o + ' ohne Angabe' : '') + ')' : '<span class="muted">noch keine Schüler</span>'}</span></div>
-        <label class="kmchk"><input type="checkbox" data-ch="kmkvme" data-key="${c.key}" ${isKv ? 'checked' : ''}> Das ist meine Klasse als Klassenvorstand (steht immer zuerst)</label></div>
-      <div class="card"><h2>Meine Stunden</h2>${subj || '<div class="muted sm">Keine Stunden</div>'}</div>
-      ${classPhotoCard(c)}
-    </div>
-    ${isKv ? `<div class="card" style="margin-top:14px"><h2>Klassenvorstand-Übersicht</h2><p class="muted sm" style="margin:0">Lehrpersonen mit Fächern und Notenübersicht aller Fächer folgen in einem späteren Schritt.</p></div>` : ''}`;
-  }
-
   /* ---------- Eingabeseite einer Spalte (Eingabeblatt) ---------- */
   function colPage(c, colId) {
     const G = primary(c.gpb), col = colsDef().find((k) => k.id === colId), back = route(c.key, 'g');
@@ -460,14 +449,21 @@ const KM = (() => {
     const r = all.map((x) => ({ x, s: stat(G, x) })).filter((r) => r.s.t > 0 && (r.s.b * 100 >= 40 * r.s.t || r.s.p * 100 >= 50 * r.s.t)).sort((a, b) => (b.s.b / b.s.t) - (a.s.b / a.s.t) || (b.s.p / b.s.t) - (a.s.p / a.s.t));
     return `<div class="card"><h2>Gefährdung nicht beurteilt</h2>${r.length ? r.map(({ x, s }) => `<div class="kmli kmrisk kmlink" data-act="kmstu" data-slug="${G.slug}" data-id="${esc(x.id)}" tabindex="0" role="link" title="Profil öffnen"><b>${esc(up(x.nn))}</b> ${esc(x.vn)}${s.b * 100 >= 40 * s.t ? `&nbsp;&nbsp;<b class="kmrsep">I</b>&nbsp;&nbsp;<span class="kmp ab" title="fehlt">${s.pb} % fehlt</span>` : ''}${s.p * 100 >= 50 * s.t ? `&nbsp;&nbsp;<b class="kmrsep">I</b>&nbsp;&nbsp;<span class="kmp pa" title="passiv">${s.pp} % passiv</span>` : ''}</div>`).join('') : '<div class="muted sm">Niemand gefährdet</div>'}<div class="muted sm" style="margin-top:6px">ab 40 % fehlend oder 50 % passiv</div></div>`;
   }
+  /* „Stunde vorbereiten“ (gelb) bzw. „Stundenplanung abgeschlossen“ (weiß), wenn Thema und Planung eingetragen sind */
+  function prepBtn(G, nl) {
+    const le = (cinfo(G.slug).log || []).find((x) => x.date === nl.date), ok = !!(le && le.text && String(le.text).trim() && ((le.plan && String(le.plan).trim()) || (Array.isArray(le.ph) && le.ph.length)));
+    return `<button class="btn sm kmprep${ok ? ' done' : ''}" style="margin-top:8px" data-act="godate" data-slug="${G.slug}" data-d="${nl.date}">${ok ? 'Stundenplanung abgeschlossen' : 'Stunde vorbereiten'}</button>`;
+  }
   function subject(c, kd) {
     const G = primary(kd === 'gpb' ? c.gpb : c.bspk), ci = cinfo(G.slug), multi = G.classes.length > 1;
     const all = studentsSorted(G), fl = multi && U.kmcf && U.kmcf[G.slug] && G.classes.includes(U.kmcf[G.slug]) ? U.kmcf[G.slug] : '', both = (all.some((x) => x.g === 'm') && all.some((x) => x.g === 'w')) || (kd !== 'gpb' && all.length > 0), gf = both && U.kmgf && U.kmgf[G.slug] || '', list = all.filter((x) => (!fl || x.kl === fl) && (!gf || x.g === gf)), nl = nextLesson(G), lg = logOf(ci).filter((e) => e.text).slice(0, 3);
     const tests = grpTests(G).filter((t) => t.status === 'geplant' && t.date >= TODAY).slice(0, 3);
-    const head = `<!--H--><div class="kmh"><h1>${SUBJ[kd]}<span class="kmsep kmh1">I</span><span class="muted" style="font-weight:500">Klasse ${disp(c)}</span></h1></div><!--/H-->`;
+    const c0 = cfg(), isKv = norm(c0.kvClass || '') === c.base, editKv = U.kmKvEdit === c.base, kvName = kvNameOf(c);
+    const kvEd = editKv ? `<div class="kmkvedit"><input class="kminp" id="kmkvin" data-ch="kmkvn" data-key="${c.base}" value="${esc(kvName === 'Ich' && !(c0.kvn && c0.kvn[c.base]) ? '' : kvName)}" placeholder="Name des Klassenvorstands" autocomplete="off"><label class="kmchk"><input type="checkbox" data-ch="kmkvme" data-key="${c.base}" ${isKv ? 'checked' : ''}> Das ist meine Klasse als Klassenvorstand (steht immer zuerst)</label></div>` : '';
+    const head = `<!--H--><div class="kmh"><h1>${SUBJ[kd]}<span class="kmsep kmh1">I</span><span class="muted" style="font-weight:500">Klasse ${disp(c)}</span></h1><div class="kmsubl">Schüleranzahl: <b>${all.length}</b>${c.names.length > 1 ? ' (' + disp(c) + ')' : ''}<span class="kmsep kmh2">I</span>Klassenvorstand: <b>${kvName ? esc(kvName) : '<span class="muted">nicht eingetragen</span>'}</b><button class="kmpen" data-act="kmkvedit" data-key="${c.base}" title="${editKv ? 'Fertig' : 'Klassenvorstand bearbeiten'}" aria-label="Klassenvorstand bearbeiten">${editKv ? '✓' : '✎'}</button></div>${kvEd}</div><!--/H-->`;
     const leistCard = kd !== 'gpb' ? '' : `<div class="card"><h2>Leistungserfassung</h2>${tests.length ? tests.map((t) => `<div class="kmli"><b>${esc(dshort(t.date))}</b> ${esc(t.title || kLabel(t.kind))} <span class="pill">${esc(kLabel(t.kind))}</span></div>`).join('') : '<div class="muted sm">Keine geplanten Tests</div>'}<a class="kmmore" href="#klasse-${G.slug}" data-act="kmtests" data-slug="${G.slug}">Zur Leistungserfassung ›</a></div>`;
     let cards = `<div class="kmgrid">
-      <div class="kmstack"><div class="card"><h2>Nächste Stunde</h2>${nl ? `<div class="kmbig" style="font-size:20px;color:var(--accent)">${esc(dshort(nl.date))}</div><div class="muted">${nl.von ? esc(nl.von) + (nl.bis ? '–' + esc(nl.bis) : '') : ''}${nl.room ? (nl.von ? '<span class="kmsep">I</span>' : '') + esc(nl.room) : ''}</div><button class="btn sm" style="margin-top:8px" data-act="godate" data-slug="${G.slug}" data-d="${nl.date}">Stunde vorbereiten</button>` : '<div class="muted sm">Keine kommende Stunde</div>'}</div>${leistCard}</div>
+      <div class="kmstack"><div class="card"><h2>Nächste Stunde</h2>${nl ? `<div class="kmbig" style="font-size:20px;color:var(--accent)">${esc(dshort(nl.date))}</div><div class="muted">${nl.von ? esc(nl.von) + (nl.bis ? '–' + esc(nl.bis) : '') : ''}${nl.room ? (nl.von ? '<span class="kmsep">I</span>' : '') + esc(nl.room) : ''}</div>${prepBtn(G, nl)}` : '<div class="muted sm">Keine kommende Stunde</div>'}</div>${leistCard}</div>
       <div class="card"><h2>Letzte Stundeninhalte</h2>${lg.length ? lg.map((e) => `<div class="kmli"><a href="#stunde-${G.slug}--${esc(e.id)}" data-act="go" data-v="stunde-${G.slug}--${esc(e.id)}"><b class="kmdt">${esc(dshort(e.date))}</b> ${esc(e.text)}</a></div>`).join('') : '<div class="muted sm">Noch kein Stoff eingetragen</div>'}<a class="kmmore" href="#klasse-${G.slug}" data-act="go" data-v="klasse-${G.slug}">Alle Stunden, Themen und Notizen ›</a></div>
       ${kd === 'gpb' ? '' : sportRisk(G, all)}
     </div>`;
@@ -505,13 +501,14 @@ const KM = (() => {
       cards = cards.replace(/<\/div>\s*$/, `<div class="card kmwide"><h2>Notenmäßig gefährdet</h2>${risk.length ? '<div class="kmrcols">' : ''}${risk.length ? risk.map((r) => `<div class="kmli kmlink kmrsk2" data-act="kmstu" data-slug="${G.slug}" data-id="${esc(r.x.id)}" tabindex="0" role="link" title="Profil öffnen"><span class="kmp ${r.P.note === 5 ? 'ab' : 'pa'}">${r.P.note}</span> <b>${esc(up(r.x.nn))}</b> ${esc(r.x.vn)} <span class="muted sm">${r.P.pc} %</span></div>`).join('') + '</div>' : '<div class="muted sm">Niemand mit Genügend oder Nicht genügend</div>'}<span class="kmmore" data-act="kmsok" role="button" tabindex="0" style="cursor:pointer">Frühwarnung in Sokrates verfassen ›</span></div></div>`);
     }
     const stu = `<section class="card" style="margin-top:14px"><div class="row" style="margin-bottom:10px"><h2 style="margin:0">Schülerliste</h2><span class="muted sm" style="display:inline-block;min-width:122px;white-space:nowrap">${list.length} Schüler (${(list.some((x) => x.g === 'm') ? 'm' : '') + (list.some((x) => x.g === 'm') && list.some((x) => x.g === 'w') ? '/' : '') + (list.some((x) => x.g === 'w') ? 'w' : '')})</span>${multi ? `<span class="kmflt" role="group" aria-label="Nach Klasse filtern">${['', ...G.classes].map((k) => `<button class="kmfb${(fl || '') === k ? ' on' : ''}" data-act="kmcf" data-slug="${G.slug}" data-k="${esc(k)}">${k ? esc(String(k).toUpperCase()) : 'Alle'}</button>`).join('')}</span>` : ''}${both ? `<button class="kmfb" data-act="kmgf" data-slug="${G.slug}" title="Klick wechselt: m/w, m, w" aria-label="Geschlecht filtern: ${gf || 'm/w'}" style="margin-left:6px;min-width:46px">${gf || 'm/w'}</button>` : ''}<span style="flex:1"></span>${gear}<button class="btn sm pr" data-act="stuprint" data-slug="${G.slug}" aria-expanded="${!!pn}" aria-label="Schülerliste drucken" title="Schülerliste drucken">${prnIcon}</button></div>${colPanel}${prnPanel(G)}${tbl}</section>`;
-    return head + cards + stu;
+    const kvBox = isKvEntry(c, classes()) ? `<div class="card" style="margin-top:14px"><h2>Klassenvorstand-Übersicht</h2><p class="muted sm" style="margin:0">Lehrpersonen mit Fächern und Notenübersicht aller Fächer folgen in einem späteren Schritt.</p></div>` : '';
+    return head + cards + stu + kvBox + `<div class="kmphwide">${classPhotoCard(c)}</div>`;
   }
 
   /* Zurück-Link: führt dorthin zurück, woher man gekommen ist (sonst zur Klassenmappe) */
   function viewLabel(v) {
     v = String(v || ''); let m;
-    if (/^mappe-/.test(v) && (m = v.match(/^mappe-(.*)-([igs])(?:-[^-]+)?$/))) { const c = classes().find((k) => k.key === m[1]); return 'Klassenmappe ' + (c ? esc(c.label) : '') + ' · ' + ({ i: 'Allgemein', g: 'Geschichte', s: 'Sport' }[m[2]]); }
+    if (/^mappe-/.test(v) && (m = v.match(/^mappe-(.*)-([igs])(?:-[^-]+)?$/))) { const c = classes().find((k) => k.key === m[1]); return 'Klassenmappe ' + (c ? esc(c.label) + ' ' + kdName(c) : ''); }
     if (/^mappe/.test(v)) return 'Klassenmappen';
     if (m = v.match(/^tests-(.+)$/)) { const g = groups().find((q) => q.slug === m[1]); return 'Leistungserfassung' + (g ? ' · ' + esc(g.label) : ''); }
     if (m = v.match(/^klasse-(.+)$/)) { const g = groups().find((q) => q.slug === m[1]); return 'Stunden, Themen und Notizen' + (g ? ' · ' + esc(g.label) : ''); }
@@ -526,7 +523,7 @@ const KM = (() => {
   function studentPage(slug, id) {
     const G = groups().find((g) => g.slug === slug), x = G && (cinfo(slug).students || []).find((s) => s.id === id);
     if (!G || !x) return `<section class="card"><p class="muted">Schüler nicht gefunden.</p><button class="btn" data-act="go" data-v="mappe">Zu den Klassenmappen</button></section>`;
-    const c = classes().find((k) => k.label === G.label), kd = kind(G), s = stat(G, x);
+    const c = classes().find((k) => k.groups.some((g) => g.slug === G.slug) && k.kd === kind(G)) || classes().find((k) => k.label === G.label), kd = kind(G), s = stat(G, x);
     const xk = skey(x), absBy = { gpb: [], bspk: [] };
     (c ? c.groups : [G]).forEach((g2) => { const k2 = kind(g2); if (!absBy[k2]) return; const st2 = (cinfo(g2.slug).students || []).find((q) => skey(q) === xk); if (!st2) return; (cinfo(g2.slug).log || []).filter((e) => (e.abs || []).includes(st2.id)).forEach((e) => absBy[k2].push({ e, slug: g2.slug })); });
     ['gpb', 'bspk'].forEach((k2) => absBy[k2].sort((a, b) => b.e.date.localeCompare(a.e.date)));
@@ -544,12 +541,12 @@ const KM = (() => {
 
   /* ---------- Aktionen ---------- */
   function move(from, to) {
-    const kv = norm(cfg().kvClass || ''), keys = sorted().map((x) => x.key).filter((k) => k !== kv), rest = sorted().filter((x) => x.key !== kv);
+    const cs = sorted(), rest = cs.filter((x) => !isKvEntry(x, cs)), keys = rest.map((x) => x.key);
     const all = keys.slice(); all.splice(divAt(rest), 0, '|');
     const a = all.indexOf(from), b = all.indexOf(to); if (a < 0 || b < 0 || a === b) return;
     all.splice(a, 1); all.splice(b, 0, from);
     const newKeys = all.filter((k) => k !== '|'), changed = JSON.stringify(newKeys) !== JSON.stringify(keys);
-    saveCfg(Object.assign({ div: all.indexOf('|') }, changed ? { manual: true, order: newKeys } : {}));
+    saveCfg(Object.assign({ div2: all.indexOf('|') }, changed ? { manual2: true, order2: newKeys } : {}));
   }
   Object.assign(A, {
     kmsel: (e) => setView('mappe-' + e.dataset.key),
@@ -569,7 +566,7 @@ const KM = (() => {
     kmphview: (e) => viewPhoto(e.dataset.key),
     kmavedit: (e) => {
       hideZoom(); const G = groups().find((g) => g.slug === e.dataset.slug); if (!G) return; const x = studentsSorted(G).find((y) => y.id === e.dataset.id); if (!x) return;
-      const c = classes().find((k) => k.groups.some((g) => g.slug === G.slug)); if (!c) return; const multi = c.names.length > 1, keys = (multi ? c.names.map((n) => pkey(c, n)) : [c.key]).filter((k) => cmeta(k)), sk = skey(x);
+      const c = classes().find((k) => k.groups.some((g) => g.slug === G.slug)); if (!c) return; const multi = c.names.length > 1, keys = (multi ? c.names.map((n) => pkey(c, n)) : [c.base]).filter((k) => cmeta(k)), sk = skey(x);
       if (!keys.length) return toast('Für diese Klasse gibt es noch kein Klassenfoto. Lade eines unter „Allgemein“ hoch.');
       let key = keys.find((k) => cmeta(k).photos.some((p) => (p.faces || []).some((f) => f.sid === sk))); if (!key) key = keys.find((k) => k.endsWith('::' + norm(x.kl))) || keys[0];
       const ph = cmeta(key).photos.find((p) => (p.faces || []).some((f) => f.sid === sk)); openPhoto(key, false, ph ? ph.id : undefined, sk);
@@ -784,9 +781,22 @@ html{overflow-y:scroll;scrollbar-gutter:stable}
 .lsmtile{display:flex;flex-direction:column;gap:5px;text-align:left;border:1px solid var(--line);border-radius:12px;padding:8px;background:var(--surface);color:inherit;font:inherit;cursor:pointer}.lsmtile:hover{border-color:var(--accent);box-shadow:0 4px 14px rgba(0,0,0,.12)}.lsmth{display:block;aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:var(--surface2)}.lsmth img{width:100%;height:100%;object-fit:cover;display:block}.lsmth .matph{width:100%;height:100%}.lsmti{font:700 13px/1.25 var(--font-body);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .lsmat{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line)}.lsmat:first-of-type{border-top:0}.lsmb{flex:1;min-width:0;display:flex;gap:10px;align-items:center;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;padding:0}.lsmt{display:flex;flex-direction:column;min-width:0}.lsmt b{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .kmgtog{cursor:pointer;border-radius:6px;user-select:none}.kmgtog:hover{background:var(--accent-soft);color:var(--ink)}.kmflt{display:inline-flex;margin-left:6px;gap:4px;flex-wrap:wrap}.kmfb{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:7px;padding:3px 10px;font:600 13px var(--font-body);cursor:pointer}.kmfb.on{background:var(--brand,var(--accent));border-color:var(--brand,var(--accent));color:var(--brand-ink,var(--accent-ink))}
-.km>.kmh{margin:18px 0 12px}
+.km>.kmh{margin:10px 0 12px}
 .kmchip .kmsep,.kmsidet .kmsep{margin:0 .35em;color:inherit;opacity:.55;font-weight:400}.kmsidet{overflow-wrap:normal}.kmsidet .kmsep{margin:0 .2em}.kmsidet b.m{font-size:14px;white-space:nowrap}.kmsidet b{display:block;text-transform:none;letter-spacing:0;font-size:15px;margin-top:3px}
 .kmbody{display:grid;grid-template-columns:112px minmax(0,1fr);gap:12px;align-items:start}
+.btn.kmprep{background:var(--hd-bg);border-color:var(--hd-bg);color:#f6c90e;font-weight:600}.btn.kmprep.done{color:#fff}.btn.kmprep:hover{border-color:var(--accent)}
+.kmbody.kmnoside{grid-template-columns:minmax(0,1fr)}
+.kmsubl{margin-top:6px;font-size:14px;color:var(--ink)}.kmsubl .kmsep{margin:0 .8em}.kmpen{margin-left:8px}.kmkvedit{margin-top:8px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}.kmkvedit .kminp{max-width:300px}
+.kmphwide{margin-top:14px}.kmphwide .card{width:100%}
+/* Klassenleiste: gleiche Gestaltung wie das Hauptmenü, direkt darunter */
+.km>.kmcls{display:flex;gap:0;margin:-21px 0 4px;padding:0;background:#8a9097;border:0;border-radius:0;box-shadow:0 0 0 100vmax #8a9097;clip-path:inset(0 -100vmax)}
+.km>.kmcls .kmchips{gap:0;flex-wrap:wrap}.km>.kmcls .kmchipw{display:inline-flex}
+.km>.kmcls .kmchip{border:0;border-left:1px solid #a9aeb5;border-radius:0;background:transparent;color:#fff;padding:12px 20px;font:600 13px var(--font-body);gap:0}
+.km>.kmcls .kmchipw:first-child .kmchip{border-left:0}
+.km>.kmcls .kmchip:hover{background:#9aa0a7;border-color:#a9aeb5}.km>.kmcls .kmchip.on{background:#3f4247;color:#fff;box-shadow:inset 0 3px 0 var(--accent);border-color:#a9aeb5}
+.km>.kmcls .kmdiv::before{background:#fff;opacity:.55;left:7px;top:6px;bottom:6px}.km>.kmcls .kmdiv{height:40px;align-self:stretch}
+.km>.kmcls .kmchip.over{outline-color:#fff}
+@media(max-width:640px){.km>.kmcls{clip-path:none;box-shadow:none;margin:-4px 0 12px;overflow-x:auto}.km>.kmcls .kmchips{flex-wrap:nowrap}.km>.kmcls .kmchip{padding:12px 14px}}
 .kmside{position:sticky;top:8px;display:flex;flex-direction:column;gap:6px;background:#3a3d42;border-radius:var(--r);padding:10px 6px;color:#fff}
 .kmsidet{font:700 11px var(--font-head);text-transform:uppercase;letter-spacing:.05em;text-align:center;opacity:.85;padding:2px 2px 6px;border-bottom:1px solid rgba(255,255,255,.25);margin-bottom:2px;overflow-wrap:anywhere}
 .kmicon{background:none;border:0;color:#fff;opacity:.72;border-radius:10px;padding:8px 2px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px}.kmicon small{font-size:10px;font-weight:600}
@@ -1090,7 +1100,7 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
     let body = '';
     if (tab === 's') {
       const kvt = kvText(G, ci), mm = ci.m !== undefined && ci.m !== '', ww = ci.w !== undefined && ci.w !== '', rows = timeRows(G);
-      const nlCard = `<div class="card"><h2>Nächste Stunde</h2>${nl ? `<div class="kmbig" style="font-size:20px">${esc(dshort(nl.date))}</div><div class="muted">${nl.von ? esc(nl.von) + (nl.bis ? '–' + esc(nl.bis) : '') : ''}${nl.room ? (nl.von ? '<span class="kmsep">I</span>' : '') + esc(nl.room) : ''}</div><button class="btn sm" style="margin-top:8px" data-act="godate" data-slug="${G.slug}" data-d="${nl.date}">Stunde vorbereiten</button>` : '<div class="muted sm">Keine kommende Stunde gefunden</div>'}</div>`;
+      const nlCard = `<div class="card"><h2>Nächste Stunde</h2>${nl ? `<div class="kmbig" style="font-size:20px">${esc(dshort(nl.date))}</div><div class="muted">${nl.von ? esc(nl.von) + (nl.bis ? '–' + esc(nl.bis) : '') : ''}${nl.room ? (nl.von ? '<span class="kmsep">I</span>' : '') + esc(nl.room) : ''}</div>${prepBtn(G, nl)}` : '<div class="muted sm">Keine kommende Stunde gefunden</div>'}</div>`;
       const wkCard = `<div class="card"><h2>Wochenstunden</h2>${rows.length ? timeHtml(rows) : '<div class="muted sm">Keine Stunden im Stundenplan</div>'}</div>`;
       const infCard = `<div class="card"><h2>Klasseninfo</h2>${kvt || tot != null || mm || ww ? kv('Klassenvorstand', kvt ? esc(kvt) : '–') + kv('Gesamt', tot == null ? '–' : tot) + kv('Weiblich / Männlich', (ww ? esc(ci.w) : '–') + ' / ' + (mm ? esc(ci.m) : '–')) : '<div class="muted sm">Noch keine Angaben. Trage sie in der <a href="#daten" data-act="go" data-v="daten">Dateneingabe</a> ein.</div>'}</div>`;
       const prn = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="9" rx="2"/><path d="M7 14h10v7H7z"/></svg>';
