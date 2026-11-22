@@ -138,7 +138,7 @@ const KM = (() => {
     const body = tab === 'g' && col ? colPage(c, col) : subject(c, c.kd);
     const hm = /<!--H-->([\s\S]*?)<!--\/H-->/.exec(body), headH = hm ? hm[1] : '', bodyH = hm ? body.replace(hm[0], '') : body;
     return `<div class="km"><div class="kmcls"><div class="kmchips">${chips}</div></div>
-      ${headH}<div class="kmbody kmnoside"><section class="kmmain">${bodyH}</section></div>${clsPopHtml()}</div>`;
+      ${headH}<div class="kmbody kmnoside"><section class="kmmain">${bodyH}</section></div>${clsPopHtml()}${lessonPopHtml()}</div>`;
   }
 
   /* ---------- Klassenfoto, Gesichtserkennung (lokal im Browser) und Profilfotos ---------- */
@@ -810,6 +810,11 @@ html{overflow-y:scroll;scrollbar-gutter:stable}
 .lsbx2 .lsdrop .kmgrid{margin-top:0}
 .kmkvlink{background:none;border:0;padding:0 2px;margin:0;font:inherit;font-weight:700;color:var(--ink);cursor:pointer;border-radius:3px}.kmkvlink:hover{text-decoration:underline;color:var(--accent)}.kmkvin{display:inline-block;width:240px;padding:2px 8px;margin-left:6px}.kmsubl .kmchk{display:inline-flex;margin-left:12px}
 .kmpnav{display:flex;flex-wrap:wrap;background:#eef1f5;border-bottom:1px solid #d5d9df}.kmpchip{border:0;border-left:1px solid #d5d9df;border-radius:0;background:transparent;color:#5b6068;padding:10px 16px;font:600 13px var(--font-body);cursor:pointer}.kmpchip:first-child{border-left:0}.kmpchip:hover{background:#e2e7ee}.kmpchip.on{background:#dbe9fb;color:#1e8449}
+.km>.kmcls .kmchip.on{background:transparent!important;color:var(--accent)!important}
+.kmpchip.on{background:#3f4247;color:var(--accent)}
+.lspop{background:rgba(110,116,124,.38)}.lspopb{background:#eceff3;border:1px solid #c5cad2;box-shadow:0 24px 70px rgba(30,35,45,.35)}.lspopb .card{background:var(--surface)}
+.lspopl{width:min(960px,100%)!important;max-height:88vh}.lsinpop .lstop>.btn{display:none}.lsinpop .lsc-stu{display:block!important}
+.kmsep.kmh1{margin:0 .25em!important}.kmsubl .kmsep{margin:0 .4em!important}
 .kmbody.kmnoside{grid-template-columns:minmax(0,1fr)}
 .kmsubl{margin-top:6px;font-size:14px;color:var(--ink)}.kmsubl .kmsep{margin:0 .8em}.kmpen{margin-left:8px}.kmkvedit{margin-top:8px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}.kmkvedit .kminp{max-width:300px}
 .kmphwide{margin-top:14px}.kmphwide .card{width:100%}
@@ -921,21 +926,15 @@ tr.kmbad td{background:var(--bad-soft)!important}tr.kmwarn td{background:var(--w
     return { von, bis, min: von && bis ? Math.max(0, hm(bis) - hm(von)) : 0, room: (b && b.room) || '', p1: b && b.p1, p2: b && b.p2 };
   }
   const lesState = () => (U.les = U.les || {});
-  /* Stundeninhalt ansehen: Popup mit Inhalt, die aktuelle Ansicht bleibt; „Zur Stunde wechseln“ springt erst auf Wunsch */
-  function lessonPopup(slug, id) {
-    const G = groups().find((g) => g.slug === slug), e = G && (cinfo(slug).log || []).find((x) => x.id === id); if (!e) return;
-    const inf = lessonInfo(G, e), row = (k, v) => (v && String(v).trim() ? `<div class="lspr"><div class="lspk">${k}</div><div class="lspv">${esc(String(v)).replace(/\n/g, '<br>')}</div></div>` : '');
-    const ph = Array.isArray(e.ph) ? e.ph : [], lib = typeof MAT !== 'undefined' && MAT.list ? MAT.list() : [], byId = new Map(lib.map((m) => [m.id, m])), mats = (Array.isArray(e.mats) ? e.mats : []).map((m) => byId.get(m)).filter(Boolean);
-    const body = row('Thema', e.text) + row('Planung', e.plan) + (ph.length ? `<div class="lspr"><div class="lspk">Ablauf</div><div class="lspv">${ph.map((p) => esc((p.t || 'Phase') + (p.m ? ' (' + p.m + ' Min)' : ''))).join('<br>')}</div></div>` : '') + row('Hausübung', e.ho) + (mats.length ? `<div class="lspr"><div class="lspk">Material</div><div class="lspv">${mats.map((m) => esc(m.title)).join('<br>')}</div></div>` : '') + row('Weitere Materialien', e.mat) + row('Rückblick', e.rev) + row('Erinnerung', e.nx) + row('Notiz', e.note);
-    const el = document.createElement('div'); el.className = 'lspop lspopr';
-    el.innerHTML = `<div class="lspopb" role="dialog" style="width:min(720px,100%)"><div class="lspoph"><h2>${esc(longDate(e.date))}${inf.von ? ' · ' + esc(inf.von + '–' + inf.bis) : ''}</h2><button class="btn sm" data-lp="close">Schließen</button></div><div class="lspopc">${body || '<div class="muted">Für diese Stunde ist noch nichts eingetragen.</div>'}</div><div class="lspoph" style="border-top:1px solid var(--line);border-bottom:0"><span class="muted sm">${esc(G.label)} · ${esc(G.subject)}</span><button class="btn primary" data-lp="go">Zur Stunde wechseln ›</button></div></div>`;
-    const close = () => { el.remove(); document.removeEventListener('keydown', onK); }, onK = (ev) => { if (ev.key === 'Escape') close(); };
-    el.addEventListener('click', (ev) => { if (ev.target === el) return close(); const b = ev.target.closest('[data-lp]'); if (!b) return; close(); if (b.dataset.lp === 'go') setView('stunde-' + slug + '--' + id); });
-    document.addEventListener('keydown', onK); document.body.appendChild(el);
+  /* Stunde in einem kleinen Fenster ansehen (komplette Stundenplanung, scrollbar); erst „Zur Stunde wechseln“ öffnet sie ganz */
+  function lessonPopHtml() {
+    const v = U.lpv; if (!v) return ''; const G = groups().find((g) => g.slug === v.slug), e = G && (cinfo(v.slug).log || []).find((x) => x.id === v.id); if (!e) return '';
+    const inner = lessonPage(v.slug, v.id, true).replace(/ id="/g, ' id="pp-');
+    return `<div class="lspop"><div class="lspopb lspopl" role="dialog" aria-label="Stunde ansehen"><div class="lspoph"><h2>${esc(longDate(e.date))}<span class="kmsep kmh1">I</span><span class="muted" style="font-weight:500">${esc(G.label)} · ${esc(G.subject)}</span></h2><span class="row" style="gap:8px"><button class="btn primary" data-act="lpvgo">Zur Stunde wechseln ›</button><button class="btn sm" data-act="lpvclose">Schließen</button></span></div><div class="lspopc">${inner}</div></div></div>`;
   }
 
   const longDate = (ds) => { const d = pdate(ds); return WDL[d.getDay()] + ', ' + pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear(); };
-  function lessonPage(slug, id) {
+  function lessonPage(slug, id, inPop) {
     const G = groups().find((g) => g.slug === slug), ci = cinfo(slug), logAll = Array.isArray(ci.log) ? ci.log : [], e = logAll.find((x) => x.id === id);
     if (!G || !e) return `<div class="kmh"><a class="kmmore" href="#mappe" data-act="go" data-v="mappe">‹ Zu den Klassenmappen</a></div><section class="card"><p class="muted">Dieser Eintrag existiert nicht mehr.</p></section>`;
     const c = classes().find((k) => k.groups.some((g) => g.slug === G.slug)), kd = kind(G), bsp = kd === 'bspk', back = c ? route(c.key, kd === 'gpb' ? 'g' : 's') : 'klassen';
@@ -985,7 +984,8 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
     const lowBars = bar('rev', 'Rückblick', revBody, e.rev || e.nx ? 'Einträge vorhanden' : '') + (bsp ? bar('vid', 'Videos', vidBody, '') : '');
     const pane = lesState().pane === 'u' ? 'u' : 'p', pop = lesState().pop === 'm' ? `<div class="lspop"><div class="lspopb" role="dialog" aria-label="Material hinzufügen"><div class="lspoph"><h2>Material zur Stunde ${esc(dshort(e.date))}</h2><button class="btn sm" data-act="lspopclose">Schließen</button></div><div class="lspopc">${materialCard(G, e, mats, dt)}</div></div></div>` : '';
     const mob = `<div class="lspager"><button class="${pane === 'p' ? 'on' : ''}" data-act="lspane" data-p="p">Planung</button><button class="${pane === 'u' ? 'on' : ''}" data-act="lspane" data-p="u">Anwesenheit</button></div>`;
-    return `<div class="km">${head}${mob}<div class="lspanes" data-pane="${pane}" data-slug="${G.slug}" data-id="${esc(e.id)}"><section class="kmmain lspp">${body}${lowBars}</section></div>${pop}${clsPopHtml()}</div>`;
+    if (inPop) return `<div class="lspanes lsinpop" data-pane="p" data-slug="${G.slug}" data-id="${esc(e.id)}"><section class="kmmain lspp">${body}${lowBars}</section></div>`;
+    return `<div class="km">${head}${mob}<div class="lspanes" data-pane="${pane}" data-slug="${G.slug}" data-id="${esc(e.id)}"><section class="kmmain lspp">${body}${lowBars}</section></div>${pop}${clsPopHtml()}${lessonPopHtml()}</div>`;
   }
   function copyPanel(G, e) {
     const others = groups().filter((g) => !g.sprech && g.slug !== G.slug && g.label !== SPR).filter((g) => kind(g) === kind(G));
@@ -1071,14 +1071,16 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
   document.addEventListener('drop', (e) => { if (!lsSrc) { const z0 = e.target.closest && e.target.closest('.lssmz'); if (z0 && lsExt(e) && typeof MAT !== 'undefined' && MAT.take) { e.preventDefault(); z0.classList.remove('over', 'lsarm'); const dt = e.dataTransfer, files = [...(dt.files || [])], text = files.length ? '' : (dt.getData('text/uri-list') || '').split('\n').filter((l) => l && l[0] !== '#').join(' '), G0 = groups().find((g) => g.slug === z0.dataset.slug), L0 = G0 && (cinfo(G0.slug).log || []).find((y) => y.id === z0.dataset.lid); MAT.take(files, text, { slug: z0.dataset.slug, lid: z0.dataset.lid, date: L0 ? L0.date : '', label: G0 ? G0.label : '', student: true }); } return; } const z = e.target.closest && e.target.closest('.lssmz'); const id = lsSrc; lsSrc = null; document.querySelectorAll('.lssmz').forEach((x) => x.classList.remove('over', 'lsarm')); if (!z) return; e.preventDefault(); A.lssmadd({ dataset: { slug: z.dataset.slug, id: z.dataset.lid, mid: id } }); });
   document.addEventListener('dragend', () => { lsSrc = null; document.querySelectorAll('.lssmz').forEach((x) => x.classList.remove('over', 'lsarm')); });
   Object.assign(A, {
-    kmlpop: (e) => { if (e.preventDefault) e.preventDefault(); lessonPopup(e.dataset.slug, e.dataset.id); },
+    kmlpop: (e) => { if (e.preventDefault) e.preventDefault(); U.lpv = { slug: e.dataset.slug, id: e.dataset.id }; render(); },
+    lpvclose: () => { U.lpv = null; render(); },
+    lpvgo: () => { const v = U.lpv; U.lpv = null; U.cpop = null; if (v) setView('stunde-' + v.slug + '--' + v.id); },
     lsbar: (e) => { const st0 = lesState(), k = e.dataset.k; st0[k] = !st0[k]; render(); },
     lspop: (e) => { if (e.preventDefault) e.preventDefault(); lesState().pop = e.dataset.t; render(); },
     lspopclose: () => { lesState().pop = null; render(); },
     lspane: (e) => { lesState().pane = e.dataset.p; render(); },
   });
-  document.addEventListener('click', (ev) => { if (ev.target.classList && ev.target.classList.contains('lspop') && !ev.target.classList.contains('lspopr')) { lesState().pop = null; U.cpop = null; render(); } });
-  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && lesState().pop) { lesState().pop = null; render(); } });
+  document.addEventListener('click', (ev) => { if (ev.target.classList && ev.target.classList.contains('lspop') && !ev.target.classList.contains('lspopr')) { if (U.lpv) U.lpv = null; else { lesState().pop = null; U.cpop = null; } render(); } });
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && (lesState().pop || U.lpv)) { if (U.lpv) U.lpv = null; else lesState().pop = null; render(); } });
   /* Am Smartphone/Tablet zwischen Planung und Anwesenheit wischen */
   (() => {
     let t0 = null;
@@ -1177,7 +1179,7 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
       body = `<section class="card"><div class="row" style="align-items:center;gap:8px;margin-bottom:8px"><h2 style="margin:0">Schülerliste</h2><span class="muted sm">${sts.length} Schüler</span><span style="flex:1"></span>${c ? `<a class="kmmore" href="#${back}" data-act="go" data-v="${back}" style="margin:0">Zur Klassenmappe (Liste bearbeiten) ›</a>` : ''}</div>${sts.length ? `<div class="kmtable" style="--kmgrid:34px 38px minmax(150px,1.6fr) 44px ${multi ? '56px' : ''};--kmmin:${multi ? 340 : 280}px">${sts.map((x, i) => `<div class="kmrow kmgo" data-act="kmstu" data-slug="${G.slug}" data-id="${esc(x.id)}" tabindex="0" role="link"><span class="kmno">${i + 1}</span>${avSpan(x, 'kmav')}<span class="kmnm"><b>${esc(up(x.nn))}</b> ${esc(x.vn)}</span><span class="kmpc kmgen">${esc(x.g === 'm' || x.g === 'w' || x.g === 'd' ? x.g : '–')}</span>${multi ? `<span class="kmcl">${esc(x.kl)}</span>` : ''}</div>`).join('')}</div>` : '<p class="muted" style="margin:0">Noch keine Schüler. Hole sie im Stundenplan über „Von WebUntis übernehmen“.</p>'}</section>`;
     }
     else body = `<section class="card"><h2 style="margin:0 0 8px">Notizen zur Klasse</h2><textarea class="cnotes" id="cnote" style="min-height:260px" data-slug="${G.slug}" data-ch="cnote" placeholder="Notizen zur Klasse (z. B. Stoffstand, Besonderheiten)">${esc(note)}</textarea><p class="muted sm" style="margin:6px 0 0">Änderungen werden automatisch gespeichert.</p></section>`;
-    return `<div class="km">${head}<section class="kmmain">${body}</section></div>`;
+    return `<div class="km">${head}<section class="kmmain">${body}</section>${clsPopHtml()}${lessonPopHtml()}</div>`;
   }
   /* ====================================================================
      Testseite (Tests verwalten): Testliste, Statistik, Stoff, Ergebnisse, Materialien
@@ -1319,7 +1321,7 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
   document.addEventListener('drop', (e) => { if (!tcDrag) return; const r = e.target.closest && e.target.closest('.tscat'), g = tcDrag; tcDrag = null; if (!r || r.dataset.ck === g) return tcClr(); e.preventDefault(); const b = r.getBoundingClientRect(), bef = e.clientX < b.left + b.width / 2, T = tcats().map((x) => [x[0], x[1]]), it = T.find((x) => x[0] === g); if (!it) return tcClr(); const o = T.filter((x) => x[0] !== g), t = o.findIndex((x) => x[0] === r.dataset.ck); o.splice(bef ? t : t + 1, 0, it); tcClr(); saveMenu(o); });
   document.addEventListener('dragend', () => { tcDrag = null; tcClr(); });
   Object.assign(A, { clspop: (e) => { if (e.preventDefault) e.preventDefault(); U.cpop = e.dataset.slug; render(); }, clspopsel: (e) => { U.cpop = e.dataset.slug; render(); }, clspopclose: () => { U.cpop = null; render(); } });
-  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && U.cpop) { U.cpop = null; render(); } });
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && U.cpop && !U.lpv) { U.cpop = null; render(); } });
   Object.assign(A, { clstab: (e) => { clsState()[e.dataset.slug] = e.dataset.t; render(); } });
 
   return { view, studentPage, sorted, classes, lessonPage, classPage, testPage };
