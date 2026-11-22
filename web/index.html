@@ -160,8 +160,12 @@ h3.gh.dy{cursor:pointer;position:relative}h3.gh.dy .dbm{display:block;margin:0 a
 .ccard .attp,.ccard .attp .attl,.ccard .attp .thl{color:var(--ink)}.ccard .attp{background:var(--surface);border:1px solid var(--line);box-shadow:0 2px 8px rgba(0,0,0,.08)}.ccard .attl li{border-bottom-color:var(--line)}
 .nspager{display:none}
 @media(max-width:739px){.nspager{display:flex;margin:0 0 10px;border:1px solid var(--line);border-radius:10px;overflow:hidden}.nspager button{flex:1;padding:10px;border:0;background:var(--surface2);color:var(--ink);font:600 13px var(--font-body)}.nspager button.on{background:var(--hd-bg);color:#fff}
-.nsplit[data-pane="l"]>.nplan{display:none}.nsplit[data-pane="p"]>div:first-child{display:none}.nsplit>.nplan{border-left:0}}
+.nsplit{display:flex!important;width:200%;gap:0!important;column-gap:0!important;will-change:transform;grid-template-columns:none}.nsplit>*{width:50%;flex:none;min-width:0;box-sizing:border-box}.nsplit>div:first-child{padding:0}.nsplit>.nplan{border:0!important;padding:0!important;margin:0}.nsplit[data-pane="p"]{transform:translateX(-50%)}.nsplit>.nscol{height:0;overflow:hidden;visibility:hidden;padding:0}
+.nsclip{overflow:hidden}}
 @media(min-width:641px){.nav{position:sticky;top:0;z-index:60}.ttmenu{position:sticky;top:var(--navh,46px);z-index:59}}
+.ccard .ics .attb.warn{background:#f6c90e!important;border-color:#f6c90e!important;color:#1b1b1b!important}
+.ccard .attp{background:color-mix(in srgb,var(--ink) 8%,var(--surface))!important;border:1px solid var(--line)}.ccard .attp .attl li,.ccard .attp .thl li{border-color:var(--line)}
+.ccard .attp .inhp input,.ccard .attp input,.ccard .attp textarea{background:var(--surface);color:var(--ink)}
 .ttro{pointer-events:none}.stl .stlr,.stl .stlh{padding-top:7px;padding-bottom:7px;column-gap:12px}.stl{margin-top:10px}
 @media(max-width:640px){.ttmenu{clip-path:none;box-shadow:none;margin:-4px 0 12px;overflow-x:auto;flex-wrap:nowrap}.ttchip{white-space:nowrap;padding:12px 14px}}
 
@@ -647,7 +651,7 @@ function lessonStatus(G,o,run){
   const lnk=`data-act="godate" data-slug="${G.slug}" data-d="${o.date}"`;
   const thema=run?`<label class="thm${txt?'':' empty'}"><span>Stundenthema</span><input type="text" id="thm-in" data-ch="thmin" data-slug="${G.slug}" data-d="${o.date}" value="${esc(txt)}" placeholder="Thema eintragen …" autocomplete="off"></label>`:'';
   const stu=studentsSorted(G),open=U.attOpen===key&&e,ab=new Set(e&&Array.isArray(e.abs)?e.abs:[]),pa=new Set(e&&Array.isArray(e.pas)?e.pas:[]),multi=G.classes.length>1;
-  const btn=stu.length?`<button type="button" class="attb${open?' open':''}" data-act="attopen" data-slug="${G.slug}" data-d="${o.date}" aria-expanded="${open?'true':'false'}">Anwesenheit${` <b class="acnt">${attOk?stu.filter(x=>!ab.has(x.id)).length:'–'}/${stu.length}</b>`}<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>`:'';
+  const btn=stu.length?`<button type="button" class="attb${open?' open':''}${attOk?'':' warn'}" data-act="attopen" data-slug="${G.slug}" data-d="${o.date}" aria-expanded="${open?'true':'false'}">Anwesenheit${` <b class="acnt">${attOk?stu.filter(x=>!ab.has(x.id)).length:'–'}/${stu.length}</b>`}<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>`:'';
   const iopen=U.inhOpen===key&&e;
   const btn2=`<button type="button" class="attb${iopen?' open':''}" data-act="inhopen" data-slug="${G.slug}" data-d="${o.date}" aria-expanded="${iopen?'true':'false'}">Stundenplanungen<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>`;
   const tl=iopen?logOf(cinfoV(G.slug)).filter(x=>x.text&&String(x.text).trim()&&x.date<=o.date&&x.date!==o.date):[];
@@ -706,7 +710,7 @@ function klassenView(){
     const bl=[];gs.forEach(G=>{const k=rank(G)<2?(rank(G)?'BSPK':'GPB'):G.subject||'Sonstige';let b=bl.find(x=>x.k===k);if(!b)bl.push(b={k,list:[]});b.list.push(G)});
     body=bl.map(b=>`<h3 class="gh">${esc(b.k)}</h3><div class="cgrid">${b.list.map(G=>card(G)).join('')}</div>`).join('');
   }
-  if(mode==='next'&&ttRows().length)body=`<div class="nspager"><button class="${(U.homePane||'l')==='l'?'on':''}" data-act="nspane" data-p="l">Stunden</button><button class="${U.homePane==='p'?'on':''}" data-act="nspane" data-p="p">Stundenplan</button></div><div class="nsplit" data-pane="${U.homePane==='p'?'p':'l'}"><div style="min-width:0">${body}</div><aside class="nplan"><section class="card npcard"><div class="npnav"><button class="btn sm" data-act="npprev" aria-label="Vorige Tage">‹</button><h3 class="gh" style="margin:0">Stundenplan</h3><span class="row" style="gap:6px"><button class="btn sm${U.pdo?' good':''}" data-act="nptoday" title="Zurück zu heute">Aktueller Tag</button><button class="btn sm" data-act="npnext" aria-label="Nächste Tage">›</button></span></div>${ttGridHtml(ttRows(),true,0,false,false,10)}</section></aside></div>`;
+  if(mode==='next'&&ttRows().length)body=`<div class="nspager"><button class="${(U.homePane||'l')==='l'?'on':''}" data-act="nspane" data-p="l">Stunden</button><button class="${U.homePane==='p'?'on':''}" data-act="nspane" data-p="p">Stundenplan</button></div><div class="nsclip"><div class="nsplit" data-pane="${U.homePane==='p'?'p':'l'}"><div style="min-width:0" class="${U.homePane==='p'?'nscol':''}">${body}</div><aside class="nplan${U.homePane==='p'?'':' nscol'}"><section class="card npcard"><div class="npnav"><button class="btn sm" data-act="npprev" aria-label="Vorige Tage">‹</button><h3 class="gh" style="margin:0">Stundenplan</h3><span class="row" style="gap:6px"><button class="btn sm${U.pdo?' good':''}" data-act="nptoday" title="Zurück zu heute">Aktueller Tag</button><button class="btn sm" data-act="npnext" aria-label="Nächste Tage">›</button></span></div>${ttGridHtml(ttRows(),true,0,false,false,10)}</section></aside></div></div>`;
   return `<section class="card${mode==='fach'?'':' nohd'}">${mode==='fach'?`<div class="hd"><h2>Klassenmappen</h2></div>`:''}${body}</section>`;
 }
 /* Tage, an denen diese Klasse Unterricht hat (Regelplan, ohne Ferien/Feiertage) */
@@ -1011,7 +1015,7 @@ function datenView(){
 function viewFromHash(){const h=(location.hash||'').replace(/^#/,'');return /^mappe/.test(h)||h==='material'||/^schueler-/.test(h)||h==='klassen'||h==='daten'||h==='jahresplan'||/^thema-/.test(h)||/^klasse-/.test(h)||/^tests-/.test(h)||/^stunde-/.test(h)?h:'uebersicht'}
 function savePos(){try{U.pos=U.pos||{};U.pos[U.view]={y:window.scrollY||document.documentElement.scrollTop||0,inner:[...document.querySelectorAll('.lscroll,.lslist')].map(x=>x.scrollTop)}}catch(e){}}
 function restorePos(v){const p=U.pos&&U.pos[v];if(!p)return false;const go=()=>{try{window.scrollTo(0,p.y);[...document.querySelectorAll('.lscroll,.lslist')].forEach((x,i)=>{if(p.inner&&p.inner[i]!=null)x.scrollTop=p.inner[i]})}catch(e){}};go();setTimeout(go,60);setTimeout(go,250);return true}
-function setView(v,nopush){savePos();if(!nopush&&v!==U.view){(U.hist=U.hist||[]).push(U.view);if(U.hist.length>60)U.hist.shift()}U.view=v;U.dp=null;U.dv={};try{if(location.hash.replace(/^#/,'')!==(v==='uebersicht'?'':v))location.hash=v==='uebersicht'?'':v}catch(e){}render();if(nopush&&restorePos(v))return;try{window.scrollTo(0,0)}catch(e){}}
+function setView(v,nopush){const wasStuck=(()=>{try{const hh=(document.querySelector('.hero')||{}).offsetHeight||0;return hh>0&&window.scrollY>=hh-2}catch(e){return false}})();savePos();if(!nopush&&v!==U.view){(U.hist=U.hist||[]).push(U.view);if(U.hist.length>60)U.hist.shift()}U.view=v;U.dp=null;U.dv={};try{if(location.hash.replace(/^#/,'')!==(v==='uebersicht'?'':v))location.hash=v==='uebersicht'?'':v}catch(e){}render();if(nopush&&restorePos(v))return;try{const hh=(document.querySelector('.hero')||{}).offsetHeight||0;window.scrollTo(0,(wasStuck&&window.innerWidth>640)?hh:0)}catch(e){}}
 window.addEventListener('hashchange',()=>{const v=viewFromHash();if(v!==U.view){savePos();U.hist=U.hist||[];let back=false;if(U.hist[U.hist.length-1]===v){U.hist.pop();back=true}else{U.hist.push(U.view);if(U.hist.length>60)U.hist.shift()}U.view=v;U.dp=null;U.dv={};render();if(back)restorePos(v)}});
 U.view=viewFromHash();
 
@@ -1273,7 +1277,7 @@ const A={
   wktoday:()=>{U.wk=undefined;render()},
   ttsel:e=>{U.ttTab=e.dataset.id;render()},
   daytog:e=>{U.dayShut=Object.assign({},U.dayShut);U.dayShut[e.dataset.d]=!U.dayShut[e.dataset.d];render()},
-  nspane:e=>{U.homePane=e.dataset.p;render();try{window.scrollTo(0,0)}catch(x){}},
+  nspane:e=>homePane(e.dataset.p),
   nptoday:()=>{U.pdo=0;render()},
   npprev:()=>{U.pdo=stepWd(U.pdo||0,-1);render()},
   npnext:()=>{U.pdo=stepWd(U.pdo||0,1);render()},
@@ -1352,8 +1356,17 @@ let planT=null;document.addEventListener('input',ev=>{const t=ev.target;if(t&&t.
 document.addEventListener('toggle',ev=>{const t0=ev.target;if(t0&&t0.dataset&&t0.dataset.so){U.setOpen=Object.assign({},U.setOpen);U.setOpen[t0.dataset.so]=t0.open;return}if(t0&&t0.dataset&&t0.dataset.gk){U.jpo=U.jpo||{};U.jpo[t0.dataset.gk]=t0.open;return}
   const t=ev.target;if(t&&t.classList&&t.classList.contains('auto'))U.autoOpen=t.open},true);
 document.addEventListener('keydown',ev=>{if(ev.key!=='Enter'||ev.defaultPrevented||ev.isComposing)return;const t=ev.target;if(!t||t.tagName!=='INPUT')return;if(!/^(text|search|number|)$/.test(t.type||''))return;if(t.id==='dtt'||t.id==='an'||t.id==='matq'||t.id==='matfq')return;if(t.dataset&&(t.dataset.ch||t.classList.contains('lti')))t.blur()});
-(()=>{let t=null;document.addEventListener('touchstart',ev=>{if(U.view!=='klassen'||window.innerWidth>739||ev.touches.length!==1||ev.target.closest('input,textarea,select,.wkw,.nspager')){t=null;return}const c=ev.touches[0];t={x:c.clientX,y:c.clientY}},{passive:true});
-document.addEventListener('touchend',ev=>{if(!t)return;const c=ev.changedTouches[0],dx=c.clientX-t.x,dy=c.clientY-t.y;t=null;if(Math.abs(dx)<70||Math.abs(dx)<Math.abs(dy)*1.6)return;const want=dx<0?'p':'l',cur=U.homePane==='p'?'p':'l';if(want===cur)return;U.homePane=want;render();try{window.scrollTo(0,0)}catch(x){}},{passive:true})})();
+function homePane(p,keepPos){U.homePane=p;const t=document.querySelector('.nsplit');if(!t)return render();
+  t.style.transition='transform .3s cubic-bezier(.22,.8,.25,1)';t.style.transform='';t.dataset.pane=p;
+  document.querySelectorAll('.nspager button').forEach(b=>b.classList.toggle('on',b.dataset.p===p));
+  clearTimeout(homePane._t);homePane._t=setTimeout(()=>{t.querySelectorAll(':scope>*').forEach((c,i)=>c.classList.toggle('nscol',(p==='p'?i===0:i===1)));t.style.transition=''},330);
+  if(!keepPos){try{const hh=(document.querySelector('.hero')||{}).offsetHeight||0;if(window.scrollY>hh)window.scrollTo(0,hh)}catch(x){}}}
+(()=>{let t=null;document.addEventListener('touchstart',ev=>{if(U.view!=='klassen'||window.innerWidth>739||ev.touches.length!==1||ev.target.closest('input,textarea,select,.wkw,.nspager')){t=null;return}const tr=document.querySelector('.nsplit');if(!tr){t=null;return}tr.querySelectorAll(':scope>*').forEach(c=>c.classList.remove('nscol'));const c=ev.touches[0];t={x:c.clientX,y:c.clientY,tr,drag:false,w:tr.parentElement.clientWidth||window.innerWidth}},{passive:true});
+document.addEventListener('touchmove',ev=>{if(!t)return;const c=ev.touches[0],dx=c.clientX-t.x,dy=c.clientY-t.y;if(!t.drag){if(Math.abs(dx)>10&&Math.abs(dx)>Math.abs(dy)*1.4)t.drag=true;else return}
+  const cur=U.homePane==='p'?'p':'l',base=cur==='p'?-t.w:0;let x=base+dx;x=Math.max(-t.w,Math.min(0,x));t.tr.style.transition='none';t.tr.style.transform='translateX('+x+'px)'},{passive:true});
+document.addEventListener('touchend',ev=>{if(!t)return;const c=ev.changedTouches[0],dx=c.clientX-t.x,tr=t.tr,w=t.w,drag=t.drag;t=null;const cur=U.homePane==='p'?'p':'l';
+  if(!drag){tr.querySelectorAll(':scope>*').forEach((e,i)=>e.classList.toggle('nscol',(cur==='p'?i===0:i===1)));return}
+  let want=cur;if(Math.abs(dx)>w*.18)want=dx<0?'p':'l';homePane(want,true)},{passive:true})})();
 document.addEventListener('click',ev=>{const e=ev.target.closest('[data-act]');if(e&&A[e.dataset.act]&&!e.disabled){if(e.tagName==='A')ev.preventDefault();A[e.dataset.act](e)}});
 document.addEventListener('change',ev=>{const e=ev.target;if(e.dataset&&e.dataset.ch&&C[e.dataset.ch])C[e.dataset.ch](e)});
 
