@@ -14,7 +14,8 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dir, '..', 'data');
 const WEB_DIR = process.env.WEB_DIR || path.join(__dir, '..', 'web');
 const PASSWORD = process.env.APP_PASSWORD || '';
 const SECRET = process.env.SESSION_SECRET || crypto.createHash('sha256').update('lehrerapp|' + PASSWORD).digest('hex');
-const AI_KEY = process.env.ANTHROPIC_API_KEY || '';
+/* KI-Schlüssel: aus der Umgebung oder aus der Datei data/ki-schluessel.txt (wird bei jedem Aufruf neu gelesen, kein Neustart nötig) */
+const aiKey = () => { if (process.env.ANTHROPIC_API_KEY) return process.env.ANTHROPIC_API_KEY; try { return fs.readFileSync(path.join(DATA_DIR, 'ki-schluessel.txt'), 'utf8').trim(); } catch { return ''; } };
 const AI_MODEL = process.env.AI_MODEL || 'claude-sonnet-5-5';
 /* Lokale Spracherkennung (z. B. Whisper-Container auf der NAS): STT_URL=http://whisper:8000, STT_MODEL=Systran/faster-whisper-small */
 /* USB-Stick an der NAS: in der docker-compose.yml z. B. /volumeUSB1/usbshare:/usb einbinden (USB_PATH=/usb) */
@@ -162,14 +163,14 @@ function serveStatic(req, res, pathname) {
 }
 
 async function handleAi(req, res) {
-  if (!AI_KEY) return json(res, 501, { error: 'KI-Import nicht eingerichtet (ANTHROPIC_API_KEY fehlt).' });
+  if (!aiKey()) return json(res, 501, { error: 'KI-Import nicht eingerichtet (ANTHROPIC_API_KEY fehlt).' });
   const { prompt, images } = JSON.parse(await body(req));
   const content = [];
   for (const im of images || []) content.push({ type: 'image', source: { type: 'base64', media_type: im.type || 'image/jpeg', data: im.data } });
   content.push({ type: 'text', text: String(prompt || '') + '\n\nAntworte ausschließlich mit gültigem JSON.' });
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    headers: { 'x-api-key': AI_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+    headers: { 'x-api-key': aiKey(), 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
     body: JSON.stringify({ model: AI_MODEL, max_tokens: 4096, messages: [{ role: 'user', content }] }),
   });
   const out = await r.json();
@@ -179,7 +180,7 @@ async function handleAi(req, res) {
   try { return json(res, 200, { result: JSON.parse(m ? m[0] : txt) }); } catch { return json(res, 502, { error: 'KI-Antwort nicht lesbar' }); }
 }
 
-const auftragHandler = createAuftrag({ FILES_DIR, DATA_DIR, AI_KEY, AI_MODEL, json, body, bodyBuf });
+const auftragHandler = createAuftrag({ FILES_DIR, DATA_DIR, aiKey, AI_MODEL, json, body, bodyBuf });
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://x');
@@ -204,7 +205,7 @@ const server = http.createServer(async (req, res) => {
     if (p.startsWith('/api/')) {
       if (!authed(req)) return json(res, 401, { error: 'Nicht angemeldet' });
 
-      if (p === '/api/version') return json(res, 200, { version: '2026-11-20-material', files: true, ytdlp: !!YTDLP, ai: !!AI_KEY, stt: !!STT_URL, usb: usbOk() });
+      if (p === '/api/version') return json(res, 200, { version: '2026-11-20-material', files: true, ytdlp: !!YTDLP, ai: !!aiKey(), stt: !!STT_URL, usb: usbOk() });
       if (p === '/api/stt' && req.method === 'POST') {
         if (!STT_URL) return json(res, 501, { error: 'Lokale Spracherkennung nicht eingerichtet (STT_URL fehlt).' });
         const buf = await bodyBuf(req, 25 * 1024 * 1024);

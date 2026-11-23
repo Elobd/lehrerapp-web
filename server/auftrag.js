@@ -12,7 +12,7 @@ const slug = (s) => String(s || 'Arbeitsauftrag').normalize('NFC').replace(/[\\/
 const yearOf = (m) => { const x = /-?\d{3,4}/.exec(String(m.jahr || m.zeitraum || '')); return x ? +x[0] : 9999; };
 
 export function createAuftrag(ctx) {
-  const { FILES_DIR, DATA_DIR, AI_KEY, AI_MODEL, json, body, bodyBuf } = ctx;
+  const { FILES_DIR, DATA_DIR, aiKey, AI_MODEL, json, body, bodyBuf } = ctx;
   const AUF = path.join(FILES_DIR, 'Material', 'Arbeitsauftraege');
   const VORLAGE = path.join(FILES_DIR, 'Material', 'Vorlage', 'praesentation.pptx');
   const PYLIBS = path.join(DATA_DIR, 'pylibs');
@@ -32,9 +32,9 @@ export function createAuftrag(ctx) {
   // ---------- KI ----------
   async function aiJson(section, prompt, maxTok, mockArg) {
     if (process.env.AI_MOCK) return mock(section, mockArg);
-    if (!AI_KEY) throw new Error('KI nicht eingerichtet (ANTHROPIC_API_KEY fehlt).');
+    if (!aiKey()) throw new Error('KI nicht eingerichtet (ANTHROPIC_API_KEY fehlt).');
     for (let i = 0; i < 2; i++) {
-      const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'x-api-key': AI_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify({ model: AI_MODEL, max_tokens: maxTok || 8000, messages: [{ role: 'user', content: prompt + '\n\nAntworte ausschließlich mit gültigem JSON (kein Text davor oder danach).' }] }), signal: AbortSignal.timeout(300000) });
+      const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'x-api-key': aiKey(), 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify({ model: AI_MODEL, max_tokens: maxTok || 8000, messages: [{ role: 'user', content: prompt + '\n\nAntworte ausschließlich mit gültigem JSON (kein Text davor oder danach).' }] }), signal: AbortSignal.timeout(300000) });
       const out = await r.json(); if (!r.ok) throw new Error(out?.error?.message || 'KI-Fehler ' + r.status);
       const txt = (out.content || []).map((c) => c.text || '').join(''), a = txt.indexOf('{'), b = txt.lastIndexOf('}');
       try { return JSON.parse(txt.slice(a, b + 1)); } catch { /* zweiter Versuch */ }
@@ -127,10 +127,10 @@ export function createAuftrag(ctx) {
 
   return async function handle(req, res, url) {
     const p = url.pathname;
-    if (p === '/api/auftraege' && req.method === 'GET') return json(res, 200, { items: listing(), vorlage: fs.existsSync(VORLAGE), ai: !!AI_KEY || !!process.env.AI_MOCK }), true;
+    if (p === '/api/auftraege' && req.method === 'GET') return json(res, 200, { items: listing(), vorlage: fs.existsSync(VORLAGE), ai: !!aiKey() || !!process.env.AI_MOCK }), true;
     if (p === '/api/auftrag/erstellen' && req.method === 'POST') {
       const q = JSON.parse((await body(req)) || '{}'); if (!q.titel || !EPOCHEN.includes(q.epoche)) return json(res, 400, { error: 'Bitte Thema und Epoche angeben.' }), true;
-      if (!AI_KEY && !process.env.AI_MOCK) return json(res, 501, { error: 'KI nicht eingerichtet (ANTHROPIC_API_KEY fehlt).' }), true;
+      if (!aiKey() && !process.env.AI_MOCK) return json(res, 501, { error: 'KI nicht eingerichtet (ANTHROPIC_API_KEY fehlt).' }), true;
       if ([...jobs.values()].some((j) => j.state === 'laeuft')) return json(res, 409, { error: 'Es läuft bereits eine Erstellung. Bitte warten.' }), true;
       const id = Date.now().toString(36), job = { id, state: 'laeuft', msg: 'Start …', step: 0, total: 9, titel: q.titel }; jobs.set(id, job);
       const prm = { titel: String(q.titel).slice(0, 120), klasse: [5, 6, 7, 8].includes(+q.klasse) ? +q.klasse : 6, epoche: q.epoche, zeitraum: String(q.zeitraum || '').slice(0, 60), jahr: String(q.jahr || '').slice(0, 10), seiten: +q.seiten || 10, folien: q.folien || 'mittel', notizen: String(q.notizen || '').slice(0, 1500), quellen: Array.isArray(q.quellen) ? q.quellen.slice(0, 20) : [] };
