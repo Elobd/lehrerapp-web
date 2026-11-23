@@ -888,7 +888,7 @@ function bspkStat(G,all){
 const MONN=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 const JP_START='2026-09-07',JP_END='2027-07-02';
 const jpSlug=t=>String(t).replace(/\s*\(\d+\s*Std\.?\)\s*$/,'').toLowerCase().replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,60);
-function jpFind(slug){const jj=S.settings.jahresplan||{};for(const k of [5,6,7,8]){for(const l of String(jj['g'+k]||'').split('\n')){if(l.trim()&&!/^##\s*/.test(l)&&jpSlug(l)===slug)return {k,line:l.trim()}}}return null}
+function jpFind(slug){const jj=S.settings.jahresplan||{};for(const pf of ['g','s'])for(const k of [5,6,7,8]){for(const l of String(jj[pf+k]||'').split('\n')){if(l.trim()&&!/^##\s*/.test(l)&&jpSlug(l)===slug)return {k,line:l.trim()}}}return null}
 function bookBlock(slug,sub){
   const inp=(f,lab,ph,w)=>`<label class="f" style="display:block;margin:0;${w}">${lab}<input class="jpin" style="margin-top:3px" data-ch="jpsub" data-k="${slug}" data-f="${f}" value="${esc(sub[f]||'')}" placeholder="${ph}" maxlength="400"></label>`;
   const url=String(sub.bl||'').trim(),ok=/^https:\/\//i.test(url);
