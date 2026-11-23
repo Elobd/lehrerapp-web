@@ -6,6 +6,7 @@ import crypto from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
+import { createAuftrag } from './auftrag.js';
 
 const __dir = path.dirname(fileURLToPath(import.meta.url));
 const PORT = +process.env.PORT || 8080;
@@ -178,6 +179,7 @@ async function handleAi(req, res) {
   try { return json(res, 200, { result: JSON.parse(m ? m[0] : txt) }); } catch { return json(res, 502, { error: 'KI-Antwort nicht lesbar' }); }
 }
 
+const auftragHandler = createAuftrag({ FILES_DIR, DATA_DIR, AI_KEY, AI_MODEL, json, body, bodyBuf });
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://x');
@@ -226,6 +228,7 @@ const server = http.createServer(async (req, res) => {
         }
         return json(res, 200, { ok: !failed.length, copied, failed, hint: 'Vor dem Abziehen den Stick in DSM auswerfen.' });
       }
+      if (p.startsWith('/api/auftr') && (await auftragHandler(req, res, url))) return;
       if (p === '/api/events') {
         res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive', 'x-accel-buffering': 'no' });
         res.write('retry: 3000\n\n');

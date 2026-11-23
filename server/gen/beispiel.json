@@ -1,0 +1,1686 @@
+{
+ "titel": "Die Französische Revolution",
+ "untertitel": "Umbruch in Europa",
+ "klasse": "7",
+ "epoche": "Neuzeit",
+ "zeitraum": "1789 – 1799",
+ "jahr": "1789",
+ "quellenliste": [
+  "Schulbuch- und Lexikonwissen (Platzhalter für die gewählten Quellen)."
+ ],
+ "zeitstrahl": [
+  {
+   "jahr": 1789,
+   "text": "Sturm auf die Bastille"
+  },
+  {
+   "jahr": 1791,
+   "text": "Verfassung"
+  },
+  {
+   "jahr": 1792,
+   "text": "Republik"
+  },
+  {
+   "jahr": 1793,
+   "text": "Hinrichtung des Königs"
+  },
+  {
+   "jahr": 1799,
+   "text": "Napoleon an der Macht"
+  }
+ ],
+ "prozess": [
+  {
+   "titel": "Krise",
+   "text": "Schulden und Missernten"
+  },
+  {
+   "titel": "Aufbruch",
+   "text": "Generalstände 1789"
+  },
+  {
+   "titel": "Umsturz",
+   "text": "Bastille, Menschenrechte"
+  },
+  {
+   "titel": "Terror",
+   "text": "Jakobiner 1793"
+  },
+  {
+   "titel": "Ende",
+   "text": "Napoleon 1799"
+  }
+ ],
+ "textblatt": {
+  "kurz": [
+   "Die Revolution beendete die absolute Monarchie.",
+   "Sie brachte Menschen- und Bürgerrechte.",
+   "Sie radikalisierte sich und endete mit Napoleon."
+  ],
+  "kapitel": [
+   {
+    "titel": "Ausgangslage: Ständegesellschaft",
+    "absaetze": [
+     "Frankreich war vor 1789 eine Ständegesellschaft: Klerus, Adel und der Dritte Stand mit sehr unterschiedlichen Rechten und Pflichten. Frankreich war vor 1789 eine Ständegesellschaft: Klerus, Adel und der Dritte Stand mit sehr unterschiedlichen Rechten und Pflichten. Frankreich war vor 1789 eine Ständegesellschaft: Klerus, Adel und der Dritte Stand mit sehr unterschiedlichen Rechten und Pflichten. Frankreich war vor 1789 eine Ständegesellschaft: Klerus, Adel und der Dritte Stand mit sehr unterschiedlichen Rechten und Pflichten.",
+     "Die Entwicklung verlief nicht geradlinig, sondern war von Konflikten zwischen Gruppen und Interessen geprägt. Die Entwicklung verlief nicht geradlinig, sondern war von Konflikten zwischen Gruppen und Interessen geprägt. Die Entwicklung verlief nicht geradlinig, sondern war von Konflikten zwischen Gruppen und Interessen geprägt. Die Entwicklung verlief nicht geradlinig, sondern war von Konflikten zwischen Gruppen und Interessen geprägt."
+    ],
+    "boxen": [
+     {
+      "typ": "merke",
+      "text": "Frankreich war vor 1789 eine Ständegesellschaft: Klerus, Adel und der Dritte Stand mit sehr unterschiedlichen Rechten und Pflichten."
+     },
+     {
+      "typ": "begriff",
+      "text": "**Dritter Stand:** Sammelbegriff für alle, die weder Klerus noch Adel angehörten."
+     }
+    ]
+   },
+   {
+    "titel": "Aufklärung und Krise",
+    "absaetze": [
+     "Ideen der Aufklärung stellten die absolute Monarchie in Frage; zugleich belasteten Schulden und Missernten den Staat. Ideen der Aufklärung stellten die absolute Monarchie in Frage; zugleich belasteten Schulden und Missernten den Staat. Ideen der Aufklärung stellten die absolute Monarchie in Frage; zugleich belasteten Schulden und Missernten den Staat. Ideen der Aufklärung stellten die absolute Monarchie in Frage; zugleich belasteten Schulden und Missernten den Staat.",
+     "Die Entwicklung verlief nicht geradlinig, sondern war von Konflikten zwischen Gruppen und Interessen geprägt. Die Entwicklung verlief nicht geradlinig, sondern war von Konflikten zwischen Gruppen und Interessen geprägt. Die Entwicklung verlief nicht geradlinig, sondern war von Konflikten zwischen Gruppen und Interessen geprägt. Die Entwicklung verlief nicht geradlinig, sondern war von Konflikten zwischen Gruppen und Interessen geprägt."
+    ],
+    "boxen": [
+     {
+      "typ": "merke",
+      "text": "Ideen der Aufklärung stellten die absolute Monarchie in Frage; zugleich belasteten Schulden und Missernten den Staat."
+     },
+     {
+      "typ": "begriff",
+      "text": "**Dritter Stand:** Sammelbegriff für alle, die weder Klerus noch Adel angehörten."
+     }
+    ]
+   },
+   {
+    "titel": "Das Jahr 1789",
+    "absaetze": [
+     "Die Einberufung der Generalstände, der Sturm auf die Bastille und die Erklärung der Menschen- und Bürgerrechte veränderten das Land grundlegend. Die Einberufung der Generalstände, der Sturm auf die Bastille und die Erklärung der Menschen- und Bürgerrechte veränderten das Land grundlegend. Die Einberufung der Generalstände, der Sturm auf die Bastille und die Erklärung der Menschen- und Bürgerrechte veränderten das Land grundlegend. Die Einberufung der Generalstände, der Sturm auf die Bastille und die Erklärung der Menschen- und Bürgerrechte veränderten das Land grundlegend.",
+     "Die Entwicklung verlief nicht geradlinig, sondern war von Konflikten zwischen Gruppen und Interessen geprägt. Die Entwicklung verlief nicht geradlinig, sondern war von Konflikten zwischen Gruppen und Interessen geprägt. Die Entwicklung verlief nicht geradlinig, sondern war von Konflikten zwischen Gruppen und Interessen geprägt. Die Entwicklung verlief nicht geradlinig, sondern war von Konflikten zwischen Gruppen und Interessen geprägt."
+    ],
+    "boxen": [
+     {
+      "typ": "merke",
+      "text": "Die Einberufung der Generalstände, der Sturm auf die Bastille und die Erklärung der Menschen- und Bürgerrechte veränderten das Land grundlegend."
+     },
+     {
+      "typ": "begriff",
+      "text": "**Dritter Stand:** Sammelbegriff für alle, die weder Klerus noch Adel angehörten."
+     }
+    ],
+    "personen": [
+     {
+      "name": "Ludwig XVI.",
+      "lebensdaten": "1754 – 1793",
+      "rolle": "König von Frankreich",
+      "text": "Er berief 1789 die Generalstände ein und wurde 1793 hingerichtet."
+     }
+    ]
+   },
+   {
+    "titel": "Radikalisierung und Terror",
+    "absaetze": [
+     "Die Revolution radikalisierte sich, die Monarchie fiel, und unter den Jakobinern kam es zur Schreckensherrschaft. Die Revolution radikalisierte sich, die Monarchie fiel, und unter den Jakobinern kam es zur Schreckensherrschaft. Die Revolution radikalisierte sich, die Monarchie fiel, und unter den Jakobinern kam es zur Schreckensherrschaft. Die Revolution radikalisierte sich, die Monarchie fiel, und unter den Jakobinern kam es zur Schreckensherrschaft.",
+     "Die Entwicklung verlief nicht geradlinig, sondern war von Konflikten zwischen Gruppen und Interessen geprägt. Die Entwicklung verlief nicht geradlinig, sondern war von Konflikten zwischen Gruppen und Interessen geprägt. Die Entwicklung verlief nicht geradlinig, sondern war von Konflikten zwischen Gruppen und Interessen geprägt. Die Entwicklung verlief nicht geradlinig, sondern war von Konflikten zwischen Gruppen und Interessen geprägt."
+    ],
+    "boxen": [
+     {
+      "typ": "merke",
+      "text": "Die Revolution radikalisierte sich, die Monarchie fiel, und unter den Jakobinern kam es zur Schreckensherrschaft."
+     },
+     {
+      "typ": "begriff",
+      "text": "**Dritter Stand:** Sammelbegriff für alle, die weder Klerus noch Adel angehörten."
+     },
+     {
+      "typ": "quelle",
+      "titel": "Erklärung der Menschen- und Bürgerrechte, 1789 (gekürzt)",
+      "text": "Die Menschen sind und bleiben von Geburt frei und gleich an Rechten."
+     }
+    ]
+   },
+   {
+    "titel": "Napoleon und Folgen",
+    "absaetze": [
+     "Mit Napoleon endete die Revolution; viele ihrer Ideen wirkten in Europa langfristig weiter. Mit Napoleon endete die Revolution; viele ihrer Ideen wirkten in Europa langfristig weiter. Mit Napoleon endete die Revolution; viele ihrer Ideen wirkten in Europa langfristig weiter. Mit Napoleon endete die Revolution; viele ihrer Ideen wirkten in Europa langfristig weiter.",
+     "Die Entwicklung verlief nicht geradlinig, sondern war von Konflikten zwischen Gruppen und Interessen geprägt. Die Entwicklung verlief nicht geradlinig, sondern war von Konflikten zwischen Gruppen und Interessen geprägt. Die Entwicklung verlief nicht geradlinig, sondern war von Konflikten zwischen Gruppen und Interessen geprägt. Die Entwicklung verlief nicht geradlinig, sondern war von Konflikten zwischen Gruppen und Interessen geprägt."
+    ],
+    "boxen": [
+     {
+      "typ": "merke",
+      "text": "Mit Napoleon endete die Revolution; viele ihrer Ideen wirkten in Europa langfristig weiter."
+     },
+     {
+      "typ": "begriff",
+      "text": "**Dritter Stand:** Sammelbegriff für alle, die weder Klerus noch Adel angehörten."
+     }
+    ]
+   }
+  ],
+  "glossar": [
+   {
+    "begriff": "Dritter Stand",
+    "text": "Bürger, Bauern, Handwerker"
+   },
+   {
+    "begriff": "Jakobiner",
+    "text": "radikale politische Gruppe"
+   }
+  ]
+ },
+ "arbeitsblatt": {
+  "aufgaben": [
+   {
+    "titel": "Ständegesellschaft",
+    "afb": "AFB I",
+    "teile": [
+     {
+      "text": "Nenne die drei Stände und je ein Merkmal.",
+      "erwartung": "Klerus, Adel, Dritter Stand mit Merkmalen.",
+      "zeilen": 4
+     }
+    ]
+   },
+   {
+    "titel": "Quellenarbeit",
+    "afb": "AFB II",
+    "quelle": {
+     "label": "Menschenrechte 1789",
+     "text": "Die Menschen sind und bleiben von Geburt frei und gleich an Rechten."
+    },
+    "teile": [
+     {
+      "text": "Fasse die Aussage zusammen.",
+      "erwartung": "Gleichheit und Freiheit.",
+      "zeilen": 3
+     },
+     {
+      "text": "Erkläre die Bedeutung.",
+      "erwartung": "Gegensatz zur Ständegesellschaft.",
+      "zeilen": 3
+     }
+    ]
+   },
+   {
+    "titel": "Vergleich",
+    "afb": "AFB II",
+    "typ": "tabelle",
+    "tabelle": {
+     "spalten": [
+      "Kriterium",
+      "Vor 1789",
+      "Nach 1789"
+     ],
+     "zeilen": [
+      [
+       "Herrschaft",
+       "Absolute Monarchie",
+       "Verfassung"
+      ],
+      [
+       "Rechte",
+       "Standesrechte",
+       "Gleiche Rechte"
+      ]
+     ]
+    },
+    "teile": [
+     {
+      "text": "Ergänze die Tabelle.",
+      "erwartung": "siehe Tabelle"
+     }
+    ]
+   },
+   {
+    "titel": "Ursachen",
+    "afb": "AFB II",
+    "teile": [
+     {
+      "text": "Erkläre zwei Ursachen der Revolution.",
+      "erwartung": "z. B. Schulden, Aufklärung.",
+      "zeilen": 5
+     }
+    ]
+   },
+   {
+    "titel": "Verlauf",
+    "afb": "AFB II",
+    "teile": [
+     {
+      "text": "Beschreibe den Weg von 1789 bis 1799.",
+      "erwartung": "Phasen.",
+      "zeilen": 5
+     }
+    ]
+   },
+   {
+    "titel": "Urteil",
+    "afb": "AFB III",
+    "teile": [
+     {
+      "text": "Beurteile: Gelang die Revolution?",
+      "erwartung": "Argumente.",
+      "zeilen": 6
+     },
+     {
+      "text": "Klassenbezug: Notiere den stärksten Standpunkt unserer Diskussion vom ______ (Datum).",
+      "erwartung": "Individuell.",
+      "zeilen": 2
+     }
+    ]
+   },
+   {
+    "titel": "Transfer",
+    "afb": "AFB III",
+    "teile": [
+     {
+      "text": "Vergleiche mit einer heutigen Protestbewegung, die du in den letzten 7 Tagen wahrgenommen hast.",
+      "erwartung": "Individuell.",
+      "zeilen": 5
+     }
+    ]
+   },
+   {
+    "titel": "Eigene Skizze",
+    "afb": "AFB III",
+    "typ": "skizze",
+    "teile": [
+     {
+      "text": "Zeichne einen Zeitstrahl mit mindestens fünf beschrifteten Ereignissen.",
+      "erwartung": "Individuell.",
+      "zeilen": 0
+     }
+    ]
+   }
+  ]
+ },
+ "luecken": {
+  "text": "**Ausgangslage: Ständegesellschaft.** Frankreich erlebte große Umbrüche, und die {Revolution} prägten das Land. Besonders wichtig wurde dabei, dass die {Bürger} neue Rechte einforderten und die {Ständegesellschaft} verteidigt werden musste. **Aufklärung und Krise.** Frankreich erlebte große Umbrüche, und die {Aufklärung} prägten das Land. Besonders wichtig wurde dabei, dass die {Monarchie} neue Rechte einforderten und die {Schulden} verteidigt werden musste. **Das Jahr 1789.** Frankreich erlebte große Umbrüche, und die {Bastille} prägten das Land. Besonders wichtig wurde dabei, dass die {Generalstände} neue Rechte einforderten und die {Menschenrechte} verteidigt werden musste. **Radikalisierung und Terror.** Frankreich erlebte große Umbrüche, und die {Jakobiner} prägten das Land. Besonders wichtig wurde dabei, dass die {Republik} neue Rechte einforderten und die {Guillotine} verteidigt werden musste. **Napoleon und Folgen.** Frankreich erlebte große Umbrüche, und die {Napoleon} prägten das Land. Besonders wichtig wurde dabei, dass die {Verfassung} neue Rechte einforderten und die {Europa} verteidigt werden musste.**Ausgangslage: Ständegesellschaft.** Frankreich erlebte große Umbrüche, und die {Revolution} prägten das Land. Besonders wichtig wurde dabei, dass die {Bürger} neue Rechte einforderten und die {Ständegesellschaft} verteidigt werden musste. **Aufklärung und Krise.** Frankreich erlebte große Umbrüche, und die {Aufklärung} prägten das Land. Besonders wichtig wurde dabei, dass die {Monarchie} neue Rechte einforderten und die {Schulden} verteidigt werden musste. **Das Jahr 1789.** Frankreich erlebte große Umbrüche, und die {Bastille} prägten das Land. Besonders wichtig wurde dabei, dass die {Generalstände} neue Rechte einforderten und die {Menschenrechte} verteidigt werden musste. **Radikalisierung und Terror.** Frankreich erlebte große Umbrüche, und die {Jakobiner} prägten das Land. Besonders wichtig wurde dabei, dass die {Republik} neue Rechte einforderten und die {Guillotine} verteidigt werden musste. **Napoleon und Folgen.** Frankreich erlebte große Umbrüche, und die {Napoleon} prägten das Land. Besonders wichtig wurde dabei, dass die {Verfassung} neue Rechte einforderten und die {Europa} verteidigt werden musste.**Ausgangslage: Ständegesellschaft.** Frankreich erlebte große Umbrüche, und die {Revolution} prägten das Land. Besonders wichtig wurde dabei, dass die {Bürger} neue Rechte einforderten und die {Ständegesellschaft} verteidigt werden musste. **Aufklärung und Krise.** Frankreich erlebte große Umbrüche, und die {Aufklärung} prägten das Land. Besonders wichtig wurde dabei, dass die {Monarchie} neue Rechte einforderten und die {Schulden} verteidigt werden musste. **Das Jahr 1789.** Frankreich erlebte große Umbrüche, und die {Bastille} prägten das Land. Besonders wichtig wurde dabei, dass die {Generalstände} neue Rechte einforderten und die {Menschenrechte} verteidigt werden musste. **Radikalisierung und Terror.** Frankreich erlebte große Umbrüche, und die {Jakobiner} prägten das Land. Besonders wichtig wurde dabei, dass die {Republik} neue Rechte einforderten und die {Guillotine} verteidigt werden musste. **Napoleon und Folgen.** Frankreich erlebte große Umbrüche, und die {Napoleon} prägten das Land. Besonders wichtig wurde dabei, dass die {Verfassung} neue Rechte einforderten und die {Europa} verteidigt werden musste.",
+  "zusatz": [
+   "Kolonie",
+   "Zar",
+   "Parlament",
+   "Kaiser"
+  ]
+ },
+ "kreuzwort": [
+  {
+   "wort": "REVOLUTION",
+   "hinweis": "Grundlegender Umsturz der politischen Ordnung"
+  },
+  {
+   "wort": "BASTILLE",
+   "hinweis": "Pariser Staatsgefängnis, 14. Juli 1789"
+  },
+  {
+   "wort": "NAPOLEON",
+   "hinweis": "Korse, der 1799 die Macht übernahm"
+  },
+  {
+   "wort": "JAKOBINER",
+   "hinweis": "Radikale politische Gruppe"
+  },
+  {
+   "wort": "GENERALSTAENDE",
+   "hinweis": "Versammlung der drei Stände"
+  },
+  {
+   "wort": "MENSCHENRECHTE",
+   "hinweis": "Grundrechte jedes Menschen"
+  },
+  {
+   "wort": "GUILLOTINE",
+   "hinweis": "Hinrichtungsgerät der Revolution"
+  },
+  {
+   "wort": "KLERUS",
+   "hinweis": "Erster Stand"
+  },
+  {
+   "wort": "ADEL",
+   "hinweis": "Zweiter Stand"
+  },
+  {
+   "wort": "AUFKLAERUNG",
+   "hinweis": "Geistesströmung des 18. Jahrhunderts"
+  },
+  {
+   "wort": "TERROR",
+   "hinweis": "Schreckensherrschaft 1793/94"
+  },
+  {
+   "wort": "REPUBLIK",
+   "hinweis": "Staatsform ohne König"
+  },
+  {
+   "wort": "VERFASSUNG",
+   "hinweis": "Grundgesetz eines Staates"
+  },
+  {
+   "wort": "DRITTERSTAND",
+   "hinweis": "Bürger, Bauern, Handwerker"
+  }
+ ],
+ "checkup": {
+  "single": [
+   {
+    "frage": "Testfrage 1 zum Thema Die Französische Revolution?",
+    "antworten": [
+     "Antwort A",
+     "Antwort B",
+     "Antwort C",
+     "Antwort D"
+    ],
+    "richtig": 0
+   },
+   {
+    "frage": "Testfrage 2 zum Thema Die Französische Revolution?",
+    "antworten": [
+     "Antwort A",
+     "Antwort B",
+     "Antwort C",
+     "Antwort D"
+    ],
+    "richtig": 1
+   },
+   {
+    "frage": "Testfrage 3 zum Thema Die Französische Revolution?",
+    "antworten": [
+     "Antwort A",
+     "Antwort B",
+     "Antwort C",
+     "Antwort D"
+    ],
+    "richtig": 2
+   },
+   {
+    "frage": "Testfrage 4 zum Thema Die Französische Revolution?",
+    "antworten": [
+     "Antwort A",
+     "Antwort B",
+     "Antwort C",
+     "Antwort D"
+    ],
+    "richtig": 3
+   },
+   {
+    "frage": "Testfrage 5 zum Thema Die Französische Revolution?",
+    "antworten": [
+     "Antwort A",
+     "Antwort B",
+     "Antwort C",
+     "Antwort D"
+    ],
+    "richtig": 0
+   },
+   {
+    "frage": "Testfrage 6 zum Thema Die Französische Revolution?",
+    "antworten": [
+     "Antwort A",
+     "Antwort B",
+     "Antwort C",
+     "Antwort D"
+    ],
+    "richtig": 1
+   },
+   {
+    "frage": "Testfrage 7 zum Thema Die Französische Revolution?",
+    "antworten": [
+     "Antwort A",
+     "Antwort B",
+     "Antwort C",
+     "Antwort D"
+    ],
+    "richtig": 2
+   },
+   {
+    "frage": "Testfrage 8 zum Thema Die Französische Revolution?",
+    "antworten": [
+     "Antwort A",
+     "Antwort B",
+     "Antwort C",
+     "Antwort D"
+    ],
+    "richtig": 3
+   },
+   {
+    "frage": "Testfrage 9 zum Thema Die Französische Revolution?",
+    "antworten": [
+     "Antwort A",
+     "Antwort B",
+     "Antwort C",
+     "Antwort D"
+    ],
+    "richtig": 0
+   },
+   {
+    "frage": "Testfrage 10 zum Thema Die Französische Revolution?",
+    "antworten": [
+     "Antwort A",
+     "Antwort B",
+     "Antwort C",
+     "Antwort D"
+    ],
+    "richtig": 1
+   },
+   {
+    "frage": "Testfrage 11 zum Thema Die Französische Revolution?",
+    "antworten": [
+     "Antwort A",
+     "Antwort B",
+     "Antwort C",
+     "Antwort D"
+    ],
+    "richtig": 2
+   },
+   {
+    "frage": "Testfrage 12 zum Thema Die Französische Revolution?",
+    "antworten": [
+     "Antwort A",
+     "Antwort B",
+     "Antwort C",
+     "Antwort D"
+    ],
+    "richtig": 3
+   },
+   {
+    "frage": "Testfrage 13 zum Thema Die Französische Revolution?",
+    "antworten": [
+     "Antwort A",
+     "Antwort B",
+     "Antwort C",
+     "Antwort D"
+    ],
+    "richtig": 0
+   },
+   {
+    "frage": "Testfrage 14 zum Thema Die Französische Revolution?",
+    "antworten": [
+     "Antwort A",
+     "Antwort B",
+     "Antwort C",
+     "Antwort D"
+    ],
+    "richtig": 1
+   },
+   {
+    "frage": "Testfrage 15 zum Thema Die Französische Revolution?",
+    "antworten": [
+     "Antwort A",
+     "Antwort B",
+     "Antwort C",
+     "Antwort D"
+    ],
+    "richtig": 2
+   },
+   {
+    "frage": "Testfrage 16 zum Thema Die Französische Revolution?",
+    "antworten": [
+     "Antwort A",
+     "Antwort B",
+     "Antwort C",
+     "Antwort D"
+    ],
+    "richtig": 3
+   },
+   {
+    "frage": "Testfrage 17 zum Thema Die Französische Revolution?",
+    "antworten": [
+     "Antwort A",
+     "Antwort B",
+     "Antwort C",
+     "Antwort D"
+    ],
+    "richtig": 0
+   },
+   {
+    "frage": "Testfrage 18 zum Thema Die Französische Revolution?",
+    "antworten": [
+     "Antwort A",
+     "Antwort B",
+     "Antwort C",
+     "Antwort D"
+    ],
+    "richtig": 1
+   },
+   {
+    "frage": "Testfrage 19 zum Thema Die Französische Revolution?",
+    "antworten": [
+     "Antwort A",
+     "Antwort B",
+     "Antwort C",
+     "Antwort D"
+    ],
+    "richtig": 2
+   },
+   {
+    "frage": "Testfrage 20 zum Thema Die Französische Revolution?",
+    "antworten": [
+     "Antwort A",
+     "Antwort B",
+     "Antwort C",
+     "Antwort D"
+    ],
+    "richtig": 3
+   }
+  ],
+  "multiple": [
+   {
+    "frage": "Mehrfachfrage 1: Welche Aussagen stimmen?",
+    "antworten": [
+     "Aussage 1",
+     "Aussage 2",
+     "Aussage 3",
+     "Aussage 4"
+    ],
+    "richtig": [
+     1,
+     2,
+     3
+    ]
+   },
+   {
+    "frage": "Mehrfachfrage 2: Welche Aussagen stimmen?",
+    "antworten": [
+     "Aussage 1",
+     "Aussage 2",
+     "Aussage 3",
+     "Aussage 4"
+    ],
+    "richtig": [
+     0,
+     1
+    ]
+   },
+   {
+    "frage": "Mehrfachfrage 3: Welche Aussagen stimmen?",
+    "antworten": [
+     "Aussage 1",
+     "Aussage 2",
+     "Aussage 3",
+     "Aussage 4"
+    ],
+    "richtig": [
+     1,
+     2,
+     3
+    ]
+   },
+   {
+    "frage": "Mehrfachfrage 4: Welche Aussagen stimmen?",
+    "antworten": [
+     "Aussage 1",
+     "Aussage 2",
+     "Aussage 3",
+     "Aussage 4"
+    ],
+    "richtig": [
+     0,
+     1
+    ]
+   },
+   {
+    "frage": "Mehrfachfrage 5: Welche Aussagen stimmen?",
+    "antworten": [
+     "Aussage 1",
+     "Aussage 2",
+     "Aussage 3",
+     "Aussage 4"
+    ],
+    "richtig": [
+     1,
+     2,
+     3
+    ]
+   },
+   {
+    "frage": "Mehrfachfrage 6: Welche Aussagen stimmen?",
+    "antworten": [
+     "Aussage 1",
+     "Aussage 2",
+     "Aussage 3",
+     "Aussage 4"
+    ],
+    "richtig": [
+     0,
+     1
+    ]
+   },
+   {
+    "frage": "Mehrfachfrage 7: Welche Aussagen stimmen?",
+    "antworten": [
+     "Aussage 1",
+     "Aussage 2",
+     "Aussage 3",
+     "Aussage 4"
+    ],
+    "richtig": [
+     1,
+     2,
+     3
+    ]
+   },
+   {
+    "frage": "Mehrfachfrage 8: Welche Aussagen stimmen?",
+    "antworten": [
+     "Aussage 1",
+     "Aussage 2",
+     "Aussage 3",
+     "Aussage 4"
+    ],
+    "richtig": [
+     0,
+     1
+    ]
+   },
+   {
+    "frage": "Mehrfachfrage 9: Welche Aussagen stimmen?",
+    "antworten": [
+     "Aussage 1",
+     "Aussage 2",
+     "Aussage 3",
+     "Aussage 4"
+    ],
+    "richtig": [
+     1,
+     2,
+     3
+    ]
+   },
+   {
+    "frage": "Mehrfachfrage 10: Welche Aussagen stimmen?",
+    "antworten": [
+     "Aussage 1",
+     "Aussage 2",
+     "Aussage 3",
+     "Aussage 4"
+    ],
+    "richtig": [
+     0,
+     1
+    ]
+   },
+   {
+    "frage": "Mehrfachfrage 11: Welche Aussagen stimmen?",
+    "antworten": [
+     "Aussage 1",
+     "Aussage 2",
+     "Aussage 3",
+     "Aussage 4"
+    ],
+    "richtig": [
+     1,
+     2,
+     3
+    ]
+   },
+   {
+    "frage": "Mehrfachfrage 12: Welche Aussagen stimmen?",
+    "antworten": [
+     "Aussage 1",
+     "Aussage 2",
+     "Aussage 3",
+     "Aussage 4"
+    ],
+    "richtig": [
+     0,
+     1
+    ]
+   },
+   {
+    "frage": "Mehrfachfrage 13: Welche Aussagen stimmen?",
+    "antworten": [
+     "Aussage 1",
+     "Aussage 2",
+     "Aussage 3",
+     "Aussage 4"
+    ],
+    "richtig": [
+     1,
+     2,
+     3
+    ]
+   },
+   {
+    "frage": "Mehrfachfrage 14: Welche Aussagen stimmen?",
+    "antworten": [
+     "Aussage 1",
+     "Aussage 2",
+     "Aussage 3",
+     "Aussage 4"
+    ],
+    "richtig": [
+     0,
+     1
+    ]
+   },
+   {
+    "frage": "Mehrfachfrage 15: Welche Aussagen stimmen?",
+    "antworten": [
+     "Aussage 1",
+     "Aussage 2",
+     "Aussage 3",
+     "Aussage 4"
+    ],
+    "richtig": [
+     1,
+     2,
+     3
+    ]
+   },
+   {
+    "frage": "Mehrfachfrage 16: Welche Aussagen stimmen?",
+    "antworten": [
+     "Aussage 1",
+     "Aussage 2",
+     "Aussage 3",
+     "Aussage 4"
+    ],
+    "richtig": [
+     0,
+     1
+    ]
+   },
+   {
+    "frage": "Mehrfachfrage 17: Welche Aussagen stimmen?",
+    "antworten": [
+     "Aussage 1",
+     "Aussage 2",
+     "Aussage 3",
+     "Aussage 4"
+    ],
+    "richtig": [
+     1,
+     2,
+     3
+    ]
+   },
+   {
+    "frage": "Mehrfachfrage 18: Welche Aussagen stimmen?",
+    "antworten": [
+     "Aussage 1",
+     "Aussage 2",
+     "Aussage 3",
+     "Aussage 4"
+    ],
+    "richtig": [
+     0,
+     1
+    ]
+   },
+   {
+    "frage": "Mehrfachfrage 19: Welche Aussagen stimmen?",
+    "antworten": [
+     "Aussage 1",
+     "Aussage 2",
+     "Aussage 3",
+     "Aussage 4"
+    ],
+    "richtig": [
+     1,
+     2,
+     3
+    ]
+   },
+   {
+    "frage": "Mehrfachfrage 20: Welche Aussagen stimmen?",
+    "antworten": [
+     "Aussage 1",
+     "Aussage 2",
+     "Aussage 3",
+     "Aussage 4"
+    ],
+    "richtig": [
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ "wiederholung": [
+  {
+   "titel": "Thema 1",
+   "fragen": [
+    {
+     "frage": "Frage 1.1?",
+     "antwort": "Musterantwort 1.1 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 1.2?",
+     "antwort": "Musterantwort 1.2 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 1.3?",
+     "antwort": "Musterantwort 1.3 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 1.4?",
+     "antwort": "Musterantwort 1.4 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    }
+   ]
+  },
+  {
+   "titel": "Thema 2",
+   "fragen": [
+    {
+     "frage": "Frage 2.1?",
+     "antwort": "Musterantwort 2.1 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 2.2?",
+     "antwort": "Musterantwort 2.2 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 2.3?",
+     "antwort": "Musterantwort 2.3 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 2.4?",
+     "antwort": "Musterantwort 2.4 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    }
+   ]
+  },
+  {
+   "titel": "Thema 3",
+   "fragen": [
+    {
+     "frage": "Frage 3.1?",
+     "antwort": "Musterantwort 3.1 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 3.2?",
+     "antwort": "Musterantwort 3.2 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 3.3?",
+     "antwort": "Musterantwort 3.3 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 3.4?",
+     "antwort": "Musterantwort 3.4 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    }
+   ]
+  },
+  {
+   "titel": "Thema 4",
+   "fragen": [
+    {
+     "frage": "Frage 4.1?",
+     "antwort": "Musterantwort 4.1 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 4.2?",
+     "antwort": "Musterantwort 4.2 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 4.3?",
+     "antwort": "Musterantwort 4.3 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 4.4?",
+     "antwort": "Musterantwort 4.4 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    }
+   ]
+  },
+  {
+   "titel": "Thema 5",
+   "fragen": [
+    {
+     "frage": "Frage 5.1?",
+     "antwort": "Musterantwort 5.1 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 5.2?",
+     "antwort": "Musterantwort 5.2 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 5.3?",
+     "antwort": "Musterantwort 5.3 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 5.4?",
+     "antwort": "Musterantwort 5.4 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    }
+   ]
+  },
+  {
+   "titel": "Thema 6",
+   "fragen": [
+    {
+     "frage": "Frage 6.1?",
+     "antwort": "Musterantwort 6.1 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 6.2?",
+     "antwort": "Musterantwort 6.2 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 6.3?",
+     "antwort": "Musterantwort 6.3 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 6.4?",
+     "antwort": "Musterantwort 6.4 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    }
+   ]
+  },
+  {
+   "titel": "Thema 7",
+   "fragen": [
+    {
+     "frage": "Frage 7.1?",
+     "antwort": "Musterantwort 7.1 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 7.2?",
+     "antwort": "Musterantwort 7.2 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 7.3?",
+     "antwort": "Musterantwort 7.3 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 7.4?",
+     "antwort": "Musterantwort 7.4 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    }
+   ]
+  },
+  {
+   "titel": "Thema 8",
+   "fragen": [
+    {
+     "frage": "Frage 8.1?",
+     "antwort": "Musterantwort 8.1 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 8.2?",
+     "antwort": "Musterantwort 8.2 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 8.3?",
+     "antwort": "Musterantwort 8.3 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 8.4?",
+     "antwort": "Musterantwort 8.4 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    }
+   ]
+  },
+  {
+   "titel": "Thema 9",
+   "fragen": [
+    {
+     "frage": "Frage 9.1?",
+     "antwort": "Musterantwort 9.1 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 9.2?",
+     "antwort": "Musterantwort 9.2 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 9.3?",
+     "antwort": "Musterantwort 9.3 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 9.4?",
+     "antwort": "Musterantwort 9.4 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    }
+   ]
+  },
+  {
+   "titel": "Thema 10",
+   "fragen": [
+    {
+     "frage": "Frage 10.1?",
+     "antwort": "Musterantwort 10.1 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 10.2?",
+     "antwort": "Musterantwort 10.2 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 10.3?",
+     "antwort": "Musterantwort 10.3 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 10.4?",
+     "antwort": "Musterantwort 10.4 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    }
+   ]
+  },
+  {
+   "titel": "Thema 11",
+   "fragen": [
+    {
+     "frage": "Frage 11.1?",
+     "antwort": "Musterantwort 11.1 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 11.2?",
+     "antwort": "Musterantwort 11.2 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 11.3?",
+     "antwort": "Musterantwort 11.3 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 11.4?",
+     "antwort": "Musterantwort 11.4 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    }
+   ]
+  },
+  {
+   "titel": "Thema 12",
+   "fragen": [
+    {
+     "frage": "Frage 12.1?",
+     "antwort": "Musterantwort 12.1 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 12.2?",
+     "antwort": "Musterantwort 12.2 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 12.3?",
+     "antwort": "Musterantwort 12.3 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 12.4?",
+     "antwort": "Musterantwort 12.4 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    }
+   ]
+  },
+  {
+   "titel": "Thema 13",
+   "fragen": [
+    {
+     "frage": "Frage 13.1?",
+     "antwort": "Musterantwort 13.1 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 13.2?",
+     "antwort": "Musterantwort 13.2 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 13.3?",
+     "antwort": "Musterantwort 13.3 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 13.4?",
+     "antwort": "Musterantwort 13.4 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    }
+   ]
+  },
+  {
+   "titel": "Thema 14",
+   "fragen": [
+    {
+     "frage": "Frage 14.1?",
+     "antwort": "Musterantwort 14.1 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 14.2?",
+     "antwort": "Musterantwort 14.2 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 14.3?",
+     "antwort": "Musterantwort 14.3 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 14.4?",
+     "antwort": "Musterantwort 14.4 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    }
+   ]
+  },
+  {
+   "titel": "Thema 15",
+   "fragen": [
+    {
+     "frage": "Frage 15.1?",
+     "antwort": "Musterantwort 15.1 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 15.2?",
+     "antwort": "Musterantwort 15.2 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 15.3?",
+     "antwort": "Musterantwort 15.3 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 15.4?",
+     "antwort": "Musterantwort 15.4 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    }
+   ]
+  },
+  {
+   "titel": "Thema 16",
+   "fragen": [
+    {
+     "frage": "Frage 16.1?",
+     "antwort": "Musterantwort 16.1 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 16.2?",
+     "antwort": "Musterantwort 16.2 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 16.3?",
+     "antwort": "Musterantwort 16.3 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 16.4?",
+     "antwort": "Musterantwort 16.4 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    }
+   ]
+  },
+  {
+   "titel": "Thema 17",
+   "fragen": [
+    {
+     "frage": "Frage 17.1?",
+     "antwort": "Musterantwort 17.1 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 17.2?",
+     "antwort": "Musterantwort 17.2 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 17.3?",
+     "antwort": "Musterantwort 17.3 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 17.4?",
+     "antwort": "Musterantwort 17.4 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    }
+   ]
+  },
+  {
+   "titel": "Thema 18",
+   "fragen": [
+    {
+     "frage": "Frage 18.1?",
+     "antwort": "Musterantwort 18.1 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 18.2?",
+     "antwort": "Musterantwort 18.2 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 18.3?",
+     "antwort": "Musterantwort 18.3 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 18.4?",
+     "antwort": "Musterantwort 18.4 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    }
+   ]
+  },
+  {
+   "titel": "Thema 19",
+   "fragen": [
+    {
+     "frage": "Frage 19.1?",
+     "antwort": "Musterantwort 19.1 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 19.2?",
+     "antwort": "Musterantwort 19.2 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 19.3?",
+     "antwort": "Musterantwort 19.3 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 19.4?",
+     "antwort": "Musterantwort 19.4 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    }
+   ]
+  },
+  {
+   "titel": "Thema 20",
+   "fragen": [
+    {
+     "frage": "Frage 20.1?",
+     "antwort": "Musterantwort 20.1 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 20.2?",
+     "antwort": "Musterantwort 20.2 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 20.3?",
+     "antwort": "Musterantwort 20.3 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium"
+     ]
+    },
+    {
+     "frage": "Frage 20.4?",
+     "antwort": "Musterantwort 20.4 in ein bis zwei Sätzen.",
+     "kriterien": [
+      "erstes Kriterium",
+      "zweites Kriterium"
+     ]
+    }
+   ]
+  }
+ ],
+ "epochen": [
+  {
+   "epoche": "Vor- und Frühgeschichte",
+   "ereignisse": [
+    {
+     "text": "Urknall",
+     "jahr": "vor 13,8 Mrd. Jahren",
+     "seite": 1
+    },
+    {
+     "text": "Neolithische Revolution",
+     "jahr": "ab ca. 10.000 v. Chr.",
+     "seite": -1
+    }
+   ]
+  },
+  {
+   "epoche": "Antike",
+   "ereignisse": [
+    {
+     "text": "Perikles",
+     "jahr": "um 450 v. Chr.",
+     "seite": 1
+    },
+    {
+     "text": "Caesar ermordet",
+     "jahr": "44 v. Chr.",
+     "seite": -1
+    }
+   ]
+  },
+  {
+   "epoche": "Mittelalter",
+   "ereignisse": [
+    {
+     "text": "Karl der Große",
+     "jahr": "800",
+     "seite": 1
+    },
+    {
+     "text": "Rudolf I. Habsburg",
+     "jahr": "1273",
+     "seite": -1
+    }
+   ]
+  },
+  {
+   "epoche": "Neuzeit",
+   "ereignisse": [
+    {
+     "text": "Französische Revolution",
+     "jahr": "1789",
+     "seite": -1,
+     "hervorheben": true
+    },
+    {
+     "text": "Kolumbus",
+     "jahr": "1492",
+     "seite": 1
+    },
+    {
+     "text": "Industrielle Revolution",
+     "jahr": "ab ca. 1760",
+     "seite": 1
+    }
+   ]
+  },
+  {
+   "epoche": "Zeitgeschichte",
+   "ereignisse": [
+    {
+     "text": "Weltkriege",
+     "jahr": "1914–18, 1939–45",
+     "seite": 1
+    },
+    {
+     "text": "Europäische Union",
+     "jahr": "1993",
+     "seite": -1
+    }
+   ]
+  }
+ ],
+ "praesentation": {
+  "titeljahr": "1789",
+  "folien": [
+   {
+    "typ": "divider",
+    "titel": "Ausgangslage"
+   },
+   {
+    "typ": "text",
+    "titel": "Die Ständegesellschaft",
+    "untertitel": "Frankreich vor 1789",
+    "bloecke": [
+     {
+      "lead": "Drei Stände",
+      "text": "Klerus, Adel und Dritter Stand hatten sehr unterschiedliche Rechte."
+     },
+     {
+      "lead": "Belastung",
+      "text": "Der Dritte Stand trug die meisten Steuern."
+     }
+    ],
+    "bild": "illus"
+   },
+   {
+    "typ": "zeitstrahl",
+    "titel": "Zeitstrahl",
+    "untertitel": "1789 – 1799"
+   },
+   {
+    "typ": "person",
+    "titel": "Ludwig XVI.",
+    "untertitel": "König",
+    "personen": [
+     {
+      "name": "Ludwig XVI.",
+      "lebensdaten": "1754 – 1793",
+      "rolle": "König"
+     }
+    ],
+    "bloecke": [
+     {
+      "lead": "Rolle",
+      "text": "Er berief 1789 die Generalstände ein."
+     }
+    ]
+   },
+   {
+    "typ": "text",
+    "titel": "Übersicht",
+    "untertitel": "Verlauf",
+    "bloecke": [
+     {
+      "lead": "Phasen",
+      "text": "Krise, Aufbruch, Umsturz, Terror, Ende."
+     }
+    ],
+    "bild": "steps"
+   }
+  ]
+ }
+}

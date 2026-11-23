@@ -4,3 +4,5 @@ Erzeugen aus einem Thema (Beispiel „Der Buchdruck“) Textblatt, Arbeitsblatt,
 - Die Präsentation braucht die eigene Vorlagen-Datei als `vorlage.pptx` in diesem Ordner (nicht im Repo, enthält persönliche Links).
 - Zentrales Cover: `cover_tauschen.py <bild>`, dann `pipeline.sh`.
 - Ausgabe liegt in `../out`, Bilder in `../img` (bitte neben `src` anlegen).
+
+Hinweis: Die datengesteuerte Fassung dieser Generatoren liegt in `server/gen/` und wird von der App (Einstellungen → Lehrmaterial erarbeiten) benutzt. Dieser Ordner enthält die ursprünglichen Beispiel-Skripte (Thema „Der Buchdruck“).
