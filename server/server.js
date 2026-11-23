@@ -15,12 +15,10 @@ const WEB_DIR = process.env.WEB_DIR || path.join(__dir, '..', 'web');
 const PASSWORD = process.env.APP_PASSWORD || '';
 const SECRET = process.env.SESSION_SECRET || crypto.createHash('sha256').update('lehrerapp|' + PASSWORD).digest('hex');
 /* KI-Schlüssel: aus der Umgebung oder aus der Datei data/ki-schluessel.txt (wird bei jedem Aufruf neu gelesen, kein Neustart nötig) */
-const aiKeyFiles = () => { try { return fs.readdirSync(DATA_DIR).filter((f) => /^ki[-_ ]?schl/i.test(f)); } catch { return []; } };
-const aiKey = () => {
-  if (process.env.ANTHROPIC_API_KEY) return process.env.ANTHROPIC_API_KEY;
-  for (const f of aiKeyFiles()) { try { let b = fs.readFileSync(path.join(DATA_DIR, f)); let t = b.includes(0) ? b.toString('utf16le') : b.toString('utf8'); const m = /sk-ant-[A-Za-z0-9_\-]+/.exec(t); if (m) return m[0]; t = t.replace(/^\uFEFF/, '').trim(); if (t && !/\s/.test(t)) return t; } catch { /* nächste */ } }
-  return '';
-};
+const smallFiles = () => { try { return fs.readdirSync(DATA_DIR, { withFileTypes: true }).filter((e) => e.isFile() && !/\.sqlite/i.test(e.name) && fs.statSync(path.join(DATA_DIR, e.name)).size < 4096).map((e) => e.name); } catch { return []; } };
+const readKey = (f) => { try { const b = fs.readFileSync(path.join(DATA_DIR, f)); const t = b.includes(0) ? b.toString('utf16le') : b.toString('utf8'); const m = /sk-ant-[A-Za-z0-9_\-]+/.exec(t); return m ? m[0] : ''; } catch { return ''; } };
+const aiKeyFiles = () => smallFiles().filter((f) => readKey(f));
+const aiKey = () => { if (process.env.ANTHROPIC_API_KEY) return process.env.ANTHROPIC_API_KEY; for (const f of smallFiles()) { const k = readKey(f); if (k) return k; } return ''; };
 const AI_MODEL = process.env.AI_MODEL || 'claude-sonnet-5-5';
 /* Lokale Spracherkennung (z. B. Whisper-Container auf der NAS): STT_URL=http://whisper:8000, STT_MODEL=Systran/faster-whisper-small */
 /* USB-Stick an der NAS: in der docker-compose.yml z. B. /volumeUSB1/usbshare:/usb einbinden (USB_PATH=/usb) */
@@ -210,7 +208,7 @@ const server = http.createServer(async (req, res) => {
     if (p.startsWith('/api/')) {
       if (!authed(req)) return json(res, 401, { error: 'Nicht angemeldet' });
 
-      if (p === '/api/version') return json(res, 200, { version: '2026-11-20-material', files: true, ytdlp: !!YTDLP, ai: !!aiKey(), kiDateien: aiKeyFiles(), stt: !!STT_URL, usb: usbOk() });
+      if (p === '/api/version') return json(res, 200, { version: '2026-11-20-material', files: true, ytdlp: !!YTDLP, ai: !!aiKey(), kiDateien: aiKeyFiles(), datenordner: (() => { try { return fs.readdirSync(DATA_DIR).slice(0, 30); } catch { return []; } })(), stt: !!STT_URL, usb: usbOk() });
       if (p === '/api/stt' && req.method === 'POST') {
         if (!STT_URL) return json(res, 501, { error: 'Lokale Spracherkennung nicht eingerichtet (STT_URL fehlt).' });
         const buf = await bodyBuf(req, 25 * 1024 * 1024);
