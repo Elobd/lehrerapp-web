@@ -16,6 +16,9 @@ const SECRET = process.env.SESSION_SECRET || crypto.createHash('sha256').update(
 const AI_KEY = process.env.ANTHROPIC_API_KEY || '';
 const AI_MODEL = process.env.AI_MODEL || 'claude-sonnet-5-5';
 /* Lokale Spracherkennung (z. B. Whisper-Container auf der NAS): STT_URL=http://whisper:8000, STT_MODEL=Systran/faster-whisper-small */
+/* USB-Stick an der NAS: in der docker-compose.yml z. B. /volumeUSB1/usbshare:/usb einbinden (USB_PATH=/usb) */
+const USB_PATH = process.env.USB_PATH || '/usb';
+const usbOk = () => { try { return fs.statSync(USB_PATH).isDirectory() && (fs.accessSync(USB_PATH, fs.constants.W_OK), true); } catch { return false; } };
 const STT_URL = (process.env.STT_URL || '').replace(/\/+$/, '');
 const STT_MODEL = process.env.STT_MODEL || 'Systran/faster-whisper-small';
 const COLLECTIONS = new Set(['tests', 'settings']); // werden mit neuen Modulen erweitert
@@ -199,7 +202,7 @@ const server = http.createServer(async (req, res) => {
     if (p.startsWith('/api/')) {
       if (!authed(req)) return json(res, 401, { error: 'Nicht angemeldet' });
 
-      if (p === '/api/version') return json(res, 200, { version: '2026-11-20-material', files: true, ytdlp: !!YTDLP, ai: !!AI_KEY, stt: !!STT_URL });
+      if (p === '/api/version') return json(res, 200, { version: '2026-11-20-material', files: true, ytdlp: !!YTDLP, ai: !!AI_KEY, stt: !!STT_URL, usb: usbOk() });
       if (p === '/api/stt' && req.method === 'POST') {
         if (!STT_URL) return json(res, 501, { error: 'Lokale Spracherkennung nicht eingerichtet (STT_URL fehlt).' });
         const buf = await bodyBuf(req, 25 * 1024 * 1024);
@@ -212,6 +215,16 @@ const server = http.createServer(async (req, res) => {
           if (!r.ok) return json(res, 502, { error: (j && (j.error && (j.error.message || j.error) || j.detail)) || ('Spracherkennung antwortete mit Fehler ' + r.status) });
           return json(res, 200, { text: String(j.text || '').trim() });
         } catch (e) { return json(res, 502, { error: 'Spracherkennung nicht erreichbar: ' + (e && e.message || e) }); }
+      }
+      if (p === '/api/usb/copy' && req.method === 'POST') {
+        if (!usbOk()) return json(res, 409, { error: 'Kein USB-Stick gefunden. Bitte Stick an die NAS stecken und in der docker-compose.yml einbinden (USB_PATH).' });
+        const { files } = JSON.parse((await body(req)) || '{}'); const dir = path.join(USB_PATH, 'Druck'); fs.mkdirSync(dir, { recursive: true });
+        const copied = [], failed = [];
+        for (const f of Array.isArray(files) ? files : []) {
+          try { const rel = safeRel(String(f)); const src = path.join(FILES_DIR, rel); if (!rel || !fs.statSync(src).isFile()) throw new Error('nicht gefunden'); let dst = path.join(dir, path.basename(rel)); const ex = path.extname(dst); let k = 1; while (fs.existsSync(dst)) dst = path.join(dir, path.basename(rel, ex) + ' (' + (++k) + ')' + ex);
+            fs.copyFileSync(src, dst); const fd = fs.openSync(dst, 'r'); try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); } copied.push(path.basename(dst)); } catch (e) { failed.push(String(f) + ': ' + (e && e.message || e)); }
+        }
+        return json(res, 200, { ok: !failed.length, copied, failed, hint: 'Vor dem Abziehen den Stick in DSM auswerfen.' });
       }
       if (p === '/api/events') {
         res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive', 'x-accel-buffering': 'no' });
