@@ -15,6 +15,9 @@ const PASSWORD = process.env.APP_PASSWORD || '';
 const SECRET = process.env.SESSION_SECRET || crypto.createHash('sha256').update('lehrerapp|' + PASSWORD).digest('hex');
 const AI_KEY = process.env.ANTHROPIC_API_KEY || '';
 const AI_MODEL = process.env.AI_MODEL || 'claude-sonnet-5-5';
+/* Lokale Spracherkennung (z. B. Whisper-Container auf der NAS): STT_URL=http://whisper:8000, STT_MODEL=Systran/faster-whisper-small */
+const STT_URL = (process.env.STT_URL || '').replace(/\/+$/, '');
+const STT_MODEL = process.env.STT_MODEL || 'Systran/faster-whisper-small';
 const COLLECTIONS = new Set(['tests', 'settings']); // werden mit neuen Modulen erweitert
 const MAX_BODY = 25 * 1024 * 1024;
 
@@ -196,7 +199,20 @@ const server = http.createServer(async (req, res) => {
     if (p.startsWith('/api/')) {
       if (!authed(req)) return json(res, 401, { error: 'Nicht angemeldet' });
 
-      if (p === '/api/version') return json(res, 200, { version: '2026-11-20-material', files: true, ytdlp: !!YTDLP, ai: !!AI_KEY });
+      if (p === '/api/version') return json(res, 200, { version: '2026-11-20-material', files: true, ytdlp: !!YTDLP, ai: !!AI_KEY, stt: !!STT_URL });
+      if (p === '/api/stt' && req.method === 'POST') {
+        if (!STT_URL) return json(res, 501, { error: 'Lokale Spracherkennung nicht eingerichtet (STT_URL fehlt).' });
+        const buf = await bodyBuf(req, 25 * 1024 * 1024);
+        if (!buf.length) return json(res, 400, { error: 'Keine Aufnahme erhalten' });
+        const ct = String(req.headers['content-type'] || 'audio/webm'), ext = /mp4|m4a|aac/.test(ct) ? 'm4a' : /ogg/.test(ct) ? 'ogg' : /wav/.test(ct) ? 'wav' : 'webm';
+        const fd = new FormData(); fd.append('file', new Blob([buf], { type: ct.split(';')[0] }), 'aufnahme.' + ext); fd.append('model', STT_MODEL); fd.append('language', 'de'); fd.append('response_format', 'json');
+        try {
+          const r = await fetch(STT_URL + '/v1/audio/transcriptions', { method: 'POST', body: fd, signal: AbortSignal.timeout(120000) });
+          const t = await r.text(); let j = {}; try { j = JSON.parse(t); } catch { j = { text: t }; }
+          if (!r.ok) return json(res, 502, { error: (j && (j.error && (j.error.message || j.error) || j.detail)) || ('Spracherkennung antwortete mit Fehler ' + r.status) });
+          return json(res, 200, { text: String(j.text || '').trim() });
+        } catch (e) { return json(res, 502, { error: 'Spracherkennung nicht erreichbar: ' + (e && e.message || e) }); }
+      }
       if (p === '/api/events') {
         res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive', 'x-accel-buffering': 'no' });
         res.write('retry: 3000\n\n');

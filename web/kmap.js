@@ -580,15 +580,16 @@ const KM = (() => {
     return `<div class="card kmwide2"><h2>Sportleistungen</h2><div class="spgrid">${R2.map((o, idx) => { const byY = {}; o.pts.forEach((q) => { (byY[schoolYear(q.date)] = byY[schoolYear(q.date)] || []).push(q); }); return `<div class="spdisc"><div class="spdh"><b>${esc(o.name)}</b><span class="muted sm">${o.pts.length} ${o.pts.length === 1 ? 'Eintrag' : 'Einträge'}</span></div>${spChart(o) ? `<div class="spzoom" data-act="spzoom" data-i="${idx}" role="button" tabindex="0" title="Klicken: Diagramm vergrößern">${spChart(o)}</div>` : ''}<div class="spyl">${Object.keys(byY).sort((a, b) => b - a).map((y) => `<div><span class="spy">${yearLbl(+y)}</span> ${byY[y].slice().reverse().map((q) => `<span class="spe"><span class="muted">${esc(dFull(q.date))}</span> ${spVal(o.name, q.raw)}</span>`).join('')}</div>`).join('')}</div>${classBest(Gs, o)}</div>`; }).join('')}</div></div>`;
   }
   /* Notizen zu Unterrichtsstunden: Passiv-Gründe und diktierte Notizen, je Datum als Aufzählung */
-  function stuNotesCard(groupsOf, x) {
+  function stuNotesCard(groupsOf, x, Gp) {
     const xk = skey(x), byDate = new Map();
     groupsOf.forEach((g2) => { const st2 = (cinfo(g2.slug).students || []).find((q) => skey(q) === xk); if (!st2) return; (cinfo(g2.slug).log || []).forEach((e) => {
       const lines = []; const pr = mitMap({ mit: e.pasr })[st2.id]; if (pr) lines.push('Passiv: ' + pr);
       (Array.isArray(e.sn) ? e.sn : []).forEach((n) => { if (n && n.s === st2.id && n.t) lines.push(n.t); });
       if (!lines.length) return; const k = e.date; if (!byDate.has(k)) byDate.set(k, []); byDate.get(k).push({ lines, g: g2, id: e.id }); }); });
     const dates = [...byDate.keys()].sort().reverse();
-    if (!dates.length) return `<div class="card"><h2>Notizen zu Unterrichtsstunden</h2><div class="muted sm">Noch keine Notizen. Auf der Startseite bei „Anwesenheit“ den Schüler auf „passiv“ setzen oder mit dem Mikrofon eine Notiz diktieren.</div></div>`;
-    return `<div class="card"><h2>Notizen zu Unterrichtsstunden</h2>${dates.map((d) => `<div class="stnd"><b>${esc(dshort(d))}</b>${byDate.get(d).map((b) => `<span class="muted sm"> · ${esc(SUBJ[kind(b.g)] || b.g.subject)}</span><ul class="stnl">${b.lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>`).join('')}</div>`).join('')}</div>`;
+    const mic = `<button type="button" class="btn sm micb" data-act="mic" data-mode="prof" data-slug="${esc(Gp.slug)}" data-sid="${esc(x.id)}" title="Notiz zu dieser Stunde (heute) einsprechen">🎤 Notiz einsprechen</button>`;
+    if (!dates.length) return `<div class="card"><h2>Notizen zu Unterrichtsstunden</h2><div style="margin:4px 0 8px">${mic}</div><div class="muted sm">Noch keine Notizen. Auf der Startseite bei „Anwesenheit“ neben dem Namen auf 🎤 tippen und die Notiz einsprechen.</div></div>`;
+    return `<div class="card"><h2>Notizen zu Unterrichtsstunden</h2><div style="margin:4px 0 8px">${mic}</div>${dates.map((d) => `<div class="stnd"><b>${esc(dshort(d))}</b>${byDate.get(d).map((b) => `<span class="muted sm"> · ${esc(SUBJ[kind(b.g)] || b.g.subject)}</span><ul class="stnl">${b.lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>`).join('')}</div>`).join('')}</div>`;
   }
   function studentPage(slug, id) {
     const G = groups().find((g) => g.slug === slug), x = G && (cinfo(slug).students || []).find((s) => s.id === id);
@@ -615,7 +616,7 @@ const KM = (() => {
     <div class="kmgrid kmstuc" style="margin-top:14px">
       ${spv === 'gpb' && perf ? perf : anwCard}
       <div class="card"><h2>Fehlzeiten</h2>${absBy[spv] && absBy[spv].length ? absBlock(spv, spv === 'gpb' ? 'Geschichte' : 'Sport') : '<div class="muted sm">Keine</div>'}</div>
-      ${stuNotesCard(c ? c.groups : [G], x)}
+      ${stuNotesCard(c ? c.groups : [G], x, G)}
       ${otherSubjCard(c, x)}
       ${spv === 'bspk' ? sportCard(sibS ? sibS.x : x, sibS ? sibS.G : G) : ''}
     </div>${slist}</div>`;
