@@ -232,6 +232,16 @@ const server = http.createServer(async (req, res) => {
         }
         return json(res, 200, { ok: !failed.length, copied, failed, hint: 'Vor dem Abziehen den Stick in DSM auswerfen.' });
       }
+      if (p === '/api/ki-schluessel') {
+        const f = path.join(DATA_DIR, 'ki-schluessel.txt');
+        if (req.method === 'GET') return json(res, 200, { gesetzt: !!aiKey(), quelle: process.env.ANTHROPIC_API_KEY ? 'umgebung' : (aiKeyFiles()[0] || '') });
+        if (req.method === 'POST') { const { key } = JSON.parse((await body(req)) || '{}'); const k = String(key || '').trim(); if (!/^sk-ant-[A-Za-z0-9_\-]{20,}$/.test(k)) return json(res, 400, { error: 'Das sieht nicht wie ein Schlüssel aus. Er beginnt mit sk-ant- und ist lang. Bitte vollständig einfügen.' }); fs.writeFileSync(f, k + '\n', { mode: 0o600 }); return json(res, 200, { ok: true }); }
+        if (req.method === 'DELETE') { try { for (const n of aiKeyFiles()) fs.unlinkSync(path.join(DATA_DIR, n)); } catch { /* */ } return json(res, 200, { ok: true }); }
+      }
+      if (p === '/api/ki-test' && req.method === 'POST') {
+        const k = aiKey(); if (!k) return json(res, 400, { error: 'Kein Schlüssel hinterlegt.' });
+        try { const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'x-api-key': k, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify({ model: AI_MODEL, max_tokens: 5, messages: [{ role: 'user', content: 'Sag nur: ok' }] }), signal: AbortSignal.timeout(30000) }); const o = await r.json().catch(() => ({})); if (!r.ok) return json(res, 502, { error: (o && o.error && o.error.message) || ('Fehler ' + r.status) }); return json(res, 200, { ok: true }); } catch (e) { return json(res, 502, { error: 'Keine Verbindung zur KI: ' + (e && e.message || e) }); }
+      }
       if (p.startsWith('/api/auftr') && (await auftragHandler(req, res, url))) return;
       if (p === '/api/events') {
         res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive', 'x-accel-buffering': 'no' });
