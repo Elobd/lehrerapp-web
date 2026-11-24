@@ -72,6 +72,7 @@ html:root .btn.kmprep.done{color:#fff}
     build(); const v = U.view || 'klassen', b = document.getElementById('tback'); if (b) b.hidden = TOP.has(v) || v === 'uebersicht' && false;
     const bar = (U.toolsPop ? toolsSheet() : '') + (U.srchPop ? srchSheet() : ''); const old = document.getElementById('uisheet'); if (old) old.remove();
     if (bar) document.body.insertAdjacentHTML('beforeend', `<div id="uisheet">${bar}</div>`);
+    document.querySelectorAll('.ttmenu').forEach((m) => { const on = m.querySelector('.ttchip.on'); if (on && m.scrollWidth > m.clientWidth) m.scrollLeft = Math.max(0, on.parentElement.offsetLeft - 24); });
     const s = document.getElementById('srq'); if (s && !s.dataset.f) { s.dataset.f = '1'; s.focus(); }
   };
   const sheet = (title, inner) => `<div class="lspop" data-ui="1"><div class="lspopb" role="dialog" aria-label="${title}" style="max-width:640px;width:min(640px,100%)"><div class="lspoph"><h2 style="margin:0">${title}</h2><button class="btn sm" data-act="uisheetx">Schließen</button></div><div class="lspopc" style="padding:14px">${inner}</div></div></div>`;
@@ -84,6 +85,34 @@ html:root .btn.kmprep.done{color:#fff}
     return r.length ? r.map(({ G, x }) => `<button class="srow" data-act="srchgo" data-slug="${esc(G.slug)}" data-id="${esc(x.id)}"><span><b>${esc(x.nn || '')}</b> ${esc(x.vn || '')}</span><small>${esc(LB(G))} · ${esc(G.subject)}</small></button>`).join('') : '<p class="muted sm" style="margin:8px 4px">Kein Schüler gefunden.</p>'; };
   const srchSheet = () => sheet('Schüler suchen', `<input id="srq" class="sheetq" type="search" placeholder="Name suchen …" autocomplete="off" aria-label="Schüler suchen"><div id="srr" style="margin-top:8px">${resHtml('')}</div>`);
   document.addEventListener('input', (e) => { if (e.target && e.target.id === 'srq') { const r = document.getElementById('srr'); if (r) r.innerHTML = resHtml(e.target.value); } });
+
+  /* Wiederverwendbare Reiter: UI.tabs(liste, aktiv, aktion) – Wischen wechselt den Reiter */
+  UI.tabs = (items, cur, act) => `<div class="ttmenu" role="tablist">${items.map(([k, t]) => `<span class="ttchipw"><button class="ttchip${k === cur ? ' on' : ''}" role="tab" aria-selected="${k === cur}" data-act="${act}" data-p="${k}">${t}</button></span>`).join('')}</div>`;
+  UI.pane = (items, cur, act, inner) => `<div class="uipane" data-tabs="${items.map((x) => x[0]).join(',')}" data-cur="${cur}" data-act2="${act}">${inner}</div>`;
+  (() => { let t0 = null;
+    document.addEventListener('touchstart', (e) => { const p = e.target.closest && e.target.closest('.uipane'); if (!p || e.target.closest('input,textarea,select,.kmtable,.wk,.nspl,[data-noswipe]') || e.touches.length !== 1) { t0 = null; return; } t0 = { x: e.touches[0].clientX, y: e.touches[0].clientY, p }; }, { passive: true });
+    document.addEventListener('touchend', (e) => { if (!t0) return; const c = e.changedTouches[0], dx = c.clientX - t0.x, dy = c.clientY - t0.y, p = t0.p; t0 = null; if (Math.abs(dx) < 70 || Math.abs(dy) > 45 || Math.abs(dx) < Math.abs(dy) * 2) return;
+      const ks = p.dataset.tabs.split(','), i = ks.indexOf(p.dataset.cur), n = ks[i + (dx < 0 ? 1 : -1)]; if (n && A[p.dataset.act2]) A[p.dataset.act2]({ dataset: { p: n } }); }, { passive: true });
+  })();
+  /* Home: Heute · Anwesenheit · Stundenplan · Stundeninhalte */
+  const HT = [['t', 'Heute'], ['a', 'Anwesenheit'], ['p', 'Stundenplan'], ['i', 'Stundeninhalte']];
+  window.homeShell = (dayBody, planPane, nxO, lessonStatus) => {
+    const cur = HT.some((x) => x[0] === U.hp) ? U.hp : 't'; let inner = '';
+    if (cur === 't') inner = dayBody; else if (cur === 'p') inner = planPane;
+    else if (cur === 'a') {
+      const h = U.hcur, G = h && groups().find((g) => g.slug === h.slug);
+      if (!G || !nxO) inner = '<div class="card"><p class="muted">Keine laufende oder nächste Stunde.</p></div>';
+      else { const key = G.slug + '|' + h.date, sv = U.attOpen; U.attOpen = key; const ls = lessonStatus(G, nxO, false); U.attOpen = sv; const x = ls.ics, panel = x.slice(x.indexOf('</div>') + 6).replace(/<div class="attp inhp">[\s\S]*$/, '');
+        inner = `<div class="card"><div class="muted sm" style="margin-bottom:8px">${esc(LB(G))} · ${esc(G.subject)} · ${esc(dshort(h.date))}${h.von ? ' · ' + esc(h.von) + '–' + esc(h.bis || '') : ''}</div>${panel || '<p class="muted">Noch keine Schüler in dieser Klasse.</p>'}</div>`; }
+    } else {
+      const h = U.hcur, G = h && groups().find((g) => g.slug === h.slug);
+      if (!G) inner = '<div class="card"><p class="muted">Keine Klasse gewählt.</p></div>';
+      else { const lg = (cinfo(G.slug).log || []).slice().sort((a, b) => b.date.localeCompare(a.date) || String(b.id).localeCompare(String(a.id)));
+        inner = `<div class="card"><div class="muted sm" style="margin-bottom:6px">${esc(LB(G))} · ${esc(G.subject)} – alle Stunden</div>${lg.length ? lg.map((x) => `<button class="srow" data-act="go" data-v="stunde-${esc(G.slug)}--${esc(x.id)}"><span><b>${esc(dshort(x.date))}</b>&nbsp; ${esc(x.text || '–')}</span><small>${x.date > TODAY ? 'geplant' : ''}</small></button>`).join('') : '<p class="muted">Noch keine Stunden eingetragen.</p>'}</div>`; }
+    }
+    return UI.tabs(HT, cur, 'homepane') + UI.pane(HT, cur, 'homepane', inner);
+  };
+  Object.assign(A, { homepane: (e) => { const p = e.dataset.p; if (p === 'a' && U.hcur) { const h = U.hcur; if (!(cinfo(h.slug).log || []).some((x) => x.date === h.date)) saveLog(h.slug, (log) => log.push({ id: uid('l'), date: h.date, text: '' })); } U.hp = p; render(); } });
   document.addEventListener('click', (e) => { const t = e.target; if (t && t.classList && t.classList.contains('lspop') && t.dataset.ui) A.uisheetx(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && (U.toolsPop || U.srchPop)) A.uisheetx(); });
   Object.assign(A, {

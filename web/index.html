@@ -750,8 +750,8 @@ function klassenView(){
     const bl=[];gs.forEach(G=>{const k=rank(G)<2?(rank(G)?'BSPK':'GPB'):G.subject||'Sonstige';let b=bl.find(x=>x.k===k);if(!b)bl.push(b={k,list:[]});b.list.push(G)});
     body=bl.map(b=>`<h3 class="gh">${esc(b.k)}</h3><div class="cgrid">${b.list.map(G=>card(G)).join('')}</div>`).join('');
   }
-  if(mode==='next'&&ttRows().length)body=`<div class="nspager"><button class="${(U.homePane||'l')==='l'?'on':''}" data-act="nspane" data-p="l">Stunden</button><button class="${U.homePane==='p'?'on':''}" data-act="nspane" data-p="p">Stundenplan</button></div><div class="nsclip"><div class="nsplit" data-pane="${U.homePane==='p'?'p':'l'}"><div style="min-width:0" class="${U.homePane==='p'?'nscol':''}">${body}</div><aside class="nplan${U.homePane==='p'?'':' nscol'}"><div style="margin:0 0 8px"><a class="kmmore" href="#uebersicht" data-act="go" data-v="uebersicht">Gesamten Stundenplan ansehen ›</a></div><section class="card npcard"><div class="npnav"><button class="btn sm" data-act="npprev" aria-label="Vorige Tage">‹</button><h3 class="gh" style="margin:0">Stundenplan</h3><span class="row" style="gap:6px"><button class="btn sm${U.pdo?' good':''}" data-act="nptoday" title="Zurück zu heute">Aktueller Tag</button><button class="btn sm" data-act="npnext" aria-label="Nächste Tage">›</button></span></div>${ttGridHtml(ttRows(),true,0,false,false,10)}</section></aside></div></div>`;
-  return `<section class="card${mode==='fach'?'':' nohd'}">${mode==='fach'?`<div class="hd"><h2>Klassenmappen</h2></div>`:''}${body}</section>`;
+  if(mode==='next'&&ttRows().length){U.hcur=nxO?{slug:nxO.G.slug,date:nxO.date,von:nxO.von,bis:nxO.bis}:null;body=window.homeShell?homeShell(body,`<div style="margin:0 0 8px"><a class="kmmore" href="#uebersicht" data-act="go" data-v="uebersicht">Gesamten Stundenplan (Woche) ansehen ›</a></div><section class="card npcard"><div class="npnav"><button class="btn sm" data-act="npprev" aria-label="Vorige Tage">‹</button><h3 class="gh" style="margin:0">Stundenplan</h3><span class="row" style="gap:6px"><button class="btn sm${U.pdo?' good':''}" data-act="nptoday" title="Zurück zu heute">Aktueller Tag</button><button class="btn sm" data-act="npnext" aria-label="Nächste Tage">›</button></span></div>${ttGridHtml(ttRows(),true,0,false,false,10)}</section>`,nxO,lessonStatus):body}
+  return mode==='next'?`<div class="homewrap">${body}</div>`:`<section class="card${mode==='fach'?'':' nohd'}">${mode==='fach'?`<div class="hd"><h2>Klassenmappen</h2></div>`:''}${body}</section>`;
 }
 /* Tage, an denen diese Klasse Unterricht hat (Regelplan, ohne Ferien/Feiertage) */
 function lessonDates(G,extra,from,to){
@@ -1439,7 +1439,7 @@ const A={
   jpstu:e=>{U.jps=+e.dataset.v;U.jpe=null;render()},
   jpk:e=>{U.jpk=e.dataset.v;U.jpe=null;render()},
   jpg:e=>{U.jpg=e.dataset.v;render()},
-  nhome:e=>{if(e.preventDefault)e.preventDefault();U.attOpen=null;U.inhOpen=null;U.homePane='l';U.csort='next';setView('klassen');render()},
+  nhome:e=>{if(e.preventDefault)e.preventDefault();U.attOpen=null;U.inhOpen=null;U.homePane='l';U.hp='t';U.csort='next';setView('klassen');render()},
   nmap:e=>{if(e.preventDefault)e.preventDefault();U.csort='fach';setView('klassen');render()},
   csort:e=>{U.csort=e.dataset.v;render()},
   back:()=>{const h=U.hist||[],v0=U.view||'uebersicht';let v=h.length?h.pop():(/^stunde-/.test(v0)?'klasse-'+v0.slice(7).split('--')[0]:/^thema-/.test(v0)?'jahresplan':/^klasse-/.test(v0)||v0==='daten'||v0==='jahresplan'?'klassen':'uebersicht');setView(v,true)},
