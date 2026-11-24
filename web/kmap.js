@@ -132,7 +132,9 @@ const KM = (() => {
   }
   function view(v) {
     ensureGenders(); U.lastMap = v; U.kdNow = null;
+    if (v === 'mappe') { U.kdNow = null; return listUI(); }
     const { list, c, tab, col } = parse(v);
+    if (list.length && c && !col) { U.kdNow = c.kd; try { localStorage.setItem('kmLast', JSON.stringify({ key: c.key })); } catch (e) { /* */ } return classUI(c); }
     if (!list.length) return `<section class="card"><div class="hd"><h2>Klassenmappen</h2></div><p class="muted">Klassen entstehen aus deinem Stundenplan. Hole ihn im Stundenplan über „Von WebUntis übernehmen“.</p></section>`;
     U.kdNow = c.kd; try { localStorage.setItem('kmLast', JSON.stringify({ key: c.key })); } catch (e) { /* */ }
     const chip = (x) => { const isKv = isKvEntry(x, list); return `<span class="ttchipw"><button class="ttchip ${x.kd === 'gpb' ? 'fg' : 'fs'}${x.key === c.key ? ' on' : ''}" data-act="kmsel" data-key="${x.key}" data-tab="${tab}" ${isKv ? '' : 'draggable="true"'} title="${isKv ? 'Meine Klasse als Klassenvorstand' : 'Ziehen zum Verschieben'}">${disp(x)} ${x.kd === 'gpb' ? 'Geschichte' : 'Sport'}</button></span>`; };
@@ -2076,6 +2078,42 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
   Object.assign(A, { jppop: (e) => { if (e.preventDefault) e.preventDefault(); U.jpop = e.dataset.v; render(); }, jppopx: () => { U.jpop = null; render(); }, jpmadd2: (e) => { const d = S.settings.jahresplan || { id: 'jahresplan' }, sub = Object.assign({}, d.sub || {}), it = Object.assign({}, sub[e.dataset.k] || {}), l = (it.mats || []).slice(); if (!l.includes(e.dataset.id)) l.push(e.dataset.id); it.mats = l; sub[e.dataset.k] = it; put('settings', Object.assign({}, d, { id: 'jahresplan', sub })); render(); } });
   Object.assign(A, { clstab: (e) => { clsState()[e.dataset.slug] = e.dataset.t; render(); } });
 
+
+  /* ---------- Neue Oberfläche: Klassenliste (Dropdowns) und Klassenseite mit Reitern ---------- */
+  const SVG_HELM = '<svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true"><path d="M10 26C14 8 50 8 54 26" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path d="M12 30c2-8 8-12 20-12s18 4 20 12l-1 20-7 8h-6l-2-11h-8l-2 11h-6l-7-8z" fill="currentColor"/><path d="M26 34h12v8H26z" fill="var(--fc,#fff)"/><path d="M22 40v6M42 40v6" stroke="var(--fc,#fff)" stroke-width="2.5" stroke-linecap="round"/></svg>';
+  const SVG_RUN = '<svg viewBox="0 0 64 64" width="64" height="64" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="40" cy="12" r="5" fill="currentColor"/><path d="M30 24l-9 7-4 9M30 24l10 4 8 7M30 24l-4 14 10 9 3 14M26 38l-9 14"/></svg>';
+  const stuOf = (c) => { const G = primary(c.kd === 'gpb' ? c.gpb : c.bspk); return G ? studentsSorted(G) : []; };
+  const cntLine = (c) => { const a = stuOf(c), m = a.filter((x) => x.g === 'm').length, w = a.filter((x) => x.g === 'w').length; return a.length ? `${a.length} Schüler${m || w ? ` (${w} Mädchen / ${m} Burschen)` : ''}` : 'Noch keine Schüler'; };
+  const CHEV = (o) => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${o ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'}"/></svg>`;
+  function listUI(only) {
+    const list = sorted().filter((x) => !only || x.kd === only); if (!list.length) return `<section class="card"><p class="muted">Klassen entstehen aus deinem Stundenplan (Einstellungen → Dateneingabe).</p></section>`;
+    const op = U.kmOpen || (U.kmOpen = { gpb: true, bspk: false }), act = only ? 'kmsel' : 'kmsel';
+    return [['gpb', 'Geschichte'], ['bspk', 'Bewegung und Sport']].filter(([k]) => !only || k === only).map(([k, t]) => { const cs = list.filter((x) => x.kd === k), o = only ? true : !!op[k];
+      return `<section class="dd ${k === 'gpb' ? 'fg' : 'fs'}"><button class="ddh" ${only ? '' : `data-act="kmsec" data-k="${k}" aria-expanded="${o}"`}><span class="fdot"></span><b>${t}</b><span class="ddn">${cs.length}</span>${only ? '' : CHEV(o)}</button>${o ? (cs.length ? cs.map((x) => `<button class="crow" data-act="${U.kmLeist && only ? 'kmlsel' : act}" data-key="${x.key}"><span><b class="cn">${up(disp(x))}</b><small>${esc(cntLine(x))}</small></span>${CHEV(false).replace('M6 9l6 6 6-6', 'M9 6l6 6-6 6')}</button>`).join('') : '<p class="muted sm" style="padding:12px 16px;margin:0">Keine Klassen.</p>') : ''}</section>`; }).join('');
+  }
+  const CT = [['u', 'Schüler'], ['n', 'Nächste Stunde'], ['s', 'Stundenüberblick'], ['g', 'Gefährdung'], ['o', 'Noten'], ['f', 'Klassenfoto']];
+  function classHead(c, sub) { return `<div class="chead ${c.kd === 'gpb' ? 'fg' : 'fs'}"><span class="chsym">${c.kd === 'gpb' ? SVG_HELM : SVG_RUN}</span><span class="chtxt"><span class="chn">${up(disp(c))}</span><span class="chs">${sub || (c.kd === 'gpb' ? 'Geschichte' : 'Sport')}</span></span></div>`; }
+  function classUI(c) {
+    const kd = c.kd, G = primary(kd === 'gpb' ? c.gpb : c.bspk), html = subject(c, kd).replace(/<!--H-->[\s\S]*?<!--\/H-->/, '');
+    const tmp = document.createElement('div'); tmp.innerHTML = html;
+    const card = (t) => { const el = [...tmp.querySelectorAll('.card')].find((x) => { const h = x.querySelector('h2'); return h && h.textContent.trim().indexOf(t) === 0; }); return el ? el.outerHTML : ''; };
+    const tabs = (U.kmTab = U.kmTab || {}), cur = CT.some((x) => x[0] === tabs[c.key]) ? tabs[c.key] : 'u'; let inner = '';
+    if (cur === 'u') inner = card('Schülerliste');
+    else if (cur === 'n') inner = card('Nächste Stunde') || '<section class="card"><p class="muted">Keine kommende Stunde.</p></section>';
+    else if (cur === 's') { const lg = (cinfo(G.slug).log || []).slice().sort((a, b) => b.date.localeCompare(a.date) || String(b.id).localeCompare(String(a.id)));
+      inner = `<section class="card">${lg.length ? lg.map((x) => `<button class="srow" data-act="go" data-v="stunde-${esc(G.slug)}--${esc(x.id)}"><span><b>${esc(dshort(x.date))}</b>&nbsp; ${esc(x.text || '–')}</span><small>${x.date > TODAY ? 'geplant' : ''}</small></button>`).join('') : '<p class="muted">Noch keine Stunden eingetragen.</p>'}</section>`; }
+    else if (cur === 'g') inner = card('Notenmäßig gefährdet') || card('Gefährdung') || '<section class="card"><p class="muted">Keine Gefährdung erfasst.</p></section>';
+    else if (cur === 'o') { const fl = kfach(c.base), g = kvG(c.base), st = stuOf(c);
+      inner = `<section class="card">${fl.length && st.length ? `<div class="kmtable" style="overflow:auto"><table class="notab"><thead><tr><th>Schüler</th>${fl.map((f) => `<th>${esc(f.n || f.name || f.id)}</th>`).join('')}</tr></thead><tbody>${st.map((x) => { const v = g[skey(x)] || {}; return `<tr><td><button class="srow" style="padding:6px 0" data-act="kmstu" data-slug="${G.slug}" data-id="${esc(x.id)}"><span><b>${esc(up(x.nn))}</b> ${esc(x.vn)}</span></button></td>${fl.map((f) => `<td>${esc(v[f.id] || '–')}</td>`).join('')}</tr>`; }).join('')}</tbody></table></div>` : '<p class="muted">Noch keine Fächer oder Schüler eingetragen. Die Noten trägst du im Profil des Schülers ein.</p>'}</section>`; }
+    else inner = `<div class="kmphwide">${classPhotoCard(c)}</div>`;
+    return `<div class="km2">${classHead(c)}${UI_TABS(CT, cur, 'kmtab')}<div class="kmbody2">${UI_PANE(CT, cur, 'kmtab', inner)}</div>${teachPop(c)}${clsPopHtml()}${lessonPopHtml()}</div>`;
+  }
+  const UI_TABS = (...a) => (window.UI ? UI.tabs(...a) : ''), UI_PANE = (...a) => (window.UI ? UI.pane(...a) : a[3]);
+  Object.assign(A, {
+    kmtab: (e) => { const m = parse(U.view || ''); if (m && m.c) { (U.kmTab = U.kmTab || {})[m.c.key] = e.dataset.p; render(); } },
+    kmsec: (e) => { const o = U.kmOpen || (U.kmOpen = { gpb: true, bspk: false }); o[e.dataset.k] = !o[e.dataset.k]; render(); },
+  });
+
   /* Klassentools aus der Kopfzeile: gehören zur laufenden bzw. nächsten Stunde des gewählten Fachs */
   function toolsPrepare(kd) {
     const gs = groups().filter((G) => !G.sprech && kind(G) === kd); if (!gs.length) return null;
@@ -2088,7 +2126,7 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
     if (!p || !p.slug) return ''; const G = groups().find((g) => g.slug === p.slug), e = (cinfo(p.slug).log || []).find((x) => x.id === p.id); if (!G || !e) return '';
     return `<p class="muted sm" style="margin:0 0 8px">${esc(LB(G))} · ${esc(dshort(e.date))}</p>` + toolsHtml(G, e, new Set(Array.isArray(e.abs) ? e.abs : []));
   }
-  return { view, studentPage, sorted, classes, lessonPage, classPage, testPage, topicPop, topicBody, toolsPrepare, toolsSheetHtml };
+  return { view, studentPage, sorted, classes, lessonPage, classPage, testPage, topicPop, topicBody, toolsPrepare, toolsSheetHtml, listUI, cntLine, SVG_HELM, SVG_RUN, classHead };
 })();
 render();
 /* Stand der Programmdateien anzeigen (schreibt der Update-Dienst der NAS) */
