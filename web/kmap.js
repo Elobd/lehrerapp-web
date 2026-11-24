@@ -2076,7 +2076,19 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
   Object.assign(A, { jppop: (e) => { if (e.preventDefault) e.preventDefault(); U.jpop = e.dataset.v; render(); }, jppopx: () => { U.jpop = null; render(); }, jpmadd2: (e) => { const d = S.settings.jahresplan || { id: 'jahresplan' }, sub = Object.assign({}, d.sub || {}), it = Object.assign({}, sub[e.dataset.k] || {}), l = (it.mats || []).slice(); if (!l.includes(e.dataset.id)) l.push(e.dataset.id); it.mats = l; sub[e.dataset.k] = it; put('settings', Object.assign({}, d, { id: 'jahresplan', sub })); render(); } });
   Object.assign(A, { clstab: (e) => { clsState()[e.dataset.slug] = e.dataset.t; render(); } });
 
-  return { view, studentPage, sorted, classes, lessonPage, classPage, testPage, topicPop, topicBody };
+  /* Klassentools aus der Kopfzeile: gehören zur laufenden bzw. nächsten Stunde des gewählten Fachs */
+  function toolsPrepare(kd) {
+    const gs = groups().filter((G) => !G.sprech && kind(G) === kd); if (!gs.length) return null;
+    const c = gs.map((G) => ({ G, n: nextLesson(G) })).filter((x) => x.n).sort((a, b) => a.n.date.localeCompare(b.n.date) || String(a.n.von || '').localeCompare(String(b.n.von || '')))[0]; if (!c) return null;
+    let id = ((cinfo(c.G.slug).log || []).find((x) => x.date === c.n.date) || {}).id;
+    if (!id) { id = uid('l'); saveLog(c.G.slug, (log) => log.push({ id, date: c.n.date, text: '' })); }
+    return { kd, slug: c.G.slug, id };
+  }
+  function toolsSheetHtml(p) {
+    if (!p || !p.slug) return ''; const G = groups().find((g) => g.slug === p.slug), e = (cinfo(p.slug).log || []).find((x) => x.id === p.id); if (!G || !e) return '';
+    return `<p class="muted sm" style="margin:0 0 8px">${esc(LB(G))} · ${esc(dshort(e.date))}</p>` + toolsHtml(G, e, new Set(Array.isArray(e.abs) ? e.abs : []));
+  }
+  return { view, studentPage, sorted, classes, lessonPage, classPage, testPage, topicPop, topicBody, toolsPrepare, toolsSheetHtml };
 })();
 render();
 /* Stand der Programmdateien anzeigen (schreibt der Update-Dienst der NAS) */
