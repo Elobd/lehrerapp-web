@@ -198,7 +198,7 @@ html:root .ccard{padding:10px}
     if (d.textContent !== a) d.textContent = a; if (k.textContent !== b) k.textContent = b;
   };
   window.uiAfterRender = function () {
-    build(); const v = U.view || 'klassen', b = document.getElementById('tback'); document.body.dataset.v = v; if (b) b.hidden = TOP.has(v) || v === 'uebersicht' && false;
+    build(); const v = U.view || 'klassen', b = document.getElementById('tback'); document.body.dataset.v = v; try { const m = document.querySelector('meta[name=theme-color]'), f = document.body.dataset.fach; if (m) m.content = f === 'gpb' ? '#F5C518' : f === 'bspk' ? '#216FB9' : '#2f3640'; } catch (e) { /* */ } if (b) b.hidden = TOP.has(v) || v === 'uebersicht' && false;
     const bar = (U.toolsPop ? toolsSheet() : '') + (U.srchPop ? srchSheet() : ''); const old = document.getElementById('uisheet'); if (old) old.remove();
     if (bar) document.body.insertAdjacentHTML('beforeend', `<div id="uisheet">${bar}</div>`);
     document.querySelectorAll('.ttmenu').forEach((m) => { const on = m.querySelector('.ttchip.on'); if (on && m.scrollWidth > m.clientWidth) m.scrollLeft = Math.max(0, on.parentElement.offsetLeft - 24); });
@@ -206,7 +206,7 @@ html:root .ccard{padding:10px}
   };
   const sheet = (title, inner) => `<div class="lspop" data-ui="1"><div class="lspopb" role="dialog" aria-label="${title}" style="max-width:640px;width:min(640px,100%)"><div class="lspoph"><h2 style="margin:0">${title}</h2><button class="btn sm" data-act="uisheetx">Schließen</button></div><div class="lspopc" style="padding:14px">${inner}</div></div></div>`;
   function toolsSheet() {
-    const p = U.toolsPop; if (p === true) return sheet('Klassentools', `<div class="ttiles"><button class="ttile g" data-act="toolsopen" data-kd="gpb">${IC.book}Geschichte</button><button class="ttile s" data-act="toolsopen" data-kd="bspk">${IC.run}Sport</button></div>`);
+    const p = U.toolsPop; if (p === true) return sheet('Klassentools', `<div class="ttiles"><button class="ttile g" data-act="toolsgo" data-kd="gpb">${IC.book}Geschichte</button><button class="ttile s" data-act="toolsgo" data-kd="bspk">${IC.run}Sport</button></div>`);
     const h = (typeof KM !== 'undefined' && KM.toolsSheetHtml) ? KM.toolsSheetHtml(p) : ''; return sheet('Klassentools · ' + (p.kd === 'gpb' ? 'Geschichte' : 'Sport'), h || '<p class="muted">Für dieses Fach gibt es keine Stunde im Stundenplan.</p>');
   }
   const allStudents = () => { const out = []; groups().forEach((G) => { (Array.isArray(cinfo(G.slug).students) ? cinfo(G.slug).students : []).forEach((x) => out.push({ G, x })); }); return out; };
@@ -220,26 +220,21 @@ html:root .ccard{padding:10px}
   UI.pane = (items, cur, act, inner) => `<div class="uipane" data-tabs="${items.map((x) => x[0]).join(',')}" data-cur="${cur}" data-act2="${act}">${inner}</div>`;
   (() => { let t0 = null;
     document.addEventListener('touchstart', (e) => { const p = e.target.closest && e.target.closest('.uipane'); if (!p || e.target.closest('input,textarea,select,.kmtable,.wk,.nspl,[data-noswipe]') || e.touches.length !== 1) { t0 = null; return; } t0 = { x: e.touches[0].clientX, y: e.touches[0].clientY, p }; }, { passive: true });
-    document.addEventListener('touchend', (e) => { if (!t0) return; const c = e.changedTouches[0], dx = c.clientX - t0.x, dy = c.clientY - t0.y, p = t0.p; t0 = null; if (Math.abs(dx) < 70 || Math.abs(dy) > 45 || Math.abs(dx) < Math.abs(dy) * 2) return;
+    document.addEventListener('touchend', (e) => { if (!t0) return; const c = e.changedTouches[0], dx = c.clientX - t0.x, dy = c.clientY - t0.y, p = t0.p; t0 = null; if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
       const ks = p.dataset.tabs.split(','), i = ks.indexOf(p.dataset.cur), n = ks[i + (dx < 0 ? 1 : -1)]; if (n && A[p.dataset.act2]) A[p.dataset.act2]({ dataset: { p: n } }); }, { passive: true });
   })();
   /* Home: Heute · Anwesenheit · Stundenplan · Stundeninhalte */
   const HT = [['t', 'Heute'], ['a', 'Anwesenheit'], ['p', 'Stundenplan'], ['i', 'Stundeninhalte']];
   window.homeShell = (dayBody, planPane, nxO, lessonStatus) => {
-    const cur = HT.some((x) => x[0] === U.hp) ? U.hp : 't'; let inner = '';
-    if (cur === 't') inner = dayBody; else if (cur === 'p') inner = planPane;
-    else if (cur === 'a') {
-      const h = U.hcur, G = h && groups().find((g) => g.slug === h.slug);
-      if (!G || !nxO) inner = '<div class="card"><p class="muted">Keine laufende oder nächste Stunde.</p></div>';
-      else { const key = G.slug + '|' + h.date, sv = U.attOpen; U.attOpen = key; const ls = lessonStatus(G, nxO, false); U.attOpen = sv; const x = ls.ics, panel = x.slice(x.indexOf('</div>') + 6).replace(/<div class="attp inhp">[\s\S]*$/, '');
-        inner = `<div class="card"><div class="muted sm" style="margin-bottom:8px">${esc(LB(G))} · ${esc(G.subject)} · ${esc(dshort(h.date))}${h.von ? ' · ' + esc(h.von) + '–' + esc(h.bis || '') : ''}</div>${panel || '<p class="muted">Noch keine Schüler in dieser Klasse.</p>'}</div>`; }
-    } else {
-      const h = U.hcur, G = h && groups().find((g) => g.slug === h.slug);
-      if (!G) inner = '<div class="card"><p class="muted">Keine Klasse gewählt.</p></div>';
-      else { const lg = (cinfo(G.slug).log || []).slice().sort((a, b) => b.date.localeCompare(a.date) || String(b.id).localeCompare(String(a.id)));
-        inner = `<div class="card"><div class="muted sm" style="margin-bottom:6px">${esc(LB(G))} · ${esc(G.subject)} – alle Stunden</div>${lg.length ? lg.map((x) => `<button class="srow" data-act="go" data-v="stunde-${esc(G.slug)}--${esc(x.id)}"><span><b>${esc(dshort(x.date))}</b>&nbsp; ${esc(x.text || '–')}</span><small>${x.date > TODAY ? 'geplant' : ''}</small></button>`).join('') : '<p class="muted">Noch keine Stunden eingetragen.</p>'}</div>`; }
-    }
-    return UI.tabs(HT, cur, 'homepane') + UI.pane(HT, cur, 'homepane', inner);
+    const cur = HT.some((x) => x[0] === U.hp) ? U.hp : 't', P = { t: dayBody, p: planPane };
+    const h = U.hcur, G = h && groups().find((g) => g.slug === h.slug);
+    if (!G || !nxO) P.a = '<div class="card"><p class="muted">Keine laufende oder nächste Stunde.</p></div>';
+    else { const key = G.slug + '|' + h.date, sv = U.attOpen; U.attOpen = key; const ls = lessonStatus(G, nxO, false); U.attOpen = sv; const x = ls.ics, panel = x.slice(x.indexOf('</div>') + 6).replace(/<div class="attp inhp">[\s\S]*$/, '');
+      P.a = `<div class="card" style="padding:8px 0"><div class="muted sm" style="margin:0 12px 6px">${esc(LB(G))} · ${esc(G.subject)} · ${esc(dshort(h.date))}${h.von ? ' · ' + esc(h.von) + '–' + esc(h.bis || '') : ''}</div>${panel || '<p class="muted" style="margin:6px 12px">Noch keine Schüler in dieser Klasse.</p>'}</div>`; }
+    if (!G) P.i = '<div class="card"><p class="muted">Keine Klasse gewählt.</p></div>';
+    else { const lg = (cinfo(G.slug).log || []).slice().sort((a, b) => b.date.localeCompare(a.date) || String(b.id).localeCompare(String(a.id)));
+      P.i = `<div class="card"><div class="muted sm" style="margin-bottom:6px">${esc(LB(G))} · ${esc(G.subject)} – alle Stunden</div>${lg.length ? lg.map((x) => `<button class="srow" data-act="go" data-v="stunde-${esc(G.slug)}--${esc(x.id)}"><span><b>${esc(dshort(x.date))}</b>&nbsp; ${esc(x.text || '–')}</span><small>${x.date > TODAY ? 'geplant' : ''}</small></button>`).join('') : '<p class="muted">Noch keine Stunden eingetragen.</p>'}</div>`; }
+    return UI.tabs(HT, cur, 'homepane') + UI.carousel(HT, cur, 'homepane', P);
   };
   Object.assign(A, { homepane: (e) => { const p = e.dataset.p; if (p === 'a' && U.hcur) { const h = U.hcur; if (!(cinfo(h.slug).log || []).some((x) => x.date === h.date)) saveLog(h.slug, (log) => log.push({ id: uid('l'), date: h.date, text: '' })); } U.hp = p; render(); } });
   document.addEventListener('click', (e) => { const t = e.target; if (t && t.classList && t.classList.contains('lspop') && t.dataset.ui) A.uisheetx(); });
@@ -251,4 +246,176 @@ html:root .ccard{padding:10px}
     srchgo: (e) => { U.srchPop = false; render(); setView('schueler-' + e.dataset.slug + '--' + e.dataset.id); },
     uisheetx: () => { U.toolsPop = null; U.srchPop = false; render(); },
   });
+})();
+
+/* ===== Oberfläche Teil 2: Wisch-Karussell, Home-Karten, Klassentools als Vollbildseite ===== */
+(() => {
+  if (!window.UI) return;
+  const css = `
+/* Kopfzeile abgesetzt */
+html:root .hero{background:#2f3640!important;box-shadow:0 0 0 100vmax #2f3640!important;color:#fff!important}
+.tb .tdate b,.tb .tdate span,.tb button{color:#fff!important}.tb button:hover{background:rgba(255,255,255,.12)!important}
+html:root body[data-fach] .hero{margin-bottom:0!important}
+html:root body[data-fach=gpb] .hero{background:#F5C518!important;box-shadow:0 0 0 100vmax #F5C518!important}html:root body[data-fach=bspk] .hero{background:#216FB9!important;box-shadow:0 0 0 100vmax #216FB9!important}
+body[data-fach=gpb] .tb .tdate b,body[data-fach=gpb] .tb .tdate span,body[data-fach=gpb] .tb button{color:#1c1c1c!important}
+body[data-fach=bspk] .tb .tdate b,body[data-fach=bspk] .tb .tdate span,body[data-fach=bspk] .tb button{color:#fff!important}
+/* untere Leiste höher */
+html:root .nav a{min-height:72px!important;padding:12px 0 10px!important;gap:5px!important}html:root .nav a .ni{width:26px!important;height:26px!important}html:root .nav a .nt{font-size:11px!important}
+html:root #main{padding-bottom:96px!important}
+/* Ränder schmaler */
+html:root body{padding-left:0!important;padding-right:0!important}
+html:root .wrap{padding-left:4px!important;padding-right:4px!important;row-gap:0!important}
+html:root #main.wrap{padding-left:0!important;padding-right:0!important}
+html:root body:not([data-fach]) #main{padding-top:8px}
+/* Reiter: bündig, ohne Trennlinien */
+html:root .ttchipw{display:flex!important;border:0!important;align-items:stretch}.ttchipw>button{display:block!important;line-height:1.2}
+html:root body .ttmenu{align-items:stretch!important;padding-bottom:0!important}
+/* Klassenseite: weiße Schrift, keine Lücke */
+.km2>.chead{margin:0 -4px!important;padding:6px 14px 10px!important;--fon:#fff}
+body[data-fach] .km2 .chn,body[data-fach] .km2 .chs,body[data-fach] .km2 .chsym{color:#fff!important;text-shadow:0 1px 2px rgba(0,0,0,.35)}
+html:root body[data-fach] .km2>.ttmenu{margin:0 -4px 8px!important}
+html:root body[data-fach] .km2>.ttmenu .ttchip{color:#fff!important;opacity:.75;text-shadow:0 1px 2px rgba(0,0,0,.35)}html:root body[data-fach] .km2>.ttmenu .ttchip.on{opacity:1}
+html:root body[data-fach] .km2>.ttmenu .ttchip.on::after{background:#fff!important}
+.km2 .kmbody2{padding-top:0}.km2 .kmbody2 .card{margin-top:0}
+/* Schülerliste */
+.km2 .kmth [data-kw=nr],.km2 .kmno{font-size:0!important;width:0!important;padding:0!important;overflow:hidden}.km2 .kmno{font-size:0!important;overflow:hidden;width:0!important;padding:0!important}.km2 .kmtable{--nrw:0px!important}
+.km2 .kmnm{display:flex!important;flex-direction:column;align-items:flex-start!important;text-align:left!important;line-height:1.15}.km2 .kmnm b{display:block}
+.km2 .kmth .gfs{font-weight:600}.km2 .kmth .gfb{cursor:pointer;opacity:.55;padding:0 3px}.km2 .kmth .gfb.on{opacity:1;color:var(--ink);text-decoration:underline}
+.km2 .kmbody2 .card{padding:8px 6px!important}.km2 .kmbody2 .card>.row{padding:0 6px}
+/* Karussell */
+.car{overflow:hidden;position:relative}.cartr{display:flex;will-change:transform;transition:transform .28s cubic-bezier(.22,.8,.3,1)}.cartr.nodur{transition:none}
+.carp{flex:0 0 100%;min-width:0;max-height:0;overflow:hidden}.carp.on,.car.drag .carp,.car.anim .carp{max-height:none;overflow:visible}
+/* Home: Tage und Karten */
+.dsec{display:block!important;margin:0 0 6px!important}.dayl{padding:10px 8px 6px;font:500 14px var(--font-body);color:#444}.dayl b{font-weight:700;color:#1a1a1a}.dayl span{color:#777;font-size:12px}
+html:root body .ccard{background:#f1f1f1!important;border:0!important;border-radius:14px!important;padding:0 0 10px!important;overflow:hidden;box-shadow:none}
+.ccard[data-k=gpb]{--fc:#F5C518;--fon:#1c1c1c}.ccard[data-k=bspk]{--fc:#216FB9;--fon:#fff}
+html:root body .ccard>a.cl{display:flex!important;align-items:baseline;gap:10px;flex-wrap:wrap;background:var(--fc,#ddd);color:var(--fon,#222);padding:10px 14px!important;margin:0!important;text-decoration:none}
+.ccard>a.cl b{font:700 20px var(--font-body)!important}.ccard>a.cl .sj{font:600 14px var(--font-body)!important}.ccard>a.cl .mt{margin-left:auto;font:600 14px var(--font-body)!important;text-align:right}
+html:root body .ccard[data-k] a.cl b,html:root body .ccard[data-k] a.cl .sj,html:root body .ccard[data-k] a.cl .mt{color:var(--fon)!important}
+html:root body .ccard>.prg{top:auto;bottom:auto}
+html:root body .ccard>.lg{background:#fff!important;border-radius:0!important;margin:0!important;padding:8px 14px!important}
+html:root body .ccard>.ics{margin:10px 10px 0!important;display:flex!important;gap:8px}
+html:root body .ccard .ics .attb{background:#fff!important;color:#1a1a1a!important;border:1px solid #d6d6d6!important;flex:1;justify-content:center;font-size:15px!important;padding:12px 16px!important;border-radius:12px!important}
+html:root body .ccard>.attp{background:#fff!important;border-radius:0!important;margin:10px 0 0!important;padding:10px 8px!important;border:0!important}
+.attp .attt2{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.micbig{display:inline-flex!important;align-items:center;gap:8px;font-size:15px!important;padding:10px 16px!important;border-radius:12px!important}
+.attp .attl li .nm{display:flex;flex-direction:column;line-height:1.15}.attp .attl li .nm a{display:flex;flex-direction:column}
+.ccard .micb svg{display:block}
+/* Pop-ups oben */
+#uisheet .lspop{place-items:start center!important;padding-top:6px!important}
+/* Klassentools-Seite */
+.tl2>.chead{margin:0 -4px;padding:6px 14px 12px;display:flex;align-items:center;gap:14px;background:var(--fc);color:var(--fon);box-shadow:0 0 0 100vmax var(--fc);clip-path:inset(0 -100vmax)}
+.tl2 .chsym{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.28);display:grid;place-items:center}
+.tl2 .chn{font:700 20px var(--font-body)}.tl2 .chs{font:500 13px var(--font-body);opacity:.9}
+.tl2 .ddb{padding:10px 8px}.tl2 .dd{margin:8px 0 0}
+.tl2 .card{box-shadow:none}
+/* Anzeigetafel */
+.sbbox{background:#101418;color:#fff;border-radius:14px;padding:10px;user-select:none;-webkit-user-select:none}
+.sbtop{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:8px}
+.sbrow{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:stretch}
+.sbteam{border-radius:12px;padding:8px;text-align:center;color:#fff;position:relative;min-height:150px;display:flex;flex-direction:column;justify-content:space-between}
+.sbname{font:700 16px var(--font-body);min-height:22px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sbpts{font:800 84px/1 var(--font-body);touch-action:none;cursor:pointer;padding:6px 0}
+.sbsets{font:700 22px var(--font-body);touch-action:none;cursor:pointer;opacity:.95;padding:4px 0}.sbsets small{font-size:12px;font-weight:600;opacity:.8;display:block}
+.sbmid{display:flex;flex-direction:column;justify-content:center;gap:8px}
+.sbmid button,.sbtop button{background:#2a323b;color:#fff;border:0;border-radius:10px;padding:10px 12px;font:600 14px var(--font-body);cursor:pointer}
+.sbball{position:absolute;top:6px;right:8px;font-size:22px}
+.sbhist{font:500 13px var(--font-body);opacity:.85;margin-top:8px;text-align:center}
+.sbwin{background:#fff;color:#111;border-radius:10px;padding:6px 10px;font:700 15px var(--font-body);margin-top:8px;text-align:center}
+.sbfull{position:fixed;inset:0;z-index:5000;border-radius:0;display:flex;flex-direction:column;justify-content:center}
+.sbfull .sbteam{min-height:60vh}.sbfull .sbpts{font-size:min(34vh,40vw)}
+.sbfull.rot{transform:rotate(90deg);transform-origin:top left;width:100vh;height:100vw;left:100%}
+.sbcfg{display:grid;gap:8px;margin-top:10px}.sbcfg label{font:600 13px var(--font-body);color:var(--muted)}.sbcfg input,.sbcfg select{padding:8px 10px;border:1px solid #d9d9d9;border-radius:10px;font:500 15px var(--font-body);width:100%;box-sizing:border-box;background:#fff;color:#1a1a1a}
+.sbsw{display:flex;gap:6px;flex-wrap:wrap}.sbsw i{width:26px;height:26px;border-radius:50%;border:3px solid transparent;cursor:pointer;display:block}.sbsw i.on{border-color:#1a1a1a}
+.tmgrid{display:flex;flex-wrap:wrap;gap:6px}.tmst{padding:8px 10px;border-radius:10px;background:#f1f1f1;border:0;font:500 14px var(--font-body);cursor:pointer;text-align:left;color:#1a1a1a}.tmst b{display:inline-block;min-width:20px;padding:0 6px;border-radius:99px;background:#1a1a1a;color:#fff;font-size:12px;margin-left:6px}
+.tmdig{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.tmdig button{padding:16px 0;border-radius:12px;border:0;background:#f1f1f1;font:700 20px var(--font-body);cursor:pointer;color:#1a1a1a}
+/* Spotify */
+.spbox{display:flex;gap:12px;align-items:center}.spcov{width:88px;height:88px;border-radius:10px;background:#ddd;object-fit:cover;flex:0 0 auto}
+.spt{font:700 16px var(--font-body);color:#1a1a1a}.sps{font:500 13px var(--font-body);color:var(--muted)}
+.spctl{display:flex;gap:10px;align-items:center;margin-top:10px}.spctl button{width:52px;height:52px;border-radius:50%;border:0;background:#1a1a1a;color:#fff;font:700 18px var(--font-body);cursor:pointer}.spctl button.big{width:64px;height:64px;background:#1db954}
+`;
+  const st = document.createElement('style'); st.id = 'ui3'; st.textContent = css; document.head.appendChild(st);
+  const esc2 = (x) => String(x == null ? '' : x).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  /* ---- Wisch-Karussell: die Seiten laufen mit dem Finger mit ---- */
+  UI.carousel = (items, cur, act, panes) => { const ks = items.map((x) => x[0]), idx = Math.max(0, ks.indexOf(cur)); return `<div class="car" data-tabs="${ks.join(',')}" data-cur="${cur}" data-act2="${act}"><div class="cartr" style="transform:translateX(${-idx * 100}%)">${ks.map((k) => `<section class="carp${k === cur ? ' on' : ''}" data-k="${k}">${k === cur || true ? (panes[k] || '') : ''}</section>`).join('')}</div></div>`; };
+  (() => { let g = null;
+    const ok = (e) => !(e.target.closest && e.target.closest('input,textarea,select,.ttmenu,.kmtable,.wk,.nspl,[data-noswipe]'));
+    document.addEventListener('touchstart', (e) => { const car = e.target.closest && e.target.closest('.car'); if (!car || !ok(e) || e.touches.length !== 1) { g = null; return; } const ks = car.dataset.tabs.split(','); g = { car, tr: car.firstElementChild, x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), ks, i: ks.indexOf(car.dataset.cur), w: car.clientWidth, lock: 0 }; }, { passive: true });
+    document.addEventListener('touchmove', (e) => { if (!g) return; const dx = e.touches[0].clientX - g.x, dy = e.touches[0].clientY - g.y;
+      if (!g.lock) { if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.2) { g.lock = 1; g.car.classList.add('drag'); g.tr.classList.add('nodur'); } else if (Math.abs(dy) > 10) { g = null; return; } else return; }
+      if (e.cancelable) e.preventDefault(); let d = dx; if ((g.i === 0 && dx > 0) || (g.i === g.ks.length - 1 && dx < 0)) d = dx * 0.3; g.d = d; g.tr.style.transform = `translateX(${-g.i * g.w + d}px)`; }, { passive: false });
+    document.addEventListener('touchend', () => { if (!g || !g.lock) { g = null; return; } const d = g.d || 0, v = Math.abs(d) / Math.max(1, Date.now() - g.t); let n = g.i; if (Math.abs(d) > g.w * 0.2 || (v > 0.35 && Math.abs(d) > 28)) n = Math.max(0, Math.min(g.ks.length - 1, g.i + (d < 0 ? 1 : -1)));
+      const x = g, act = x.car.dataset.act2; x.tr.classList.remove('nodur'); x.car.classList.add('anim'); x.tr.style.transform = `translateX(${-n * 100}%)`; g = null;
+      setTimeout(() => { x.car.classList.remove('drag', 'anim'); if (n !== x.i && A[act]) A[act]({ dataset: { p: x.ks[n] } }); }, 270); }, { passive: true });
+  })();
+
+  /* ---- Klassentools als Seite ---- */
+  const SPORT_SB = { vb25: ['Volleyball (25)', 25, 15, 2, 3, 1, 0], vb21: ['Volleyball (21)', 21, 15, 2, 3, 1, 0], beach: ['Beachvolleyball (21)', 21, 15, 2, 2, 1, 0], bad: ['Badminton (21)', 21, 21, 2, 2, 0, 30], tt: ['Tischtennis (11)', 11, 11, 2, 3, 0, 0], faust: ['Faustball (11)', 11, 11, 2, 3, 0, 0], free: ['Allgemein (nur zählen)', 0, 0, 0, 0, 0, 0], bask: ['Basketball', 0, 0, 0, 0, 0, 0], hand: ['Handball', 0, 0, 0, 0, 0, 0], fuss: ['Fußball', 0, 0, 0, 0, 0, 0], uni: ['Unihockey', 0, 0, 0, 0, 0, 0], ultim: ['Ultimate Frisbee', 0, 0, 0, 0, 0, 0] };
+  const COLS = ['#d32f2f', '#1976d2', '#2e7d32', '#f9a825', '#7b1fa2', '#ef6c00', '#00838f', '#455a64'];
+  const SB = () => (U.sb = U.sb || { sport: 'vb25', n: ['', ''], c: [COLS[0], COLS[1]], p: [0, 0], s: [0, 0], hist: [], srv: 0, flip: false, win: -1, assign: {}, cls: '', full: false, rot: false });
+  const rule = () => { const r = SPORT_SB[SB().sport] || SPORT_SB.free; return { n: r[0], pt: r[1], last: r[2], by: r[3], wins: r[4], serve: !!r[5], cap: r[6] }; };
+  const tn = (i) => SB().n[i] || ('Team ' + (i + 1));
+  function sbPoint(i, d) { const b = SB(), r = rule(), o = 1 - i; if (b.win >= 0 && d > 0) return; b.p[i] = Math.max(0, b.p[i] + d); if (d > 0 && r.serve) b.srv = i;
+    if (d > 0 && r.pt) { const dec = r.wins && b.s[0] === r.wins - 1 && b.s[1] === r.wins - 1, tg = dec ? (r.last || r.pt) : r.pt; if ((b.p[i] >= tg && b.p[i] - b.p[o] >= r.by) || (r.cap && b.p[i] >= r.cap)) { b.s[i]++; b.hist.push(b.p[0] + ':' + b.p[1]); b.p = [0, 0]; if (r.wins && b.s[i] >= r.wins) b.win = i; } } sbDraw(); }
+  function sbSet(i, d) { const b = SB(); b.s[i] = Math.max(0, b.s[i] + d); if (d < 0) b.win = -1; sbDraw(); }
+  const sbDraw = () => { const el = document.getElementById('sbbox'); if (el) el.outerHTML = sbHtml(); };
+  function sbHtml() { const b = SB(), r = rule(), ord = b.flip ? [1, 0] : [0, 1], sets = r.wins > 0;
+    const team = (i) => `<div class="sbteam" style="background:${b.c[i]}">${r.serve && b.srv === i ? '<span class="sbball" title="Aufschlag">🏐</span>' : ''}<div class="sbname">${esc2(tn(i))}</div><div class="sbpts" data-sbp="${i}">${b.p[i]}</div>${sets ? `<div class="sbsets" data-sbs="${i}"><small>Sätze</small>${b.s[i]}</div>` : '<div></div>'}</div>`;
+    return `<div id="sbbox" class="sbbox${b.full ? ' sbfull' + (b.rot ? ' rot' : '') : ''}"><div class="sbtop"><b>${esc2(r.n)}</b><span><button data-act="sbflip" title="Seiten wechseln">⇄ Seitenwechsel</button> <button data-act="sbfull">${b.full ? '✕ Schließen' : '⛶ Quer/Vollbild'}</button> <button data-act="sbreset">↺ Zurücksetzen</button></span></div><div class="sbrow">${team(ord[0])}<div class="sbmid"><button data-act="sbflip" aria-label="Seiten wechseln">⇄</button></div>${team(ord[1])}</div>${b.win >= 0 ? `<div class="sbwin">🏆 ${esc2(tn(b.win))} gewinnt${b.hist.length ? ' (' + b.hist.join(', ') + ')' : ''}</div>` : (b.hist.length ? `<div class="sbhist">Sätze: ${b.hist.join('  ·  ')}</div>` : '')}<div class="sbhist" style="opacity:.6">Tippen = +1 · nach unten wischen = −1</div></div>`; }
+  (() => { let t = null;
+    document.addEventListener('pointerdown', (e) => { const el = e.target.closest && e.target.closest('[data-sbp],[data-sbs]'); if (!el) { t = null; return; } t = { el, x: e.clientX, y: e.clientY }; });
+    document.addEventListener('pointerup', (e) => { if (!t) return; const { el } = t, dy = e.clientY - t.y, dx = e.clientX - t.x; t = null; const pts = el.dataset.sbp !== undefined, i = +(pts ? el.dataset.sbp : el.dataset.sbs); const f = pts ? sbPoint : sbSet; if (dy > 28 && Math.abs(dx) < 40) f(i, -1); else if (Math.abs(dy) < 16 && Math.abs(dx) < 16) f(i, 1); });
+    document.addEventListener('contextmenu', (e) => { const el = e.target.closest && e.target.closest('[data-sbp],[data-sbs]'); if (el) { e.preventDefault(); const pts = el.dataset.sbp !== undefined; (pts ? sbPoint : sbSet)(+(pts ? el.dataset.sbp : el.dataset.sbs), -1); } });
+  })();
+  const dd = (k, title, body, open) => `<section class="dd"><button class="ddh" data-act="tdd" data-k="${k}" aria-expanded="${open}"><b>${title}</b><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${open ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'}"/></svg></button>${open ? `<div class="ddb">${body}</div>` : ''}</section>`;
+  function teamsHtml() { const b = SB(), gs = (typeof groups === 'function' ? groups() : []).filter((G) => !G.sprech && subjKind(G.subject) === 'bspk'), cls = b.cls && gs.some((G) => G.slug === b.cls) ? b.cls : (gs[0] || {}).slug || '', sts = cls && KM.studentsOf ? KM.studentsOf(cls) : [];
+    return `<div class="sbcfg"><label>Klasse<select data-ch="sbcls">${gs.map((G) => `<option value="${esc2(G.slug)}"${G.slug === cls ? ' selected' : ''}>${esc2(LB(G))}</option>`).join('')}</select></label><div class="tmgrid">${sts.map((x) => `<button class="tmst" data-act="tmpick" data-id="${esc2(x.id)}">${esc2(x.vn)} ${esc2(x.nn)}${b.assign[x.id] ? `<b style="background:${COLS[(b.assign[x.id] - 1) % 8]}">${b.assign[x.id]}</b>` : ''}</button>`).join('') || '<span class="muted sm">Keine Schüler.</span>'}</div>${[1, 2, 3, 4, 5, 6, 7, 8].filter((n) => sts.some((x) => b.assign[x.id] === n)).map((n) => `<div class="sm"><b>${n <= 2 ? esc2(tn(n - 1)) : 'Team ' + n}:</b> ${sts.filter((x) => b.assign[x.id] === n).map((x) => esc2(x.vn)).join(', ')}</div>`).join('')}</div>`; }
+  function cfgHtml() { const b = SB(); return `<div class="sbcfg"><label>Sportart / Regeln<select data-ch="sbsport">${Object.entries(SPORT_SB).map(([k, v]) => `<option value="${k}"${k === b.sport ? ' selected' : ''}>${esc2(v[0])}</option>`).join('')}</select></label>${[0, 1].map((i) => `<label>Team ${i + 1}<input data-ch="sbname" data-i="${i}" value="${esc2(b.n[i])}" placeholder="Team ${i + 1}"></label><div class="sbsw">${COLS.map((c) => `<i style="background:${c}" class="${b.c[i] === c ? 'on' : ''}" data-act="sbcol" data-i="${i}" data-c="${c}"></i>`).join('')}</div>`).join('')}</div>`; }
+  /* Spotify (PKCE, nur mit eigener Client-ID) */
+  const SP = { tok: null, now: null, timer: null };
+  const lsGet = (k) => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }, lsSet = (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) { /* */ } };
+  const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const redirect = () => location.origin + '/';
+  async function spToken(body) { const r = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(body) }); if (!r.ok) throw new Error('Spotify-Anmeldung fehlgeschlagen'); const j = await r.json(); SP.tok = j.access_token; lsSet('sp_at', j.access_token); lsSet('sp_exp', String(Date.now() + (j.expires_in - 60) * 1000)); if (j.refresh_token) lsSet('sp_rt', j.refresh_token); }
+  async function spAuthOk() { const cid = lsGet('sp_cid'); if (!cid) return false; if (+lsGet('sp_exp') > Date.now() && lsGet('sp_at')) { SP.tok = lsGet('sp_at'); return true; } const rt = lsGet('sp_rt'); if (!rt) return false; try { await spToken({ grant_type: 'refresh_token', refresh_token: rt, client_id: cid }); return true; } catch (e) { return false; } }
+  async function spApi(path, method, q) { if (!(await spAuthOk())) throw new Error('nicht verbunden'); const r = await fetch('https://api.spotify.com/v1' + path + (q ? '?' + new URLSearchParams(q) : ''), { method: method || 'GET', headers: { authorization: 'Bearer ' + SP.tok } }); if (r.status === 204) return null; if (r.status === 401) { lsSet('sp_exp', '0'); throw new Error('Anmeldung abgelaufen'); } if (!r.ok) { const t = await r.text(); throw new Error(r.status === 404 ? 'Kein aktives Gerät: Spotify am Handy öffnen und etwas abspielen.' : r.status === 403 ? 'Spotify Premium erforderlich.' : 'Spotify-Fehler ' + r.status + ' ' + t.slice(0, 60)); } try { return await r.json(); } catch (e) { return null; } }
+  async function spPoll() { const box = document.getElementById('spnow'); if (!box) { clearInterval(SP.timer); SP.timer = null; return; } try { const j = await spApi('/me/player'); SP.now = j; SP.err = ''; } catch (e) { SP.err = e.message; } if (document.getElementById('spnow')) document.getElementById('spnow').outerHTML = spNowHtml(); }
+  function spNowHtml() { const j = SP.now, it = j && j.item; if (!lsGet('sp_cid')) return '<div id="spnow"></div>'; if (SP.err) return `<div id="spnow" class="muted sm">${esc2(SP.err)}</div>`; if (!it) return '<div id="spnow" class="muted sm">Nichts wird abgespielt. Starte in der Spotify-App eine Playlist.</div>'; const img = (it.album && it.album.images && it.album.images[0] || {}).url || '';
+    return `<div id="spnow"><div class="spbox">${img ? `<img class="spcov" src="${esc2(img)}" alt="Cover">` : '<div class="spcov"></div>'}<div style="min-width:0"><div class="spt">${esc2(it.name)}</div><div class="sps">${esc2((it.artists || []).map((a) => a.name).join(', '))}</div><div class="sps">${esc2((j.device || {}).name || '')}</div></div></div><div class="spctl"><button data-act="spprev" aria-label="Zurück">⏮</button><button class="big" data-act="sptog" aria-label="Start/Pause">${j.is_playing ? '⏸' : '▶'}</button><button data-act="spnext" aria-label="Weiter">⏭</button><input type="range" min="0" max="100" value="${(j.device || {}).volume_percent == null ? 50 : j.device.volume_percent}" data-ch="spvol" aria-label="Lautstärke" style="flex:1"></div></div>`; }
+  function spHtml() { const cid = lsGet('sp_cid'); setTimeout(() => { if (cid && !SP.timer) { SP.timer = setInterval(spPoll, 4000); } if (cid) spPoll(); }, 50);
+    return `<p class="muted sm" style="margin:0 0 8px">Steuert die laufende Spotify-Wiedergabe (Playlist weiterschalten, Pause, Lautstärke, Cover). Braucht Spotify Premium und eine eigene Client-ID (kostenlos auf developer.spotify.com, Redirect-URI: <b>${esc2(redirect())}</b>).</p>${cid && lsGet('sp_rt') ? spNowHtml() : `<div class="sbcfg"><label>Client-ID<input id="spcid" value="${esc2(cid)}" placeholder="Client-ID einfügen" autocomplete="off"></label><button class="btn good" data-act="spconn">Mit Spotify verbinden</button></div>`}${cid && lsGet('sp_rt') ? '<button class="btn sm" data-act="spoff" style="margin-top:10px">Verbindung trennen</button>' : ''}`; }
+  (async () => { try { const q = new URLSearchParams(location.search); if (q.get('code') && q.get('state') === 'lehrerapp-sp') { await spToken({ grant_type: 'authorization_code', code: q.get('code'), redirect_uri: redirect(), client_id: lsGet('sp_cid'), code_verifier: lsGet('sp_ver') }); history.replaceState(null, '', location.pathname + '#werkzeug-bspk'); U.view = 'werkzeug-bspk'; U.tdd = Object.assign({}, U.tdd, { media: true }); if (typeof render === 'function') render(); } } catch (e) { /* */ } })();
+
+  UI.toolsPage = (kd) => { const gpb = kd === 'gpb'; U.tdd = U.tdd || { clock: true }; const prep = typeof KM !== 'undefined' && KM.toolsPrepare ? KM.toolsPrepare(kd) : null, T = prep && KM.toolsObj ? KM.toolsObj(prep) : null, o = U.tdd;
+    const head = `<div class="chead ${gpb ? 'fg' : 'fs'}"><span class="chsym">${gpb ? KM.SVG_HELM.replace('width="64" height="64"', 'width="30" height="30"') : KM.SVG_RUN.replace('width="64" height="64"', 'width="30" height="30"')}</span><span><span class="chn" style="display:block">Klassentools</span><span class="chs" style="display:block">${gpb ? 'Geschichte' : 'Sport'}</span></span></div>`;
+    const strip = (h) => (h || '').replace(/<h2[^>]*>.*?<\/h2>/, '').replace(/^<div class="card"[^>]*>/, '<div>');
+    const parts = [];
+    if (T) { parts.push(dd('clock', 'Stoppuhr und Countdown', strip(T.clock), !!o.clock)); parts.push(dd('rnd', 'Zufallsgenerator', strip(T.rnd), !!o.rnd)); parts.push(dd('grp', 'Gruppen bilden', strip(T.grp), !!o.grp)); if (gpb) parts.push(dd('noise', 'Lautstärke', strip(T.noise), !!o.noise)); parts.push(dd('board', 'Tafel', strip(T.board), !!o.board)); if (gpb) parts.push(dd('seat', 'Testplatzzuweisung', strip(T.seat), !!o.seat)); }
+    else parts.push('<section class="card"><p class="muted">Für dieses Fach gibt es keine Stunde im Stundenplan. Die Werkzeuge beziehen sich auf die laufende bzw. nächste Stunde.</p></section>');
+    if (!gpb) { parts.splice(1, 0, dd('score', 'Anzeigetafel und Punkte zählen', sbHtml() + cfgHtml(), !!o.score)); parts.push(dd('teams', 'Teams einteilen', teamsHtml(), !!o.teams)); parts.push(dd('media', 'Musik / Mediensteuerung', spHtml(), !!o.media)); }
+    return `<div class="km2 tl2">${head}<div style="padding-top:8px">${parts.join('')}</div></div>`; };
+  Object.assign(A, {
+    tdd: (e) => { U.tdd = Object.assign({}, U.tdd, { [e.dataset.k]: !(U.tdd || {})[e.dataset.k] }); render(); },
+    toolsgo: (e) => { U.toolsPop = null; setView('werkzeug-' + e.dataset.kd); },
+    sbflip: () => { const b = SB(); b.flip = !b.flip; sbDraw(); },
+    sbreset: () => { const b = SB(); b.p = [0, 0]; b.s = [0, 0]; b.hist = []; b.win = -1; b.srv = 0; sbDraw(); },
+    sbcol: (e) => { SB().c[+e.dataset.i] = e.dataset.c; render(); },
+    sbfull: () => { const b = SB(); b.full = !b.full; b.rot = false; sbDraw(); const el = document.getElementById('sbbox'); if (b.full) { try { const p = el.requestFullscreen && el.requestFullscreen(); if (p && p.then) p.then(() => { try { return screen.orientation.lock('landscape'); } catch (x) { return null; } }).catch(() => { if (innerHeight > innerWidth) { b.rot = true; sbDraw(); } }); else if (innerHeight > innerWidth) { b.rot = true; sbDraw(); } } catch (x) { if (innerHeight > innerWidth) { b.rot = true; sbDraw(); } } } else { try { if (document.fullscreenElement) document.exitFullscreen(); screen.orientation.unlock(); } catch (x) { /* */ } } },
+    tmpick: (e) => { U.tmPop = e.dataset.id; U.toolsPop = 'team'; render(); },
+    tmset: (e) => { const b = SB(), n = +e.dataset.n; if (n) b.assign[U.tmPop] = n; else delete b.assign[U.tmPop]; U.tmPop = null; U.toolsPop = null; render(); },
+    spconn: async () => { const cid = ((document.getElementById('spcid') || {}).value || '').trim(); if (!cid) return toast('Bitte Client-ID eintragen'); lsSet('sp_cid', cid); const ver = b64(crypto.getRandomValues(new Uint8Array(48))); lsSet('sp_ver', ver); const ch = b64(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(ver))); location.href = 'https://accounts.spotify.com/authorize?' + new URLSearchParams({ response_type: 'code', client_id: cid, scope: 'user-read-playback-state user-modify-playback-state', redirect_uri: redirect(), state: 'lehrerapp-sp', code_challenge_method: 'S256', code_challenge: ch }); },
+    spoff: () => { ['sp_rt', 'sp_at', 'sp_exp', 'sp_ver'].forEach((k) => lsSet(k, '')); SP.now = null; render(); },
+    sptog: async () => { try { await spApi((SP.now && SP.now.is_playing) ? '/me/player/pause' : '/me/player/play', 'PUT'); setTimeout(spPoll, 400); } catch (e) { toast(e.message); } },
+    spnext: async () => { try { await spApi('/me/player/next', 'POST'); setTimeout(spPoll, 600); } catch (e) { toast(e.message); } },
+    spprev: async () => { try { await spApi('/me/player/previous', 'POST'); setTimeout(spPoll, 600); } catch (e) { toast(e.message); } },
+  });
+  Object.assign(C, {
+    sbsport: (e) => { const b = SB(); b.sport = e.value; A.sbreset(); render(); },
+    sbname: (e) => { SB().n[+e.dataset.i] = e.value; sbDraw(); },
+    sbcls: (e) => { SB().cls = e.value; render(); },
+    spvol: async (e) => { try { await spApi('/me/player/volume', 'PUT', { volume_percent: e.value }); } catch (x) { toast(x.message); } },
+  });
+  /* Auswahl-Sheet: Fach wählen und Teamnummer */
+  const oldAfter = window.uiAfterRender;
+  window.uiAfterRender = function () { oldAfter && oldAfter(); if (U.toolsPop === 'team') { const old = document.getElementById('uisheet'); if (old) old.remove(); document.body.insertAdjacentHTML('beforeend', `<div id="uisheet"><div class="lspop" data-ui="1"><div class="lspopb" style="max-width:420px;width:min(420px,100%)"><div class="lspoph"><h2 style="margin:0">Team wählen</h2><button class="btn sm" data-act="uisheetx">Schließen</button></div><div class="lspopc" style="padding:14px"><div class="tmdig">${[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `<button data-act="tmset" data-n="${n}" style="border-bottom:4px solid ${COLS[(n - 1) % 8]}">${n}</button>`).join('')}<button data-act="tmset" data-n="0" style="grid-column:span 4;font-size:14px">Kein Team</button></div></div></div></div></div>`); } };
 })();
