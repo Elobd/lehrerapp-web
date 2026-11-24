@@ -339,7 +339,7 @@ body[data-fach=gpb] .kmh,body[data-fach=bspk] .kmh{border-bottom-color:rgba(0,0,
   <nav class="nav" id="nav"></nav>
   <main id="main" class="wrap" style="padding:0"></main>
 </div>
-<div id="appver" class="muted sm" style="text-align:center;padding:4px 0 18px;opacity:.7">Version 20.11.2026 · Klassenmappen Etappe 1 · Designs</div>
+<div id="appver" class="muted sm" style="text-align:center;padding:4px 0 18px;opacity:.7">Version 24.11.2026 · Neue Oberfläche S5</div>
 <div id="drw" class="drw" aria-hidden="true"><div class="drwbg" data-act="drwx"></div><aside class="drwp" role="dialog" aria-label="Einstellungen"><div class="drwh"><b>Einstellungen</b><button class="drwc" data-act="drwx" aria-label="Schließen">×</button></div><div id="drwl" class="drwl"></div><p class="muted sm" style="margin:12px 4px 0">Am Symbol ⠿ ziehen, um die Reihenfolge zu ändern.</p></aside></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
@@ -500,7 +500,7 @@ function tick(){
   if(c)c.innerHTML=pad(n.getHours())+':'+pad(n.getMinutes())+'<small>'+pad(n.getSeconds())+'</small>';
   if(d){const u=nextUnitTxt(),h=esc(WDL[n.getDay()]+', '+n.getDate()+'. '+MON[n.getMonth()]+' '+n.getFullYear())+'\u00a0\u00a0\u00a0\u00a0|\u00a0\u00a0\u00a0\u00a0KW '+isoWeek(n)+(u?'\u00a0\u00a0\u00a0\u00a0|\u00a0\u00a0\u00a0\u00a0<a href="#" data-act="godate" data-slug="'+esc(nextUnitSlug)+'" data-d="'+TODAY+'" class="dtn">'+esc(u)+'</a>':'');if(d.dataset.h!==h){d.dataset.h=h;d.innerHTML=h}}
   const cd=$('#cd');if(cd)cd.innerHTML=cdInfo();
-  if(window.uiTick)uiTick(n);
+  try{if(window.uiTick)uiTick(n)}catch(e){}
   placeLine();
   if(ymd(n)!==TODAY){TODAY=ymd(n);render()}
   else if(n.getMinutes()!==lastMin){lastMin=n.getMinutes();scheduleRender()}
@@ -1310,7 +1310,7 @@ function render(){
   $('#main').innerHTML=v==='erarbeiten'?`<div style="grid-column:1/-1">${typeof erarbView==='function'?erarbView():''}</div>`:v==='druck'?`<div style="grid-column:1/-1">${druckView()}</div>`:v==='material'?`<div style="grid-column:1/-1">${setBar('material')}${typeof MAT!=='undefined'?MAT.view():''}</div>`:/^mappe/.test(v)?`<div style="grid-column:1/-1">${typeof KM!=='undefined'?KM.view(v):''}</div>`:/^schueler-/.test(v)?`<div style="grid-column:1/-1">${typeof KM!=='undefined'?(()=>{const p=v.slice(9).split('--');return KM.studentPage(p[0],p[1])})():''}</div>`:/^thema-/.test(v)?`<div style="grid-column:1/-1">${themaView(v.slice(6))}</div>`:v==='jahresplan'?`<div style="grid-column:1/-1">${jahresView()}</div>`:v==='daten'?`<div style="grid-column:1/-1">${datenView()}</div>`:v==='klassen'?`<div style="grid-column:1/-1">${klassenView()}</div>`:/^stunde-/.test(v)?`<div style="grid-column:1/-1">${(()=>{const p=v.slice(7).split('--');return typeof KM!=='undefined'&&KM.lessonPage?KM.lessonPage(p[0],p[1]):stundeView(p[0],p[1])})()}</div>`:/^tests-/.test(v)||v==='leistungen'?`<div style="grid-column:1/-1">${typeof KM!=='undefined'&&KM.testPage?KM.testPage(v==='leistungen'?'':v.slice(6)):''}</div>`:/^klasse-/.test(v)?`<div style="grid-column:1/-1">${typeof KM!=='undefined'&&KM.classPage?KM.classPage(v.slice(7)):klasseView(v.slice(7))}</div>`:`<div style="grid-column:1/-1"><a class="kmmore" href="#klassen" data-act="nhome">‹ Zurück zu Heute</a></div>`+ttPage();
   {let kd='';const m=/^(?:klasse|tests|stunde|schueler)-([^-]+(?:-[^-]+)*?)(?:--.*)?$/.exec(v);if(/^mappe/.test(v))kd=U.kdNow||'';else if(m){const g=groups().find(q=>q.slug===m[1]);if(g)kd=subjKind(g.subject)||''}document.body.dataset.fach=kd==='gpb'||kd==='bspk'?kd:''}
   if(U.jpop&&v==='jahresplan'&&typeof KM!=='undefined'&&KM.topicPop)$('#main').insertAdjacentHTML('beforeend',KM.topicPop(U.jpop));
-  if(window.uiAfterRender)uiAfterRender();
+  try{if(window.uiAfterRender)uiAfterRender()}catch(e){console.error(e)}
   Object.keys(keep).forEach(id=>{const el=document.getElementById(id);if(el&&el.type!=='hidden'&&!el.value)el.value=keep[id]});
   applyFb();
   placeLine();
@@ -1606,8 +1606,6 @@ document.addEventListener('keydown',e=>{const t=e.target;if(e.key==='Enter'&&t&&
 <script src="/kmap.js"></script>
 <script src="/material.js"></script>
 <script src="/lehrmaterial.js"></script>
-<script src="/fahrplan.js"></script>
 <script src="/skins.js"></script>
-<script src="/ui.js"></script>
 
 </body></html>
