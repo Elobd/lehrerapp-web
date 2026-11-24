@@ -30,13 +30,13 @@ export function createAuftrag(ctx) {
   }
 
   // ---------- KI ----------
-  async function aiJson(section, prompt, maxTok, mockArg) {
+  async function aiJson(section, prompt, maxTok, mockArg, web) {
     if (process.env.AI_MOCK) return mock(section, mockArg);
     if (!aiKey()) throw new Error('KI nicht eingerichtet (ANTHROPIC_API_KEY fehlt).');
     for (let i = 0; i < 2; i++) {
-      const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'x-api-key': aiKey(), 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify({ model: AI_MODEL, max_tokens: maxTok || 8000, messages: [{ role: 'user', content: prompt + '\n\nAntworte ausschließlich mit gültigem JSON (kein Text davor oder danach).' }] }), signal: AbortSignal.timeout(300000) });
+      const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'x-api-key': aiKey(), 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify({ model: AI_MODEL, max_tokens: maxTok || 8000, ...(web ? { tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 6 }] } : {}), messages: [{ role: 'user', content: prompt + '\n\nAntworte ausschließlich mit gültigem JSON (kein Text davor oder danach).' }] }), signal: AbortSignal.timeout(300000) });
       const out = await r.json(); if (!r.ok) throw new Error(out?.error?.message || 'KI-Fehler ' + r.status);
-      const txt = (out.content || []).map((c) => c.text || '').join(''), a = txt.indexOf('{'), b = txt.lastIndexOf('}');
+      const tb = (out.content || []).filter((c) => c.type === 'text' && c.text), txt = web ? ((tb.filter((c) => c.text.includes('{')).pop() || {}).text || '') : tb.map((c) => c.text).join(''), a = txt.indexOf('{'), b = txt.lastIndexOf('}');
       try { return JSON.parse(txt.slice(a, b + 1)); } catch { /* zweiter Versuch */ }
     }
     throw new Error('KI-Antwort nicht lesbar (' + section + ')');
@@ -52,10 +52,11 @@ export function createAuftrag(ctx) {
     if (section === 'multiple') return { multiple: m.checkup.multiple };
     if (section === 'wdh') return { wiederholung: m.wiederholung.slice(arg[0], arg[1]) };
     if (section === 'praesentation') return { praesentation: m.praesentation };
+    if (section === 'stunden') return { einheiten: Array.from({ length: arg.n }, (_, i) => ({ thema: `${arg.titel}: Stunde ${i + 1}`, inhalt: 'Inhalt der Stunde ' + (i + 1), ziele: 'Die Schüler:innen können …', methoden: 'Lehrervortrag, Partnerarbeit', ph: [{ t: 'Einstieg', m: 10 }, { t: 'Erarbeitung', m: 25 }, { t: 'Sicherung', m: 10 }], ha: i === arg.n - 1 ? 'Wiederholung' : '' })) };
     return pick(section);
   }
   const SYS = 'Du bist erfahrene Lehrkraft für Geschichte und Politische Bildung an einer österreichischen AHS (Sekundarstufe 2). Du erstellst anspruchsvolles, sachlich korrektes Unterrichtsmaterial in sehr gutem Deutsch (österreichische Rechtschreibung mit ss/ß wie üblich). Erfinde keine Quellenzitate: Zitate nur wörtlich aus den gelieferten Quellen oder als „sinngemäß“ gekennzeichnet. Nenne keine Schülerdaten.';
-  const src = (p) => (p.quellen || []).map((q, i) => `QUELLE ${i + 1} (${q.ref || 'ohne Titel'}):\n${String(q.text || '').slice(0, 9000)}`).join('\n\n').slice(0, 45000) || '(keine Quellen angegeben: nutze gesichertes Fachwissen und kennzeichne Unsicheres)';
+  const src = (p) => (p.quellen || []).map((q, i) => `QUELLE ${i + 1} (${q.ref || 'ohne Titel'}):\n${String(q.text || '').slice(0, 9000)}`).join('\n\n').slice(0, 45000) || (p.quellenmodus === 'web' ? '(keine Quellen vorgegeben: recherchiere selbst im Internet mit der Web-Suche, bevorzuge seriöse Quellen wie Fachlexika, Museen, Archive, Bildungsserver, öffentlich-rechtliche Medien und Universitäten; fasse in eigenen Worten zusammen und nenne die genutzten Quellen im Feld quellenliste)' : '(keine Quellen angegeben: nutze gesichertes Fachwissen und kennzeichne Unsicheres)');
   const head = (p) => `${SYS}\nThema: „${p.titel}“. Klassenstufe: ${p.klasse}. Klasse (AHS Oberstufe; Niveau entsprechend). Epoche: ${p.epoche}${p.zeitraum ? ' (' + p.zeitraum + ')' : ''}.${p.notizen ? '\nWünsche der Lehrkraft: ' + p.notizen : ''}\n\nQUELLENMATERIAL:\n${src(p)}\n\n`;
 
   async function erstelle(job, p) {
@@ -66,13 +67,13 @@ export function createAuftrag(ctx) {
     const kap = p.seiten >= 18 ? 12 : p.seiten >= 14 ? 10 : 8, nF = p.folien === 'kurz' ? 15 : p.folien === 'ausfuehrlich' ? 40 : 25;
     say('Bibliotheken prüfen …', 0); await ensureLibs((m) => say(m)); save();
     say('1/9 Gliederung, Zeitstrahl und Epochenübersicht …', 1);
-    const plan = await aiJson('plan', head(p) + `Erstelle einen Plan als JSON: {"untertitel":"kurzer Untertitel","zeitraum":"z. B. 1450–1517","jahr":"Jahreszahl als Zahl (Beginn)","kurz":["4–6 Stichpunkte 'Das Wichtigste in Kürze'"],"kapitel":["genau ${kap} Kapitelüberschriften in sinnvoller Reihenfolge"],"zeitstrahl":[{"jahr":1450,"text":"max. 5 Wörter"}] (6 Einträge),"prozess":[{"titel":"max. 3 Wörter","text":"max. 6 Wörter"}] (4–5 Schritte oder Phasen),"prozess_titel":"Überschrift der Grafik","epochen":[{"epoche":"Vor- und Frühgeschichte|Antike|Mittelalter|Neuzeit|Zeitgeschichte","ereignisse":[{"text":"max. 4 Wörter","jahr":"Jahr/Zeitraum","seite":1 oder -1,"hervorheben":true nur beim Thema selbst}]}] (für ALLE fünf Epochen je 2–3 abwechslungsreiche Ereignisse oder Persönlichkeiten, in der Epoche des Themas auch das Thema selbst),"glossar":[{"begriff":"","text":"kurz"}] (8 Einträge),"quellenliste":["3–5 seriöse Literatur-/Quellenangaben; bei gelieferten Quellen deren Titel"]}`, 5000);
+    const plan = await aiJson('plan', head(p) + `Erstelle einen Plan als JSON: {"untertitel":"kurzer Untertitel","zeitraum":"z. B. 1450–1517","jahr":"Jahreszahl als Zahl (Beginn)","kurz":["4–6 Stichpunkte 'Das Wichtigste in Kürze'"],"kapitel":["genau ${kap} Kapitelüberschriften in sinnvoller Reihenfolge"],"zeitstrahl":[{"jahr":1450,"text":"max. 5 Wörter"}] (6 Einträge),"prozess":[{"titel":"max. 3 Wörter","text":"max. 6 Wörter"}] (4–5 Schritte oder Phasen),"prozess_titel":"Überschrift der Grafik","epochen":[{"epoche":"Vor- und Frühgeschichte|Antike|Mittelalter|Neuzeit|Zeitgeschichte","ereignisse":[{"text":"max. 4 Wörter","jahr":"Jahr/Zeitraum","seite":1 oder -1,"hervorheben":true nur beim Thema selbst}]}] (für ALLE fünf Epochen je 2–3 abwechslungsreiche Ereignisse oder Persönlichkeiten, in der Epoche des Themas auch das Thema selbst),"glossar":[{"begriff":"","text":"kurz"}] (8 Einträge),"quellenliste":["3–5 seriöse Literatur-/Quellenangaben; bei gelieferten Quellen deren Titel"]}`, 5000, undefined, p.quellenmodus === 'web');
     Object.assign(data, { untertitel: plan.untertitel || '', zeitraum: p.zeitraum || plan.zeitraum || '', jahr: p.jahr || plan.jahr || '', zeitstrahl: plan.zeitstrahl, prozess: plan.prozess, prozess_titel: plan.prozess_titel, epochen: plan.epochen, quellenliste: [...(plan.quellenliste || []), ...(p.quellen || []).map((q) => q.ref).filter(Boolean)] });
     data.textblatt = { kurz: plan.kurz || [], kapitel: [], glossar: plan.glossar || [] }; save();
     const titles = plan.kapitel || []; let n = 0;
     for (let i = 0; i < titles.length; i += 3) {
       const part = titles.slice(i, i + 3); say(`2/9 Textblatt: Kapitel ${i + 1}–${Math.min(i + 3, titles.length)} von ${titles.length} …`, 2);
-      const r = await aiJson('textblatt', head(p) + `Gesamtgliederung des Textblatts: ${JSON.stringify(titles)}.\nSchreibe NUR die Kapitel ${JSON.stringify(part)} ausführlich als JSON: {"kapitel":[{"titel":"unverändert","absaetze":["3–4 Absätze, je 100–140 Wörter, Fließtext für Schüler/innen, präzise, mit Fachbegriffen"],"boxen":[{"typ":"merke|begriff|quelle|zahl|nachdenken","titel":"nur bei quelle: Autor, Werk, Jahr","text":"..."}] (2–3 Boxen, darunter mindestens eine 'merke'),"personen":[{"name":"","lebensdaten":"","rolle":"","text":"2–3 Sätze Bedeutung"}] (nur wenn wichtige Personen vorkommen; insgesamt im Textblatt mindestens 5 verschiedene)}]}. Insgesamt soll das Textblatt etwa ${p.seiten} Seiten füllen.`, 8000, part);
+      const r = await aiJson('textblatt', head(p) + `Gesamtgliederung des Textblatts: ${JSON.stringify(titles)}.\nSchreibe NUR die Kapitel ${JSON.stringify(part)} ausführlich als JSON: {"kapitel":[{"titel":"unverändert","absaetze":["3–4 Absätze, je 100–140 Wörter, Fließtext für Schüler/innen, präzise, mit Fachbegriffen"],"boxen":[{"typ":"merke|begriff|quelle|zahl|nachdenken","titel":"nur bei quelle: Autor, Werk, Jahr","text":"..."}] (2–3 Boxen, darunter mindestens eine 'merke'),"personen":[{"name":"","lebensdaten":"","rolle":"","text":"2–3 Sätze Bedeutung"}] (nur wenn wichtige Personen vorkommen; insgesamt im Textblatt mindestens 5 verschiedene)}]}. Insgesamt soll das Textblatt etwa ${p.seiten} Seiten füllen.`, 8000, part, p.quellenmodus === 'web');
       (r.kapitel || []).forEach((k) => data.textblatt.kapitel.push(k)); save();
     }
     say('3/9 Arbeitsblatt …', 3);
@@ -133,9 +134,20 @@ export function createAuftrag(ctx) {
       if (!aiKey() && !process.env.AI_MOCK) return json(res, 501, { error: 'KI nicht eingerichtet (ANTHROPIC_API_KEY fehlt).' }), true;
       if ([...jobs.values()].some((j) => j.state === 'laeuft')) return json(res, 409, { error: 'Es läuft bereits eine Erstellung. Bitte warten.' }), true;
       const id = Date.now().toString(36), job = { id, state: 'laeuft', msg: 'Start …', step: 0, total: 9, titel: q.titel }; jobs.set(id, job);
-      const prm = { titel: String(q.titel).slice(0, 120), klasse: [5, 6, 7, 8].includes(+q.klasse) ? +q.klasse : 6, epoche: q.epoche, zeitraum: String(q.zeitraum || '').slice(0, 60), jahr: String(q.jahr || '').slice(0, 10), seiten: +q.seiten || 10, folien: q.folien || 'mittel', notizen: String(q.notizen || '').slice(0, 1500), quellen: Array.isArray(q.quellen) ? q.quellen.slice(0, 20) : [] };
+      const prm = { titel: String(q.titel).slice(0, 120), klasse: [5, 6, 7, 8].includes(+q.klasse) ? +q.klasse : 6, epoche: q.epoche, zeitraum: String(q.zeitraum || '').slice(0, 60), jahr: String(q.jahr || '').slice(0, 10), quellenmodus: ['web', 'wissen'].includes(q.quellenmodus) ? q.quellenmodus : (Array.isArray(q.quellen) && q.quellen.length ? 'eigen' : 'web'), seiten: +q.seiten || 10, folien: q.folien || 'mittel', notizen: String(q.notizen || '').slice(0, 1500), quellen: Array.isArray(q.quellen) ? q.quellen.slice(0, 20) : [] };
       erstelle(job, prm).catch((e) => { job.state = 'fehler'; job.msg = String(e && e.message || e); try { if (job.dir) fs.rmSync(job.dir, { recursive: true, force: true }); } catch { /* */ } });
       return json(res, 200, { id }), true;
+    }
+    if (p === '/api/stunden/plan' && req.method === 'POST') {
+      const q = JSON.parse((await body(req)) || '{}'), n = Math.max(1, Math.min(12, +q.std || 1)); if (!q.titel) return json(res, 400, { error: 'Thema fehlt.' }), true;
+      if (!aiKey() && !process.env.AI_MOCK) return json(res, 501, { error: 'KI nicht eingerichtet (ANTHROPIC_API_KEY fehlt).' }), true;
+      const prm = { titel: String(q.titel).slice(0, 120), klasse: [5, 6, 7, 8].includes(+q.klasse) ? +q.klasse : 6, epoche: EPOCHEN.includes(q.epoche) ? q.epoche : 'Neuzeit', notizen: String(q.hinweise || '').slice(0, 800), quellen: [], quellenmodus: q.quellenmodus === 'wissen' ? 'wissen' : 'web' }, min = [45, 50, 90].includes(+q.min) ? +q.min : 50;
+      try {
+        const r = await aiJson('stunden', head(prm) + `Plane das Thema in genau ${n} aufeinanderfolgenden Unterrichtsstunden zu je ${min} Minuten. Jede Stunde baut auf der vorigen auf, hat ein eigenes Stundenthema, konkrete Inhalte, Ziele und abwechslungsreiche Methoden (Quellenarbeit, Kooperation, Sicherung). Antworte als JSON: {"einheiten":[{"thema":"Stundenthema (kurz)","inhalt":"Inhalte und Ablauf in 2–4 Sätzen","ziele":"1–2 Lernziele","methoden":"genutzte Methoden","ph":[{"t":"Phase, z. B. Einstieg","m":Minuten als Zahl}],"ha":"Hausübung oder leer"}]}. Die Minuten der Phasen ergeben je Stunde genau ${min}.`, 6000, { n, titel: prm.titel }, prm.quellenmodus === 'web');
+        const E = (Array.isArray(r.einheiten) ? r.einheiten : []).slice(0, n).map((e) => ({ thema: String(e.thema || '').slice(0, 160), inhalt: String(e.inhalt || '').slice(0, 1500), ziele: String(e.ziele || '').slice(0, 500), methoden: String(e.methoden || '').slice(0, 300), ha: String(e.ha || '').slice(0, 300), ph: (Array.isArray(e.ph) ? e.ph : []).slice(0, 8).map((x) => ({ t: String(x.t || '').slice(0, 80), m: Math.max(1, Math.min(90, Math.round(+x.m || 5))) })) }));
+        if (!E.length) return json(res, 502, { error: 'KI lieferte keine Stundenplanung.' }), true;
+        return json(res, 200, { einheiten: E }), true;
+      } catch (e) { return json(res, 502, { error: String(e && e.message || e) }), true; }
     }
     if (p === '/api/auftrag/status' && req.method === 'GET') { const j = jobs.get(url.searchParams.get('id')); return json(res, j ? 200 : 404, j ? { state: j.state, msg: j.msg, step: j.step, total: j.total, warn: j.warn || '' } : { error: 'unbekannt' }), true; }
     if (p === '/api/auftrag/cover' && req.method === 'POST') {

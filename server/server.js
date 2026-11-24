@@ -242,7 +242,7 @@ const server = http.createServer(async (req, res) => {
         const k = aiKey(); if (!k) return json(res, 400, { error: 'Kein Schlüssel hinterlegt.' });
         try { const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'x-api-key': k, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify({ model: AI_MODEL, max_tokens: 5, messages: [{ role: 'user', content: 'Sag nur: ok' }] }), signal: AbortSignal.timeout(30000) }); const o = await r.json().catch(() => ({})); if (!r.ok) return json(res, 502, { error: (o && o.error && o.error.message) || ('Fehler ' + r.status) }); return json(res, 200, { ok: true }); } catch (e) { return json(res, 502, { error: 'Keine Verbindung zur KI: ' + (e && e.message || e) }); }
       }
-      if (p.startsWith('/api/auftr') && (await auftragHandler(req, res, url))) return;
+      if ((p.startsWith('/api/auftr') || p.startsWith('/api/stunden/')) && (await auftragHandler(req, res, url))) return;
       if (p === '/api/events') {
         res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive', 'x-accel-buffering': 'no' });
         res.write('retry: 3000\n\n');
