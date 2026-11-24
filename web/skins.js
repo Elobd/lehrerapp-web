@@ -218,11 +218,7 @@ html:root .ccard{padding:10px}
   /* Wiederverwendbare Reiter: UI.tabs(liste, aktiv, aktion) – Wischen wechselt den Reiter */
   UI.tabs = (items, cur, act) => `<div class="ttmenu" role="tablist">${items.map(([k, t]) => `<span class="ttchipw"><button class="ttchip${k === cur ? ' on' : ''}" role="tab" aria-selected="${k === cur}" data-act="${act}" data-p="${k}">${t}</button></span>`).join('')}</div>`;
   UI.pane = (items, cur, act, inner) => `<div class="uipane" data-tabs="${items.map((x) => x[0]).join(',')}" data-cur="${cur}" data-act2="${act}">${inner}</div>`;
-  (() => { let t0 = null;
-    document.addEventListener('touchstart', (e) => { const p = e.target.closest && e.target.closest('.uipane'); if (!p || e.target.closest('input,textarea,select,.kmtable,.wk,.nspl,[data-noswipe]') || e.touches.length !== 1) { t0 = null; return; } t0 = { x: e.touches[0].clientX, y: e.touches[0].clientY, p }; }, { passive: true });
-    document.addEventListener('touchend', (e) => { if (!t0) return; const c = e.changedTouches[0], dx = c.clientX - t0.x, dy = c.clientY - t0.y, p = t0.p; t0 = null; if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
-      const ks = p.dataset.tabs.split(','), i = ks.indexOf(p.dataset.cur), n = ks[i + (dx < 0 ? 1 : -1)]; if (n && A[p.dataset.act2]) A[p.dataset.act2]({ dataset: { p: n } }); }, { passive: true });
-  })();
+
   /* Home: Heute · Anwesenheit · Stundenplan · Stundeninhalte */
   const HT = [['t', 'Heute'], ['a', 'Anwesenheit'], ['p', 'Stundenplan'], ['i', 'Stundeninhalte']];
   window.homeShell = (dayBody, planPane, nxO, lessonStatus) => {
@@ -266,7 +262,7 @@ html:root #main{padding-bottom:96px!important}
 html:root body{padding-left:0!important;padding-right:0!important}
 html:root .wrap{padding-left:4px!important;padding-right:4px!important;row-gap:0!important}
 html:root #main.wrap{padding-left:0!important;padding-right:0!important}
-html:root body:not([data-fach]) #main{padding-top:8px}
+html:root body[data-fach=""] #main{padding-top:8px}
 /* Reiter: bündig, ohne Trennlinien */
 html:root .ttchipw{display:flex!important;border:0!important;align-items:stretch}.ttchipw>button{display:block!important;line-height:1.2}
 html:root body .ttmenu{align-items:stretch!important;padding-bottom:0!important}
@@ -338,16 +334,7 @@ html:root body .ccard>.attp{background:#fff!important;border-radius:0!important;
 
   /* ---- Wisch-Karussell: die Seiten laufen mit dem Finger mit ---- */
   UI.carousel = (items, cur, act, panes) => { const ks = items.map((x) => x[0]), idx = Math.max(0, ks.indexOf(cur)); return `<div class="car" data-tabs="${ks.join(',')}" data-cur="${cur}" data-act2="${act}"><div class="cartr" style="transform:translateX(${-idx * 100}%)">${ks.map((k) => `<section class="carp${k === cur ? ' on' : ''}" data-k="${k}">${k === cur || true ? (panes[k] || '') : ''}</section>`).join('')}</div></div>`; };
-  (() => { let g = null;
-    const ok = (e) => !(e.target.closest && e.target.closest('input,textarea,select,.ttmenu,.kmtable,.wk,.nspl,[data-noswipe]'));
-    document.addEventListener('touchstart', (e) => { const car = e.target.closest && e.target.closest('.car'); if (!car || !ok(e) || e.touches.length !== 1) { g = null; return; } const ks = car.dataset.tabs.split(','); g = { car, tr: car.firstElementChild, x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), ks, i: ks.indexOf(car.dataset.cur), w: car.clientWidth, lock: 0 }; }, { passive: true });
-    document.addEventListener('touchmove', (e) => { if (!g) return; const dx = e.touches[0].clientX - g.x, dy = e.touches[0].clientY - g.y;
-      if (!g.lock) { if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.2) { g.lock = 1; g.car.classList.add('drag'); g.tr.classList.add('nodur'); } else if (Math.abs(dy) > 10) { g = null; return; } else return; }
-      if (e.cancelable) e.preventDefault(); let d = dx; if ((g.i === 0 && dx > 0) || (g.i === g.ks.length - 1 && dx < 0)) d = dx * 0.3; g.d = d; g.tr.style.transform = `translateX(${-g.i * g.w + d}px)`; }, { passive: false });
-    document.addEventListener('touchend', () => { if (!g || !g.lock) { g = null; return; } const d = g.d || 0, v = Math.abs(d) / Math.max(1, Date.now() - g.t); let n = g.i; if (Math.abs(d) > g.w * 0.2 || (v > 0.35 && Math.abs(d) > 28)) n = Math.max(0, Math.min(g.ks.length - 1, g.i + (d < 0 ? 1 : -1)));
-      const x = g, act = x.car.dataset.act2; x.tr.classList.remove('nodur'); x.car.classList.add('anim'); x.tr.style.transform = `translateX(${-n * 100}%)`; g = null;
-      setTimeout(() => { x.car.classList.remove('drag', 'anim'); if (n !== x.i && A[act]) A[act]({ dataset: { p: x.ks[n] } }); }, 270); }, { passive: true });
-  })();
+  /* Wisch-Handler: siehe Feinabstimmung S8 */
 
   /* ---- Klassentools als Seite ---- */
   const SPORT_SB = { vb25: ['Volleyball (25)', 25, 15, 2, 3, 1, 0], vb21: ['Volleyball (21)', 21, 15, 2, 3, 1, 0], beach: ['Beachvolleyball (21)', 21, 15, 2, 2, 1, 0], bad: ['Badminton (21)', 21, 21, 2, 2, 0, 30], tt: ['Tischtennis (11)', 11, 11, 2, 3, 0, 0], faust: ['Faustball (11)', 11, 11, 2, 3, 0, 0], free: ['Allgemein (nur zählen)', 0, 0, 0, 0, 0, 0], bask: ['Basketball', 0, 0, 0, 0, 0, 0], hand: ['Handball', 0, 0, 0, 0, 0, 0], fuss: ['Fußball', 0, 0, 0, 0, 0, 0], uni: ['Unihockey', 0, 0, 0, 0, 0, 0], ultim: ['Ultimate Frisbee', 0, 0, 0, 0, 0, 0] };
@@ -440,4 +427,62 @@ html:root .card{padding:9px!important}
 html:root body .card h2,html:root body .card>.hd h2{font-size:13px!important}
 .dayl{padding:8px 6px 4px;font-size:13px}
 `; document.head.appendChild(st);
+})();
+
+/* ===== Feinabstimmung S8: Wischen überall, Tabellen, Klassenliste, Material, Kopfzeile ===== */
+(() => {
+  const st = document.createElement('style'); st.id = 'ui5'; st.textContent = `
+html:root .wrap{padding-left:6px!important;padding-right:6px!important}
+html:root .card{padding:8px!important;border-radius:12px!important}
+html:root .card>.hd:first-child{margin:-8px -8px 8px!important;padding:7px 9px!important}
+.km2>.chead,.tl2>.chead{margin-left:-6px!important;margin-right:-6px!important}
+html:root body[data-fach] .km2>.ttmenu{margin-left:-6px!important;margin-right:-6px!important}
+html:root body .sp .spareas{padding:0 6px!important}
+.sp .spmbox{margin-left:-6px!important;margin-right:-6px!important}
+/* Kopfzeile: auf allen Seiten gleich hoch, mehr Abstand Datum/Klasse */
+html:root .hero{padding:20px 0 14px!important}
+html:root body[data-fach=""] .hero{padding-bottom:88px!important}
+html:root body[data-fach=gpb] .hero,html:root body[data-fach=bspk] .hero{padding-bottom:24px!important}
+.km2>.chead,.tl2>.chead{padding-top:10px!important}
+/* Desktop: untere Leiste nur so breit wie der Inhalt */
+@media(min-width:700px){html:root .nav{justify-content:center!important}html:root .nav a{flex:0 1 225px!important}}
+/* Klassenliste */
+.dd{margin:0 0 14px!important;border-radius:12px!important}
+.ddh{padding:20px 14px!important;font-size:17px!important}
+.dd.fg .ddh{background:#F5C518!important;color:#fff!important;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+.dd.fs .ddh{background:#216FB9!important;color:#fff!important}
+.dd .ddh .ddn{background:rgba(255,255,255,.3)!important;color:#fff!important}
+.crow{padding:7px 14px!important;background:#fff!important}.crow .cn{font-size:15px!important}.crow small{font-size:11.5px!important}
+/* Schülerliste: Bild und Name bleiben links stehen */
+.km2 .kmrow>:nth-child(2){position:sticky;left:8px;z-index:6;background:#fff}
+.km2 .kmrow>:nth-child(3){position:sticky;left:54px;z-index:6;background:#fff}
+.km2 .kmth{background:#fff}.km2 .kmth>:nth-child(2),.km2 .kmth>:nth-child(3){background:#fff}
+/* Reiter-Balken weich */
+.ttchip::after{transition:opacity .15s}
+html:root .ttchip:not(.on)::after{opacity:0}
+/* Material */
+.matepw{margin-bottom:8px}.matepw .matepinner{display:flex!important;flex-wrap:nowrap!important;gap:4px!important;overflow:hidden}.matepw .kmdiv{display:none!important}.matepw .kmchipw{flex:1 1 auto;min-width:0;display:flex}
+.matepw .kmchip{font-size:9.5px!important;padding:5px 4px!important;white-space:nowrap;flex:1;display:flex;align-items:center;justify-content:center;gap:2px;overflow:hidden;text-overflow:ellipsis}.matepw .kmchip small{font-size:8.5px!important;opacity:.8}
+.matkw .matkm{margin-top:0!important;padding:3px!important;gap:3px;border-radius:10px!important}.matkw .matchip{font-size:11px!important;padding:5px 8px!important;border-radius:8px!important}.matkw .matchip.on{background:#1a1a1a!important;color:#fff!important}
+`; document.head.appendChild(st);
+
+  /* Wischen: auf der ganzen Seite; Tabellen ausgenommen, außer im unteren Streifen */
+  const EX = 'input,textarea,select,.ttmenu,.kmtable,[data-noswipe],.spdisc2,.spareas,.sbbox,[data-sbp],[data-sbs],#uisheet,.ttile,.matkm,.kmchips';
+  const liveTab = (host, key) => { const bar = document.querySelector('.ttmenu[role=tablist]'); if (!bar) return; bar.querySelectorAll('.ttchip').forEach((b) => { const on = b.dataset.p === key; if (b.classList.contains('on') !== on) b.classList.toggle('on', on); if (on && bar.scrollWidth > bar.clientWidth) bar.scrollTo({ left: Math.max(0, b.parentElement.offsetLeft - 24), behavior: 'smooth' }); }); };
+  (() => { let g = null;
+    const navTop = () => { const n = document.getElementById('nav'); return n ? n.getBoundingClientRect().top : innerHeight; };
+    document.addEventListener('touchstart', (e) => { if (e.touches.length !== 1) { g = null; return; } const t = e.target; if (t.closest && t.closest('.hero,#nav,#uisheet')) { g = null; return; }
+      const car = document.querySelector('.car'), pane = car ? null : document.querySelector('.uipane'), host = car || pane; if (!host) { g = null; return; }
+      const y = e.touches[0].clientY, zone = y > navTop() - 130 && y < navTop(); if (t.closest && t.closest(EX) && !zone) { g = null; return; }
+      const ks = host.dataset.tabs.split(','); g = { host, car: !!car, tr: car ? car.firstElementChild : null, x: e.touches[0].clientX, y, t: Date.now(), ks, i: ks.indexOf(host.dataset.cur), w: host.clientWidth || innerWidth, lock: 0, d: 0 }; }, { passive: true });
+    document.addEventListener('touchmove', (e) => { if (!g) return; const dx = e.touches[0].clientX - g.x, dy = e.touches[0].clientY - g.y;
+      if (!g.lock) { if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.2) { g.lock = 1; if (g.car) { g.host.classList.add('drag'); g.tr.classList.add('nodur'); } } else if (Math.abs(dy) > 10) { g = null; return; } else return; }
+      if (e.cancelable) e.preventDefault(); let d = dx; if ((g.i === 0 && dx > 0) || (g.i === g.ks.length - 1 && dx < 0)) d = dx * 0.3; g.d = d;
+      if (g.car) { g.tr.style.transform = `translateX(${-g.i * g.w + d}px)`; const ni = Math.max(0, Math.min(g.ks.length - 1, Math.round(g.i - d / g.w))); if (ni !== g.live) { g.live = ni; liveTab(g.host, g.ks[ni]); } } }, { passive: false });
+    document.addEventListener('touchend', () => { if (!g || !g.lock) { g = null; return; } const x = g; g = null; const d = x.d || 0, v = Math.abs(d) / Math.max(1, Date.now() - x.t); let n = x.i; if (Math.abs(d) > x.w * 0.2 || (v > 0.35 && Math.abs(d) > 28) || (!x.car && Math.abs(d) > 40)) n = Math.max(0, Math.min(x.ks.length - 1, x.i + (d < 0 ? 1 : -1)));
+      const act = x.host.dataset.act2;
+      if (!x.car) { if (n !== x.i && A[act]) A[act]({ dataset: { p: x.ks[n] } }); return; }
+      liveTab(x.host, x.ks[n]); x.tr.classList.remove('nodur'); x.host.classList.add('anim'); x.tr.style.transform = `translateX(${-n * 100}%)`;
+      setTimeout(() => { x.host.classList.remove('drag', 'anim'); if (n !== x.i && A[act]) A[act]({ dataset: { p: x.ks[n] } }); }, 240); }, { passive: true });
+  })();
 })();
