@@ -131,17 +131,16 @@ const KM = (() => {
     try { groups().forEach((G) => { const ci = cinfo(G.slug), st = ci.students; if (!Array.isArray(st) || !st.some((x) => !x.g)) return; const bsp = false; put('settings', Object.assign({}, ci, { id: 'cn_' + G.slug, students: st.map((x) => (x.g ? x : Object.assign({}, x, { g: bsp ? 'm' : guessGender(x.vn) }))) })); }); } catch (e) { /* */ }
   }
   function view(v) {
-    ensureGenders(); U.lastMap = v;
+    ensureGenders(); U.lastMap = v; U.kdNow = null;
     const { list, c, tab, col } = parse(v);
     if (!list.length) return `<section class="card"><div class="hd"><h2>Klassenmappen</h2></div><p class="muted">Klassen entstehen aus deinem Stundenplan. Hole ihn im Stundenplan über „Von WebUntis übernehmen“.</p></section>`;
-    try { localStorage.setItem('kmLast', JSON.stringify({ key: c.key })); } catch (e) { /* */ }
-    const chip = (x) => { const isKv = isKvEntry(x, list); return `<span class="ttchipw"><button class="ttchip${x.key === c.key ? ' on' : ''}" data-act="kmsel" data-key="${x.key}" data-tab="${tab}" ${isKv ? '' : 'draggable="true"'} title="${isKv ? 'Meine Klasse als Klassenvorstand' : 'Ziehen zum Verschieben'}">${disp(x)}</button></span>`; };
+    U.kdNow = c.kd; try { localStorage.setItem('kmLast', JSON.stringify({ key: c.key })); } catch (e) { /* */ }
+    const chip = (x) => { const isKv = isKvEntry(x, list); return `<span class="ttchipw"><button class="ttchip ${x.kd === 'gpb' ? 'fg' : 'fs'}${x.key === c.key ? ' on' : ''}" data-act="kmsel" data-key="${x.key}" data-tab="${tab}" ${isKv ? '' : 'draggable="true"'} title="${isKv ? 'Meine Klasse als Klassenvorstand' : 'Ziehen zum Verschieben'}">${disp(x)} ${x.kd === 'gpb' ? 'Geschichte' : 'Sport'}</button></span>`; };
     const kvC = list.find((x) => isKvEntry(x, list)), rest = list.filter((x) => x !== kvC), d = divAt(rest);
-    const seq0 = (kvC ? [kvC] : []).concat(rest), seen0 = new Set(), seq = seq0.filter((x) => (seen0.has(x.base) ? false : seen0.add(x.base))).map((x) => (x.base === c.base ? c : (seq0.find((y) => y.base === x.base && y.kd === c.kd) || x))), chips = seq.map(chip).join('');
-    const fach = list.filter((x) => x.base === c.base).sort((x, y) => (x.kd === 'gpb' ? 0 : 1) - (y.kd === 'gpb' ? 0 : 1)), fachH = `<div class="kfach" role="group" aria-label="Fach">${fach.map((x) => `<button class="${x.kd === 'gpb' ? 'fg' : 'fs'}${x.key === c.key ? ' on' : ''}" data-act="kmsel" data-key="${x.key}" data-tab="${x.kd === 'gpb' ? 'g' : 's'}" aria-pressed="${x.key === c.key}">${x.kd === 'gpb' ? 'Geschichte' : 'Sport'}</button>`).join('')}</div>`;
+    const seq = (kvC ? [kvC] : []).concat(rest), chips = seq.map((x, i) => (i && x.kd !== seq[i - 1].kd ? '<span class="kdiv" aria-hidden="true"></span>' : '') + chip(x)).join('');
     const body = tab === 'g' && col ? colPage(c, col) : subject(c, c.kd);
     const hm = /<!--H-->([\s\S]*?)<!--\/H-->/.exec(body), headH = hm ? hm[1] : '', bodyH = hm ? body.replace(hm[0], '') : body;
-    return `<div class="km"><div class="ttmenu">${chips}</div>${fachH}
+    return `<div class="km"><div class="ttmenu">${chips}</div>
       ${headH}<div class="kmbody kmnoside"><section class="kmmain">${bodyH}</section></div>${clsPopHtml()}${lessonPopHtml()}</div>`;
   }
 
