@@ -419,3 +419,25 @@ html:root body .ccard>.attp{background:#fff!important;border-radius:0!important;
   const oldAfter = window.uiAfterRender;
   window.uiAfterRender = function () { oldAfter && oldAfter(); if (U.toolsPop === 'team') { const old = document.getElementById('uisheet'); if (old) old.remove(); document.body.insertAdjacentHTML('beforeend', `<div id="uisheet"><div class="lspop" data-ui="1"><div class="lspopb" style="max-width:420px;width:min(420px,100%)"><div class="lspoph"><h2 style="margin:0">Team wählen</h2><button class="btn sm" data-act="uisheetx">Schließen</button></div><div class="lspopc" style="padding:14px"><div class="tmdig">${[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `<button data-act="tmset" data-n="${n}" style="border-bottom:4px solid ${COLS[(n - 1) % 8]}">${n}</button>`).join('')}<button data-act="tmset" data-n="0" style="grid-column:span 4;font-size:14px">Kein Team</button></div></div></div></div></div>`); } };
 })();
+
+/* ===== Feinabstimmung (S7): Menü, Karten, Kopfzeile ===== */
+(() => {
+  const st = document.createElement('style'); st.id = 'ui4'; st.textContent = `
+html:root .hero{padding:20px 0 14px!important}
+html:root body[data-fach] .hero{padding:20px 0 12px!important}
+.tb{min-height:44px!important}
+html:root .nav a{min-height:58px!important;padding:8px 0 7px!important;gap:3px!important}html:root .nav a .ni{width:23px!important;height:23px!important}html:root .nav a .nt{font-size:10.5px!important}
+html:root #main{padding-bottom:78px!important}
+html:root body .ccard.nx,html:root body .ccard.nx[data-k]{box-shadow:none!important;outline:0!important}
+html:root body .ccard>a.cl{padding:8px 12px!important;gap:8px}
+.ccard>a.cl b{font-size:17px!important}.ccard>a.cl .sj{font-size:13px!important}.ccard>a.cl .mt{font-size:13px!important}
+html:root body .ccard{border-radius:12px!important;padding-bottom:8px!important}
+html:root body .ccard>.lg{padding:6px 12px!important}
+html:root body .ccard>.ics{margin:8px 8px 0!important}
+html:root body .ccard .ics .attb{font-size:14px!important;padding:9px 14px!important;border-radius:10px!important}
+.micbig{font-size:14px!important;padding:8px 14px!important;border-radius:10px!important}
+html:root .card{padding:9px!important}
+html:root body .card h2,html:root body .card>.hd h2{font-size:13px!important}
+.dayl{padding:8px 6px 4px;font-size:13px}
+`; document.head.appendChild(st);
+})();
