@@ -257,7 +257,7 @@ body[data-fach=gpb] .tb .tdate b,body[data-fach=gpb] .tb .tdate span,body[data-f
 body[data-fach=bspk] .tb .tdate b,body[data-fach=bspk] .tb .tdate span,body[data-fach=bspk] .tb button{color:#fff!important}
 /* untere Leiste höher */
 html:root .nav a{min-height:72px!important;padding:12px 0 10px!important;gap:5px!important}html:root .nav a .ni{width:26px!important;height:26px!important}html:root .nav a .nt{font-size:11px!important}
-html:root #main{padding-bottom:96px!important}
+html:root #main{padding-bottom:84px!important}
 /* Ränder schmaler */
 html:root body{padding-left:0!important;padding-right:0!important}
 html:root .wrap{padding-left:4px!important;padding-right:4px!important;row-gap:0!important}
@@ -630,7 +630,7 @@ html:root body .pastbox .attb,html:root body .ccard .ics .attb.open{background:#
   const beep = () => { try { const a = new (window.AudioContext || window.webkitAudioContext)(), o = a.createOscillator(), g = a.createGain(); o.connect(g); g.connect(a.destination); o.frequency.value = 880; g.gain.value = 0.2; o.start(); setTimeout(() => { o.stop(); a.close(); }, 700); } catch (e) { /* */ } };
   let tmTimer = null;
   const tmLoop = () => { if (tmTimer) return; tmTimer = setInterval(() => { let any = false; ['cd', 'sw'].forEach((k) => { const el = document.getElementById('tmd-' + k); if (el) el.textContent = tmFmt(tmNow(k)); if (TM[k].run) any = true; }); if (TM.cd.run && tmNow('cd') <= 0) { TM.cd.run = false; TM.cd.acc = TM.cd.ms; TM.cd.done = true; beep(); const b = document.querySelector('[data-act=tmgo][data-k=cd]'); if (b) { b.textContent = 'Start'; b.classList.remove('run'); } } if (!any && !document.getElementById('tmd-cd')) { clearInterval(tmTimer); tmTimer = null; } }, 40); };
-  const tmCard = (k) => { const cd = k === 'cd', t = TM[k]; return `<div class="tmc" id="tmc-${k}"><div class="tmtop"><b>${cd ? 'Countdown' : 'Stoppuhr'}</b><button class="tmfs" data-act="tmfs" data-k="${k}" aria-label="Vollbild" title="Vollbild">⛶</button></div><div class="tmrow"><div class="tmdisp" id="tmd-${k}">${tmFmt(tmNow(k))}</div><div class="tmbtns"><button class="tmb start${t.run ? ' run' : ''}" data-act="tmgo" data-k="${k}">${t.run ? 'Stopp' : 'Start'}</button><button class="tmb" data-act="tmrs" data-k="${k}" aria-label="Zurücksetzen">↺</button></div></div>${cd ? `<div class="tmpre">${[1, 3, 5, 10, 15, 20].map((m) => `<button data-act="tmset" data-m="${m}">${m} Min</button>`).join('')}<button data-act="tmadd" data-m="1">+1</button><button data-act="tmadd" data-m="-1">−1</button></div>` : ''}</div>`; };
+  const tmCard = (k) => { const cd = k === 'cd', t = TM[k]; return `<div class="tmc" id="tmc-${k}"><div class="tmtop"><b>${cd ? 'Countdown' : 'Stoppuhr'}</b><button class="tmfs" data-act="tmfs" data-k="${k}" aria-label="Vollbild" title="Vollbild">⛶</button></div><div class="tmrow"><div class="tmdisp" id="tmd-${k}">${tmFmt(tmNow(k))}</div><div class="tmbtns"><button class="tmb start${t.run ? ' run' : ''}" data-act="tmgo" data-k="${k}">${t.run ? 'Stopp' : 'Start'}</button><button class="tmb" data-act="tmrs" data-k="${k}" aria-label="Zurücksetzen">↺</button></div></div>${cd ? `<div class="tmpre">${[1, 3, 5, 10, 15, 20].map((m) => `<button data-act="tmset" data-m="${m}">${m} Min</button>`).join('')}<button data-act="tmadd" data-m="-1">−1</button><button data-act="tmadd" data-m="1">+1</button></div>` : ''}</div>`; };
   const tmBody = () => { setTimeout(tmLoop, 30); return tmCard('cd') + '<div style="height:14px"></div>' + tmCard('sw'); };
 
   /* ---------- Sportarten: Regeln ---------- */
@@ -782,12 +782,12 @@ html:root body[data-fach] .km2.stu .ttmenu .ttchip{color:#fff!important;opacity:
 .sch .dd{margin:0 0 14px}.sch .ddh{display:flex;align-items:center;gap:10px;padding:16px 14px!important;font:700 17px var(--font-body);cursor:default}
 .sch .ddh.s1{background:#3b5978!important;color:#fff}.sch .ddh.s2{background:#d99a26!important;color:#fff}
 .sch .rw{padding:9px 14px;border-top:1px solid #eef1f5;background:#fff}.sch .rw small{display:block;font:500 11.5px var(--font-body);color:#64748b}.sch .rw b,.sch .rw span.v{font:600 15px var(--font-body);color:#1E293B}.sch .rw a{color:#3b5978}
-.sch .logos{display:flex;align-items:center;gap:14px;padding:14px;background:#fff;border-top:1px solid #eef1f5}.sch .logos img.l1{width:84px;height:auto}.sch .logos img.l2{max-width:62%;height:auto}
+.sch .logos{display:flex;align-items:center;gap:14px;padding:14px;background:#fff;border-top:1px solid #eef1f5}.sch .logos img.l1{width:84px;height:auto}.sch .logos img.l2{max-width:100%;height:auto;margin:0 auto;display:block}
 .sch .arzt{display:flex;gap:14px;padding:14px;background:#fff;border-top:1px solid #eef1f5}.sch .arzt img{width:96px;height:130px;object-fit:cover;border-radius:12px}
 .sch ul{margin:6px 0 0 18px;padding:0;font:500 14px var(--font-body);color:#1E293B}
 `; document.head.appendChild(st);
   const esc2 = (x) => String(x == null ? '' : x).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  UI.schoolPage = () => `<div class="sch"><section class="dd"><div class="ddh s1"><b>Schule</b></div><div class="logos"><img class="l1" src="${LOGO}" alt="BORG Guntramsdorf"><img class="l2" src="${WIDE}" alt=""></div><div class="rw"><small>Name</small><b>BORG / ORG Guntramsdorf – Karl-Sonnweber-Gymnasium</b></div><div class="rw"><small>Adresse</small><span class="v">Friedhofstraße 36, 2353 Guntramsdorf</span></div><div class="rw"><small>Schulkennzahl</small><b>317066</b></div><div class="rw"><small>Telefon</small><a href="tel:+43223650201"><span class="v">+43 (0)2236 502001</span></a></div><div class="rw"><small>E-Mail Sekretariat</small><a href="mailto:sekretariat@org-guntramsdorf.at"><span class="v">sekretariat@org-guntramsdorf.at</span></a></div><div class="rw"><small>Website</small><a href="https://www.org-guntramsdorf.at" target="_blank" rel="noopener"><span class="v">www.org-guntramsdorf.at</span></a></div></section><section class="dd"><div class="ddh s2"><b>Schulärztin</b></div><div class="arzt"><img src="${FOTO}" alt="Dr. Susanne Meyer"><div><b style="font:700 16px var(--font-body)">Frau Dr. Susanne Meyer</b><div class="muted sm" style="margin-top:6px">Sprechstunden / Dienstzeiten</div><ul><li>Montag 11:00 – 13:30 Uhr</li><li>Mittwoch 08:00 – 10:00 Uhr</li><li>Donnerstag 11:00 – 13:30 Uhr</li></ul></div></div><div class="rw"><small>Telefon (während der Dienstzeiten)</small><a href="tel:+43223650200114"><span class="v">02236 / 50 2001 14</span></a></div><div class="rw"><small>E-Mail</small><a href="mailto:schularzt@org-guntramsdorf.at"><span class="v">schularzt@org-guntramsdorf.at</span></a></div></section></div>`;
+  UI.schoolPage = () => `<div class="sch"><section class="dd"><div class="ddh s1"><b>Schule</b></div><div class="logos"><img class="l2" src="${WIDE}" alt=""></div><div class="rw"><small>Name</small><b>BORG / ORG Guntramsdorf – Karl-Sonnweber-Gymnasium</b></div><div class="rw"><small>Adresse</small><span class="v">Friedhofstraße 36, 2353 Guntramsdorf</span></div><div class="rw"><small>Schulkennzahl</small><b>317066</b></div><div class="rw"><small>Telefon</small><a href="tel:+43223650201"><span class="v">+43 (0)2236 502001</span></a></div><div class="rw"><small>E-Mail Sekretariat</small><a href="mailto:sekretariat@org-guntramsdorf.at"><span class="v">sekretariat@org-guntramsdorf.at</span></a></div><div class="rw"><small>Website</small><a href="https://www.org-guntramsdorf.at" target="_blank" rel="noopener"><span class="v">www.org-guntramsdorf.at</span></a></div></section><section class="dd"><div class="ddh s2"><b>Schulärztin</b></div><div class="arzt"><img src="${FOTO}" alt="Dr. Susanne Meyer"><div><b style="font:700 16px var(--font-body)">Frau Dr. Susanne Meyer</b><div class="muted sm" style="margin-top:6px">Sprechstunden / Dienstzeiten</div><ul><li>Montag 11:00 – 13:30 Uhr</li><li>Mittwoch 08:00 – 10:00 Uhr</li><li>Donnerstag 11:00 – 13:30 Uhr</li></ul></div></div><div class="rw"><small>Telefon (während der Dienstzeiten)</small><a href="tel:+43223650200114"><span class="v">02236 / 50 2001 14</span></a></div><div class="rw"><small>E-Mail</small><a href="mailto:schularzt@org-guntramsdorf.at"><span class="v">schularzt@org-guntramsdorf.at</span></a></div></section></div>`;
 
   /* ---------- Notiz: Popover direkt über der Notiz ---------- */
   const closePop = () => { const p = document.getElementById('notepop'); if (p) p.remove(); document.querySelectorAll('.nrow.nsel').forEach((e) => e.classList.remove('nsel')); };
@@ -814,17 +814,49 @@ html:root body[data-fach] .km2.stu .ttmenu .ttchip{color:#fff!important;opacity:
   const mkWav = (fn, secs) => { const sr = 22050, n = Math.floor(sr * secs), buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf), w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); }; w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true); for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, fn(i / sr))) * 32000, true); return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' })); };
   let flush = null, endTone = null;
   const audios = () => { if (flush) return; let lp = 0; flush = new Audio(mkWav((t) => { const env = Math.min(1, t * 6) * Math.max(0, 1 - Math.pow(t / 2.6, 3)) * (0.6 + 0.4 * Math.sin(t * 5)); const nz = Math.random() * 2 - 1; lp += 0.12 * (nz - lp); return (lp * 3.2 + Math.sin(t * 90 * (1 + t)) * 0.08) * env; }, 2.6)); endTone = new Audio(mkWav((t) => { const f = t < 0.45 ? 880 : t < 0.9 ? 1175 : 1568, e = Math.exp(-((t % 0.45) * 5)); return Math.sin(2 * Math.PI * f * t) * 0.6 * e; }, 1.4)); flush.volume = 0.75; endTone.volume = 0.75; };
-  const WC = { name: '', end: 0, run: false, left: 180000, tm: null, fired: false };
-  const wcFmt = (ms) => { const s = Math.ceil(Math.max(0, ms) / 1000); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
-  const wcMs = () => (WC.run ? WC.end - Date.now() : WC.left);
-  const wcBar = () => `<div id="wcbar"><span class="sp">🚽 ${esc2(WC.name)}</span><b id="wct">${wcFmt(wcMs())}</b><button data-act="wcadd" aria-label="+1 Minute">+1</button><button data-act="wcstop">${WC.run ? 'Stopp' : 'Start'}</button><button data-act="wcrs" aria-label="Zurücksetzen">↺</button></div>`;
-  const wcTick = () => { const el = document.getElementById('wct'); if (el) el.textContent = wcFmt(wcMs()); if (WC.run && wcMs() <= 0) { WC.run = false; WC.left = 0; try { endTone.volume = 0.75; endTone.currentTime = 0; endTone.play(); } catch (e) { /* */ } const b = document.getElementById('wcbar'); if (b) b.outerHTML = wcBar(); } };
+  const WC = { name: '', sid: '', slug: '', id: '', t0: 0, tm: null };
+  const wcFmt = (ms) => { const s = Math.floor(Math.max(0, ms) / 1000); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
+  const wcBar = () => `<div id="wcbar"><span class="sp">🚽 ${esc2(WC.name)}</span><b id="wct">${wcFmt(Date.now() - WC.t0)}</b><button data-act="wcstop">Zurück</button><button data-act="wcrs" aria-label="Abbrechen">↺</button></div>`;
+  const wcTick = () => { const el = document.getElementById('wct'); if (el) el.textContent = wcFmt(Date.now() - WC.t0); };
   const wcPlace = () => { const old = document.getElementById('wcbar'); if (!WC.name) { if (old) old.remove(); return; } const list = document.querySelector('.attp .attl'); if (!list) return; if (old) old.remove(); list.insertAdjacentHTML('beforebegin', wcBar()); };
   Object.assign(A, {
-    wcgo: (e) => { audios(); WC.name = e.dataset.nm || ''; WC.left = 180000; WC.end = Date.now() + 180000; WC.run = true; try { endTone.volume = 0; endTone.play().then(() => { endTone.pause(); endTone.currentTime = 0; endTone.volume = 0.75; }).catch(() => {}); flush.currentTime = 0; flush.volume = 0.75; flush.play(); } catch (x) { /* */ } clearInterval(WC.tm); WC.tm = setInterval(wcTick, 250); wcPlace(); },
-    wcadd: () => { if (WC.run) WC.end += 60000; else WC.left += 60000; wcTick(); },
-    wcstop: () => { if (WC.run) { WC.left = WC.end - Date.now(); WC.run = false; } else { WC.end = Date.now() + WC.left; WC.run = true; } const b = document.getElementById('wcbar'); if (b) b.outerHTML = wcBar(); },
-    wcrs: () => { WC.run = false; WC.left = 180000; WC.name = ''; clearInterval(WC.tm); const b = document.getElementById('wcbar'); if (b) b.remove(); },
+    wcgo: (e) => { audios(); if (WC.name) return toast('Es ist schon jemand auf dem WC – zuerst „Zurück“ drücken.'); WC.name = e.dataset.nm || ''; WC.sid = e.dataset.sid || ''; WC.slug = e.dataset.slug || ''; WC.id = e.dataset.id || ''; WC.t0 = Date.now(); try { flush.currentTime = 0; flush.volume = 0.75; flush.play(); } catch (x) { /* */ } clearInterval(WC.tm); WC.tm = setInterval(wcTick, 500); wcPlace(); },
+    wcstop: () => { const ms = Date.now() - WC.t0, sid = WC.sid, slug = WC.slug, id = WC.id, nm = WC.name; clearInterval(WC.tm); WC.name = ''; const b = document.getElementById('wcbar'); if (b) b.remove(); if (slug && id && sid) saveLog(slug, (log) => { const en = log.find((y) => y.id === id); if (!en) return; en.wc = (en.wc || []).concat([{ sid, t: Date.now(), s: Math.round(ms / 1000) }]); }); toast(nm + ': ' + wcFmt(ms) + ' min auf dem WC eingetragen'); },
+    wcrs: () => { clearInterval(WC.tm); WC.name = ''; const b = document.getElementById('wcbar'); if (b) b.remove(); },
   });
   const prev = window.uiAfterRender; window.uiAfterRender = function () { closePop(); prev && prev(); wcPlace(); };
+})();
+
+
+/* ===== S13 ===== */
+(() => {
+  if (!window.UI) return;
+  const st = document.createElement('style'); st.id = 'ui12'; st.textContent = `
+.npnav{margin:0 0 8px!important}.npcard{padding:8px!important;display:flex;flex-direction:column}.npcard .wkw{flex:1;display:flex;flex-direction:column}.npcard .wk{flex:1}
+.npb{border-radius:8px!important;background:#e9edf2!important;color:#1E293B!important;border:0!important;font:600 13px var(--font-body)!important;padding:9px 12px!important;min-height:38px}.npb.on{background:#d3dae3!important}
+.attt2{flex-wrap:wrap}.attact{flex:1 0 100%;white-space:nowrap;display:flex;gap:6px;align-items:baseline;justify-content:flex-start}.attact b{font-size:22px!important;margin:0 2px 0 0}.attp .attt2 .micbig{margin-top:6px}
+.attl li .kmav{width:38px;height:38px;flex:none;font-size:13px}.attl li .n{width:16px}
+.tmpre{display:flex!important;flex-wrap:nowrap!important;gap:4px!important}.tmpre button{flex:1 1 0;min-width:0;padding:11px 0!important;font-size:12px!important;border-radius:9px}
+.seatbtns{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}.seatbtns .btn{border-radius:10px}
+.seatdims{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;border-top:1px solid #e1e6ed;border-bottom:1px solid #e1e6ed;padding:10px 0;margin-bottom:10px;font-size:13px;overflow-x:auto}.seatdims>*{flex:none}.seatsep{width:1px;align-self:stretch;background:#cdd5df;margin:0 6px}.seatdims .btn.sm{padding:6px 10px}
+.seat.ed{cursor:pointer}
+.tlsel{display:flex;align-items:center;gap:8px;margin:0 0 10px;font:600 13px var(--font-body);color:#1E293B}.tlsel select{flex:1;min-width:0;padding:11px 10px;border:1px solid #d5dbe3;border-radius:10px;background:#fff;font:600 14px var(--font-body)}
+.a2c.neu{background:#fff;border:1px dashed #64748b}.a2c.neu.on{background:#cfd8e3}
+html:root .dd.tdr[data-tk=media]>.ddh{background:#1DB954!important;color:#fff!important}html:root .dd.tdr[data-tk=media]>.ddh *{color:#fff!important}
+`; document.head.appendChild(st);
+  const lsx = (k) => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } };
+  /* Klassenauswahl für Geschichte-Tools */
+  const oldTP = UI.toolsPage;
+  UI.toolsPage = (kd) => { let h = oldTP(kd); if (kd !== 'gpb' || typeof KM === 'undefined' || !KM.toolsGroups) return h; const gs = KM.toolsGroups('gpb'); if (gs.length < 2) return h; const cur = ((U.tlSlug || {}).gpb) || (typeof KM.toolsPrepare === 'function' && (KM.toolsPrepare('gpb') || {}).slug) || '';
+    const sel = `<label class="tlsel">Klasse<select data-ch="tlcls">${gs.map((g) => `<option value="${g.slug}"${g.slug === cur ? ' selected' : ''}>${String(g.label).replace(/</g, '&lt;')}</option>`).join('')}</select></label>`;
+    return h.replace('<div style="padding-top:8px">', '<div style="padding-top:8px">' + sel); };
+  Object.assign(C, { tlcls: (e) => { U.tlSlug = Object.assign({}, U.tlSlug, { gpb: e.value }); render(); } });
+  /* Home-Tabs: Scrollposition halten, Stundenplan bis fast zur unteren Leiste */
+  const hh = () => { const h = document.querySelector('.hero'); return h ? h.offsetHeight : 0; };
+  const oldPane = A.homepane; A.homepane = (e) => { const y = window.scrollY, h = hh(); oldPane(e); window.scrollTo(0, y >= h - 2 ? h : y); };
+  const fit = () => { const home = document.querySelector('.homewrap'); document.body.style.minHeight = home ? (window.innerHeight + hh()) + 'px' : '';
+    const card = document.querySelector('.carp.on .npcard'); if (!card) return; card.style.minHeight = ''; const top = card.getBoundingClientRect().top + window.scrollY, h = window.innerHeight + hh() - top - 84; card.style.minHeight = Math.max(280, h) + 'px'; };
+  const prev = window.uiAfterRender; window.uiAfterRender = function () { prev && prev(); fit(); setTimeout(fit, 350); };
+  window.addEventListener('resize', fit); document.addEventListener('click', () => setTimeout(fit, 380), true);
+  document.documentElement.classList.add('ready');
 })();
