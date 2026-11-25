@@ -1124,7 +1124,7 @@ html:root body .ccard a.cl .cdm.y,html:root body .ccard a.cl .cdm.y b,html:root 
 .stcd .stc{padding:10px 12px 14px}.stcd .stl{max-height:none!important;overflow:visible!important}
 .stclr{background:#b3261e!important;color:#fff!important;border-color:#b3261e!important;border-radius:8px!important}
 `; document.head.appendChild(st);
-  const spread = () => { const tm = document.querySelector('.tb .tm'), tr = document.querySelector('.tb .tr'), tb = document.querySelector('.tb'); if (!tm || !tr || !tb) return; const ic = tm.querySelector('svg'), sp = tm.querySelector('span'); if (!ic || !sp) return; tm.style.setProperty('margin-left', '0px', 'important'); tr.style.width = ''; const w = Math.round(sp.getBoundingClientRect().right - ic.getBoundingClientRect().left); if (w < 100) return; tr.style.width = w + 'px'; tr.style.justifyContent = 'space-between'; tr.style.flex = 'none'; const left = tr.getBoundingClientRect().left - tb.getBoundingClientRect().left; tm.style.setProperty('margin-left', Math.round(left) + 'px', 'important'); };
+  const spread = () => { const tm = document.querySelector('.tb .tm'), tr = document.querySelector('.tb .tr'), tb = document.querySelector('.tb'); if (!tm || !tr || !tb) return; const ic = tm.querySelector('svg'), sp = tm.querySelector('span'), g0 = tr.querySelector('button:first-child svg'), g1 = tr.querySelector('button:last-child svg'); if (!ic || !sp || !g0 || !g1) return; tm.style.setProperty('margin-left', '0px', 'important'); tr.style.width = ''; tr.style.justifyContent = ''; const w = Math.round(sp.getBoundingClientRect().right - ic.getBoundingClientRect().left); if (w < 100) return; const trr = tr.getBoundingClientRect(), dl = g0.getBoundingClientRect().left - trr.left, dr = trr.right - g1.getBoundingClientRect().right; tr.style.width = Math.round(w + dl + dr) + 'px'; tr.style.justifyContent = 'space-between'; tr.style.flex = 'none'; const gR = g1.getBoundingClientRect().right; tm.style.setProperty('margin-left', Math.round(gR - w - tb.getBoundingClientRect().left) + 'px', 'important'); };
   const prevS = window.uiAfterRender; window.uiAfterRender = function () { prevS && prevS(); spread(); setTimeout(spread, 200); }; window.addEventListener('resize', spread); })();
 
 (() => { const st = document.createElement('style'); st.id = 'ui33'; st.textContent = `
@@ -1138,3 +1138,10 @@ html:root .dd.tdr[data-tk=clock],html:root .dd.tdr[data-tk=score],html:root .dd.
     tlgo: (e) => { const el = document.getElementById('sppick'); if (el) el.remove(); U.tlSlug = Object.assign({}, U.tlSlug, { gpb: e.dataset.k }); render(); } }); })();
 
 (() => { const st = document.createElement('style'); st.id = 'ui34'; st.textContent = `.synp{background:#fff;border-radius:14px;padding:14px;margin-bottom:12px}.setmain .ttmenu{margin-bottom:10px}`; document.head.appendChild(st); })();
+
+(() => { const st = document.createElement('style'); st.id = 'ui35'; st.textContent = `
+.attact{flex-direction:row!important;align-items:flex-end!important;justify-content:space-between!important;width:100%;gap:8px!important}
+.attact .attrow{display:flex;align-items:flex-end;gap:7px}.attact .attrow>i{font-style:normal;color:#94a3b8;padding-bottom:3px}
+.attact .atc{display:inline-flex;flex-direction:column;align-items:center;line-height:1.15}.attact .atc b{font:800 20px var(--font-body)}.attact .atc em{font:500 11px var(--font-body);font-style:normal;color:#475569;white-space:nowrap}.attact .atc small{font:500 11px var(--font-body);margin:0;color:#64748b}
+.attact .atc .tot{color:#000}.attact .attht{margin-left:auto;text-align:right;font:700 11px/1.2 var(--font-body);color:#64748b;text-transform:uppercase;letter-spacing:.04em;align-self:center}
+`; document.head.appendChild(st); })();
