@@ -668,7 +668,7 @@ html:root body .pastbox .attb,html:root body .ccard .ics .attb.open{background:#
   const depth = (v) => (/^(klassen|uebersicht|mappe|leistungen|material|daten|jahresplan|erarbeiten|druck)$/.test(v) ? 0 : /^(schueler-|stunde-)/.test(v) ? 2 : 1);
   let prevView = null; const oldAfter2 = window.uiAfterRender;
   window.uiAfterRender = function () { oldAfter2 && oldAfter2(); const v = U.view || 'klassen';
-    if (prevView !== null && prevView !== v) { const d0 = depth(prevView), d1 = depth(v); if (d0 !== d1) { const m = document.getElementById('main'); if (m && m.animate) { try { m.animate([{ transform: `translateX(${d1 > d0 ? 70 : -70}px)`, opacity: 0.1 }, { transform: 'translateX(0)', opacity: 1 }], { duration: 280, easing: 'cubic-bezier(.22,.8,.3,1)' }); } catch (x) { /* */ } } } }
+    if (prevView !== null && prevView !== v) { const d0 = depth(prevView), d1 = depth(v); if (d0 !== d1) { const m = document.querySelector('body > .wrap') || document.getElementById('main'); if (m && m.animate) { try { m.animate([{ transform: `translateX(${d1 > d0 ? 70 : -70}px)`, opacity: 0.1 }, { transform: 'translateX(0)', opacity: 1 }], { duration: 280, easing: 'cubic-bezier(.22,.8,.3,1)' }); } catch (x) { /* */ } } } }
     prevView = v;
     if (window.__libStuck) { const h = document.querySelector('.libhd'); if (h) { const c = h.closest('.card'); if (c) window.scrollTo(0, c.getBoundingClientRect().top + window.scrollY - 2); } window.__libStuck = false; } };
   document.addEventListener('pointerdown', (e) => { const h = e.target.closest && e.target.closest('.libhd'); if (h) window.__libStuck = h.getBoundingClientRect().top <= 3; });
@@ -677,3 +677,59 @@ html:root body .pastbox .attb,html:root body .ccard .ics .attb.open{background:#
   UI.schoolPage = () => { const d = S.settings.schule || {}, a = d.arzt || {}, v = (x, f) => (x ? `<dd>${esc2(x)}</dd>` : `<dd class="off">${f || 'noch nicht gefunden'}</dd>`);
     return `<div class="sch"><section class="card" style="padding:10px 14px!important"><div class="row2"><div class="logo">ORG</div><div><div style="font:700 17px var(--font-body)">BORG / ORG Guntramsdorf</div><div class="muted sm">Karl-Sonnweber-Gymnasium</div></div></div><dl><dt>Adresse</dt><dd>Friedhofstraße 36<br>2353 Guntramsdorf</dd><dt>Telefon</dt><dd><a href="tel:+43223650201">+43 (0)2236 502001</a></dd><dt>E-Mail Sekretariat</dt><dd><a href="mailto:sekretariat@org-guntramsdorf.at">sekretariat@org-guntramsdorf.at</a></dd><dt>Website</dt><dd><a href="https://www.org-guntramsdorf.at" target="_blank" rel="noopener">www.org-guntramsdorf.at</a></dd><dt>Schulkennzahl</dt>${v(d.skz)}</dl></section><section class="card" style="padding:10px 14px!important"><h2 style="padding:0 0 4px!important">Schulärztin</h2><dl style="margin-top:0"><dt>Name</dt>${v(a.name)}<dt>Sprech- und Dienstzeiten</dt>${v(a.zeiten)}<dt>Kontakt</dt>${v(a.kontakt)}</dl></section><p class="muted sm" style="padding:2px 6px">Quellen: öffentliche Schulverzeichnisse. Die Schulwebsite war aus meiner Umgebung nicht erreichbar; Schulkennzahl, Schulärztin und Logo ließen sich nicht finden und sind offen.</p></div>`; };
 })();
+
+/* ===== S11: Home-Trennlinien, Schülerprofil, Notizen, Animation ===== */
+(() => {
+  if (!window.UI) return;
+  const st = document.createElement('style'); st.id = 'ui9'; st.textContent = `
+body{overflow-x:hidden}
+/* Home */
+html:root body .dsec+.dsec{border-top:3px solid #b6c2d2!important;margin-top:10px!important;padding-top:2px!important}
+.dayl{font-size:16px!important;padding:12px 6px 6px!important}.dayl span{font-size:13px!important}
+html:root body .ccard>a.cl b .dayn,html:root body .ccard>a.cl .dayn{color:inherit!important;opacity:.95;font-weight:600}
+/* Schüler (Sport) */
+.s2row{grid-template-columns:auto 104px 1fr 44px!important}.s2av .kmav{width:36px;height:36px}
+.s2st{text-align:right}.s2num{text-align:right!important}
+/* Schülerprofil */
+.km2.stu .carp{padding:0 10px;box-sizing:border-box}
+.km2.stu .kmbody2 .card{padding:8px 12px!important;border-radius:12px}
+.km2.stu .kmprofile{padding:10px 12px!important}
+.hallrows{display:grid;gap:10px}.hallrow{display:grid;grid-template-columns:92px 1fr;gap:8px;align-items:center}.hallrow>b{font:700 13px var(--font-body)}
+.fehlc .s2num{display:block;margin-top:3px}
+/* Notizen */
+.notes{padding:0!important}
+.nhd{position:sticky;top:46px;z-index:30;background:#fff;display:flex;justify-content:space-between;gap:10px;padding:10px 12px 8px;border-bottom:1px solid #e6ebf1;border-radius:12px 12px 0 0}
+.nhl{display:flex;flex-direction:column;gap:2px;min-width:0}.nhl b{font:700 14px var(--font-body)}
+.nhr{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.nbub{width:48px;height:42px;border-radius:10px;border:0;background:#e2e8f0;color:#1E293B;display:grid;place-items:center;cursor:pointer}
+.nhr .narch{border-radius:10px!important;padding:8px 12px!important;background:#e2e8f0;font:600 13px var(--font-body);cursor:pointer;color:#1E293B}
+.nlist{padding:4px 12px 10px}
+.nrow{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid #eef1f5;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.nrow:last-child{border-bottom:0}
+.nbar{flex:0 0 4px;border-radius:2px;background:#d99a26}.nrow.fs .nbar{background:#3b5978}
+.nmeta{display:flex;gap:8px;align-items:baseline;margin-bottom:2px}.nmeta b{font:700 13px var(--font-body)}.ntag{font:600 11px var(--font-body);color:#64748b}
+.ntxt{font:500 15px/1.35 var(--font-body);color:#1E293B}
+`; document.head.appendChild(st);
+
+  /* Lange drücken auf eine Notiz: archivieren / löschen */
+  (() => { let t = null, pos = null;
+    const open = (el) => { const k = el.dataset.nk, a = el.dataset.na === '1'; const old = document.getElementById('uisheet'); if (old) old.remove(); try { navigator.vibrate && navigator.vibrate(20); } catch (e) { /* */ } window.__noClick = Date.now();
+      document.body.insertAdjacentHTML('beforeend', `<div id="uisheet"><div class="lspop" data-ui="1"><div class="lspopb" style="max-width:420px;width:min(420px,100%)"><div class="lspoph"><h2 style="margin:0">Notiz</h2><button class="btn sm" data-act="uisheetx">Abbrechen</button></div><div class="lspopc" style="padding:14px;display:grid;gap:10px"><button class="btn" style="padding:14px" data-act="noteact" data-op="${a ? 'unarch' : 'arch'}" data-k="${k.replace(/"/g, '&quot;')}">${a ? 'Wiederherstellen' : 'Archivieren'}</button><button class="btn bad" style="padding:14px" data-act="noteact" data-op="del" data-k="${k.replace(/"/g, '&quot;')}">Löschen</button></div></div></div></div>`); };
+    document.addEventListener('pointerdown', (e) => { const el = e.target.closest && e.target.closest('.nrow'); if (!el) return; pos = { x: e.clientX, y: e.clientY }; clearTimeout(t); t = setTimeout(() => open(el), 520); });
+    document.addEventListener('pointermove', (e) => { if (t && pos && (Math.abs(e.clientX - pos.x) > 10 || Math.abs(e.clientY - pos.y) > 10)) { clearTimeout(t); t = null; } });
+    ['pointerup', 'pointercancel'].forEach((n) => document.addEventListener(n, () => { clearTimeout(t); t = null; }));
+    document.addEventListener('contextmenu', (e) => { if (e.target.closest && e.target.closest('.nrow')) e.preventDefault(); }); })();
+
+  /* Kopf im Schülerprofil folgt dem gewählten Fach; Einschub-Animation für die ganze Seite */
+  const prev = window.uiAfterRender;
+  window.uiAfterRender = function () {
+    if (/^schueler-/.test(U.view || '')) { const ch = document.querySelector('.km2.stu .chead'); if (ch) { const f = ch.classList.contains('fs') ? 'bspk' : 'gpb'; document.body.dataset.fach = f; try { const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = f === 'gpb' ? '#d99a26' : '#3b5978'; } catch (e) { /* */ } } }
+    prev && prev();
+  };
+})();
+
+(() => { const st = document.createElement('style'); st.id = 'ui10'; st.textContent = `
+html:root body[data-fach] .km2.stu .ttmenu{background:var(--fc)!important;margin:0 -8px 8px!important;padding:0 8px!important;box-shadow:0 0 0 100vmax var(--fc)!important;clip-path:inset(0 -100vmax)!important;border:0!important}
+html:root body[data-fach] .km2.stu .ttmenu .ttchip{color:#fff!important;opacity:.75;text-shadow:0 1px 2px rgba(0,0,0,.35)}html:root body[data-fach] .km2.stu .ttmenu .ttchip.on{opacity:1}html:root body[data-fach] .km2.stu .ttmenu .ttchip.on::after{background:#fff!important}
+.km2.stu .kmprofile{margin:8px 0!important}
+`; document.head.appendChild(st); })();
