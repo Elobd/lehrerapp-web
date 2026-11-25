@@ -1999,7 +1999,7 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
     sptabtog: (e) => { const st0 = tsState(), n = e.dataset.n; st0.sptab = Object.assign({}, st0.sptab, { [n]: !(st0.sptab || {})[n] }); render(); },
     spcolsel: (e) => { const st0 = tsState(); st0.spcid = Object.assign({}, st0.spcid, { [e.dataset.k]: null }); st0.spcs = Object.assign({}, st0.spcs, { [e.dataset.k]: +e.dataset.i }); render(); },
     spov: (e) => { const st0 = tsState(); st0.spov = Object.assign({}, st0.spov, { [e.dataset.slug]: true }); render(); },
-    kmlsel: (e) => { const c = sorted().find((x) => x.key === e.dataset.key), G = c && primary(c.bspk); if (G) setView('tests-' + G.slug); },
+    kmlsel: (e) => { const c = sorted().find((x) => x.key === e.dataset.key), G = c && primary(c.kd === 'gpb' ? c.gpb : c.bspk); if (G) setView('tests-' + G.slug); },
     spcat: (e) => { const st0 = tsState(), k = e.dataset.slug + '|' + spArea(e.dataset.slug).id; st0.spcat = Object.assign({}, st0.spcat, { [k]: e.dataset.c }); render(); },
     spedit: () => { const st0 = tsState(); st0.edSp = !st0.edSp; render(); },
     spadd: (e) => { setTimeout(() => { const i = document.getElementById('spnew'); if (i) i.focus(); }, 150); setTimeout(() => { const i = document.getElementById('spnew'); if (i && document.activeElement !== i) i.focus(); }, 400); const inp = document.getElementById('spnew'), n = ((inp || {}).value || '').trim(); if (!n) return toast('Bitte einen Namen eingeben'); const AR = spAreas(), ar = spArea(e.dataset.slug); if (ar.items.some((x) => norm(x[1]) === norm(n))) return toast('Diese Disziplin gibt es schon'); if (inp) inp.value = ''; const key = 'sp' + Date.now().toString(36), n2 = spWithUnit(key, n); saveCfg({ spAreas: AR.map((q) => (q.id === ar.id ? Object.assign({}, q, { items: q.items.concat([[key, n2]]) }) : q)) }); },
@@ -2106,7 +2106,7 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
   document.addEventListener('dragend', () => { jpDr = null; jpClr(); });
   Object.assign(A, { jpmatview: (e) => { saveCfg({ jpMatView: e.dataset.v }); } });
   function testPage(slug) {
-    if (!slug) return listUI('bspk');
+    if (!slug) return listUI('', true);
     if (false) { const all = sorted().map((x) => primary(x.kd === 'gpb' ? x.gpb : x.bspk)).filter(Boolean), last = tsState().lastTs; slug = all.some((g) => g.slug === last) ? last : (all.find((g) => kind(g) === 'bspk') || all[0] || {}).slug || ''; }
     else tsState().lastTs = slug;
     const G = groups().find((g) => g.slug === slug);
@@ -2151,10 +2151,10 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
   const stuOf = (c) => { const G = primary(c.kd === 'gpb' ? c.gpb : c.bspk); return G ? studentsSorted(G) : []; };
   const cntLine = (c) => { const a = stuOf(c), m = a.filter((x) => x.g === 'm').length, w = a.filter((x) => x.g === 'w').length; return a.length ? `${a.length} Schüler${m || w ? ` (${w} Mädchen / ${m} Burschen)` : ''}` : 'Noch keine Schüler'; };
   const CHEV = (o) => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${o ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'}"/></svg>`;
-  function listUI(only) {
+  function listUI(only, lsel) {
     const list = sorted().filter((x) => !only || x.kd === only); if (!list.length) return `<section class="card"><p class="muted">Klassen entstehen aus deinem Stundenplan (Einstellungen → Dateneingabe).</p></section>`;
     return [['gpb', 'Geschichte'], ['bspk', 'Bewegung und Sport']].filter(([k]) => !only || k === only).map(([k, t]) => { const cs = list.filter((x) => x.kd === k);
-      return `<section class="dd ${k === 'gpb' ? 'fg' : 'fs'}"><div class="ddh"><b>${t}</b><span class="ddn">${cs.length}</span></div>${cs.length ? cs.map((x) => `<button class="crow" data-act="${only ? 'kmlsel' : 'kmsel'}" data-key="${x.key}"><span><b class="cn">${up(disp(x))}</b><small>${esc(cntLine(x))}</small></span>${CHEV(false).replace('M6 9l6 6 6-6', 'M9 6l6 6-6 6')}</button>`).join('') : '<p class="muted sm" style="padding:10px 14px;margin:0">Keine Klassen.</p>'}</section>`; }).join('');
+      return `<section class="dd ${k === 'gpb' ? 'fg' : 'fs'}"><div class="ddh"><span class="ddic">${k === 'gpb' ? SVG_HELM : SVG_RUN}</span><b>${t}</b><span class="ddn">${cs.length}</span></div>${cs.length ? cs.map((x) => `<button class="crow" data-act="${only || lsel ? 'kmlsel' : 'kmsel'}" data-key="${x.key}"><span><b class="cn">${up(disp(x))}</b><small>${esc(cntLine(x))}</small></span>${CHEV(false).replace('M6 9l6 6 6-6', 'M9 6l6 6-6 6')}</button>`).join('') : '<p class="muted sm" style="padding:10px 14px;margin:0">Keine Klassen.</p>'}</section>`; }).join('');
   }
   const isKvC = (c) => norm(cfg().kvClass || '') === c.base;
   const CTall = [['ov', 'Übersicht'], ['u', 'Schüler'], ['pr', 'Schüler'], ['u2', 'Schüler 2'], ['s', 'UE Überblick'], ['g', 'Gefährdungen'], ['o', 'Noten'], ['f', 'Klassenfoto']];
@@ -2185,6 +2185,16 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
       return `<div class="pcard${o ? ' open' : ''}"><button class="pch" data-act="prx" data-id="${esc(x.id)}"><span class="pav">${avSpan(x, 'kmav', G)}</span><span class="pnm"><b>${esc(up(x.nn))}</b><span>${esc(x.vn)}</span></span><span class="pkp">${chip(tm)}<span class="pnote">${P.tm ? 'Note ' + P.note : ''}</span></span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${o ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'}"/></svg></button>${o ? `<div class="pdet">${cols.map((k, i) => { const a = P.per[i] || {}; return `<div class="pcol"><small>${esc(k.name || k.id)}</small>${a.n ? chip(a.pc) : '<span class="kmp">–</span>'}</div>`; }).join('')}</div><div class="pact"><button class="btn sm" data-act="kmstu" data-slug="${G.slug}" data-id="${esc(x.id)}">Profil öffnen ›</button></div>` : ''}</div>`; }).join('');
     return `<section class="card" style="padding:6px 0!important"><div class="muted sm" style="padding:2px 14px 8px">Tippen klappt die Details auf. Oben stehen Gesamtprozent und Note.</div>${rows || '<p class="muted" style="padding:8px 14px">Noch keine Schüler.</p>'}</section>`;
   }
+  const stuTools = (c, G) => { const ed = !!(U.stEdit || {})[G.slug], pn = (U.prn || {})[G.slug], sts = studentsSorted(G);
+    const bar = `<section class="card stbar"><div class="row" style="align-items:center;gap:8px"><h2 style="margin:0">Schüler</h2><span class="muted sm">${sts.length}</span><span style="flex:1"></span><button class="btn sm pr" data-act="stuprint" data-slug="${G.slug}" aria-label="Schülerliste drucken" title="Schülerliste drucken">${prnIcon}</button><button class="btn sm${ed ? ' good' : ''}" data-act="stedit" data-slug="${G.slug}" aria-label="Schüler hinzufügen oder löschen" title="Bearbeiten">${ed ? '✓' : '✎'}</button></div>${pn ? prnPanel(G) : ''}</section>`;
+    const list = ed ? `<section class="card" style="padding:6px 0!important"><div class="stnewrow"><input id="stnew" data-slug="${G.slug}" placeholder="Nachname Vorname – Enter" autocomplete="off" maxlength="80"><button class="btn good" data-act="stadd" data-slug="${G.slug}" aria-label="Hinzufügen">+</button></div>${sts.map((x) => `<div class="stdr">${avSpan(x, 'kmav')}<span class="stdn"><b>${esc(up(x.nn))}</b> ${esc(x.vn)}</span><button class="btn sm bad" data-act="stdel" data-slug="${G.slug}" data-id="${esc(x.id)}" aria-label="${esc(x.vn + ' ' + x.nn)} löschen" title="Löschen"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg></button></div>`).join('')}</section>` : '';
+    return { bar, list, ed }; };
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.target && ev.target.id === 'stnew') { ev.preventDefault(); A.stadd({ dataset: { slug: ev.target.dataset.slug } }); } });
+  Object.assign(A, {
+    stedit: (e) => { U.stEdit = Object.assign({}, U.stEdit, { [e.dataset.slug]: !(U.stEdit || {})[e.dataset.slug] }); render(); setTimeout(() => { const i = document.getElementById('stnew'); if (i) i.focus(); }, 60); },
+    stadd: (e) => { const i = document.getElementById('stnew'), v = i ? i.value.trim().replace(/\s+/g, ' ') : ''; if (!v) return; const G = groups().find((g) => g.slug === e.dataset.slug); if (!G) return; const ci = cinfo(G.slug), cur = Array.isArray(ci.students) ? ci.students.map((x) => Object.assign({}, x)) : [], sp = v.indexOf(' '), nn = sp < 0 ? v : v.slice(0, sp), vn = sp < 0 ? '' : v.slice(sp + 1); if (cur.some((x) => (x.nn + '|' + x.vn).toLowerCase() === (nn + '|' + vn).toLowerCase())) return toast('Diese Person gibt es schon.'); cur.push({ id: uid('s'), nn, vn, kl: (G.classes && G.classes.length === 1 ? G.classes[0] : '') }); put('settings', Object.assign({}, ci, { id: 'cn_' + G.slug, students: cur })); toast(vn + ' ' + nn + ' hinzugefügt'); render(); setTimeout(() => { const j = document.getElementById('stnew'); if (j) j.focus(); }, 60); },
+    stdel: (e) => { const G = groups().find((g) => g.slug === e.dataset.slug); if (!G) return; const ci = cinfo(G.slug), x = (ci.students || []).find((q) => q.id === e.dataset.id); if (!x || !confirm(x.vn + ' ' + x.nn + ' aus der Klassenliste löschen?')) return; put('settings', Object.assign({}, ci, { id: 'cn_' + G.slug, students: ci.students.filter((q) => q.id !== x.id) })); render(); },
+  });
   function classUI(c) {
     const kd = c.kd, G = primary(kd === 'gpb' ? c.gpb : c.bspk), html = subject(c, kd).replace(/<!--H-->[\s\S]*?<!--\/H-->/, '');
     const tmp = document.createElement('div'); tmp.innerHTML = html;
@@ -2192,8 +2202,8 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
     const CT = CTof(c), tabs = (U.kmTab = U.kmTab || {}), cur = CT.some((x) => x[0] === tabs[c.key]) ? tabs[c.key] : (kd === 'bspk' ? 'u2' : 'pr'), P = {};
     P.u = card('Schülerliste');
     if (CT.some((x) => x[0] === 'ov')) P.ov = kvOverview(c);
-    if (kd === 'bspk') P.u2 = sportStud2(c, G);
-    if (kd === 'gpb') P.pr = studentCards(c, G);
+    if (kd === 'bspk') { const st = stuTools(c, G); P.u2 = st.bar + (st.ed ? st.list : sportStud2(c, G)); }
+    if (kd === 'gpb') { const st = stuTools(c, G); P.pr = st.bar + (st.ed ? st.list : studentCards(c, G)); }
     { const nl = nextLesson(G), le = nl && (cinfo(G.slug).log || []).find((x) => x.date === nl.date && String(x.text || '').trim()) || (nl && (cinfo(G.slug).log || []).find((x) => x.date === nl.date)), txt = le && le.text ? String(le.text) : '';
       const nxt = nl ? `<section class="card nxl" data-act="godate" data-slug="${G.slug}" data-d="${nl.date}" role="button" tabindex="0"><div class="muted sm">Nächste Stunde</div><div class="kmbig" style="font-size:18px;margin:2px 0 6px">${esc(dshort(nl.date))}${nl.von ? ' · ' + esc(nl.von) + '–' + esc(nl.bis || '') : ''}</div><label class="thm${txt ? '' : ' empty'}" data-act="nop"><span>Stundenthema</span><input type="text" data-ch="thmin" data-slug="${G.slug}" data-d="${nl.date}" value="${esc(txt)}" placeholder="Thema eintragen …" autocomplete="off"></label></section>` : '';
       const lg = (cinfo(G.slug).log || []).filter((x) => x.date <= TODAY).slice().sort((a, b) => b.date.localeCompare(a.date) || String(b.id).localeCompare(String(a.id)));
