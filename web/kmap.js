@@ -2117,7 +2117,7 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
     const oc = KCOL[tsCat(G.slug)] || tsCat(G.slug), old = resItems(G).filter((e) => e.col === oc).length, olink = old && c ? `<div class="muted sm" style="margin:-6px 0 12px">Zählt in der Klassenmappe als Spalte „${esc(((colsDef().find((k) => k.id === oc)) || {}).name || '')}". <a class="kmmore" href="#${route(c.key, 'g', oc)}" data-act="kmcolold" data-key="${c.key}" data-col="${oc}">Manuelle Einträge (${old}) ›</a></div>` : '';
     const cm = sorted().map((x, i, ar0) => { const g = primary(x.kd === 'gpb' ? x.gpb : x.bspk); return (i && x.kd !== ar0[i - 1].kd ? '<span class="kdiv" aria-hidden="true"></span>' : '') + `<span class="ttchipw"><button class="ttchip${g.slug === G.slug ? ' on' : ''}" data-act="kmtsel" data-slug="${g.slug}">${disp(x)} ${kdName(x)}</button></span>`; }).join('');
     if (kd === 'bspk') return `<div class="km2 sp">${classHead(c || { label: G.label, kd: 'bspk' }, 'Leistungen')}<section class="kmmain">${window.UI ? UI.pane([['ov'].concat(0)].concat(spAreas().map((q) => [q.id])), (tsState().spov || {})[G.slug] !== false ? 'ov' : spArea(G.slug).id, 'spnav', sportPage(G, c, ci)) : sportPage(G, c, ci)}</section></div>`;
-    return `<div class="km"><div class="ttmenu">${cm}</div>${head}${menu}${olink}<section class="kmmain">${testsPage(G, c, ci)}</section></div>`;
+    return `<div class="km2 sp">${classHead(c || { label: G.label, kd: 'gpb' }, 'Leistungen')}<div class="spmbox">${menu}</div>${olink}<section class="kmmain">${testsPage(G, c, ci)}</section></div>`;
   }
   /* Neu angelegtes Material (Ablagezone der Stundenseite) gleich an die Stunde hängen */
   document.addEventListener('matcreated', (ev) => { const d = ev.detail || {}, a = d.attach; if (!a || !d.id) return; saveLog(a.slug, (log) => { const x = log.find((y) => y.id === a.lid); if (!x) return; const l = Array.isArray(x.mats) ? x.mats.slice() : []; if (!l.includes(d.id)) l.push(d.id); x.mats = l; }); if (a.student) A.lssmadd({ dataset: { slug: a.slug, id: a.lid, mid: d.id } }); });
@@ -2157,8 +2157,8 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
       return `<section class="dd ${k === 'gpb' ? 'fg' : 'fs'}"><div class="ddh"><b>${t}</b><span class="ddn">${cs.length}</span></div>${cs.length ? cs.map((x) => `<button class="crow" data-act="${only ? 'kmlsel' : 'kmsel'}" data-key="${x.key}"><span><b class="cn">${up(disp(x))}</b><small>${esc(cntLine(x))}</small></span>${CHEV(false).replace('M6 9l6 6 6-6', 'M9 6l6 6-6 6')}</button>`).join('') : '<p class="muted sm" style="padding:10px 14px;margin:0">Keine Klassen.</p>'}</section>`; }).join('');
   }
   const isKvC = (c) => norm(cfg().kvClass || '') === c.base;
-  const CTall = [['ov', 'Übersicht'], ['u', 'Schüler'], ['pr', 'Schüler Probe'], ['u2', 'Schüler 2'], ['s', 'UE-Überblick'], ['g', 'Gefährdungen'], ['o', 'Noten'], ['f', 'Klassenfoto']];
-  const CTof = (c) => CTall.filter(([k]) => (k !== 'ov' || isKvC(c)) && (k !== 'u2' || c.kd === 'bspk') && (k !== 'u' || c.kd !== 'bspk') && (k !== 'pr' || c.kd === 'gpb')).map(([k, n]) => (k === 'u2' ? [k, 'Schüler'] : [k, n]));
+  const CTall = [['ov', 'Übersicht'], ['u', 'Schüler'], ['pr', 'Schüler'], ['u2', 'Schüler 2'], ['s', 'UE Überblick'], ['g', 'Gefährdungen'], ['o', 'Noten'], ['f', 'Klassenfoto']];
+  const CTof = (c) => CTall.filter(([k]) => (k !== 'ov' || isKvC(c)) && (k !== 'u2' || c.kd === 'bspk') && k !== 'u' && (k !== 'pr' || c.kd === 'gpb')).map(([k, n]) => (k === 'u2' ? [k, 'Schüler'] : [k, n]));
   function classHead(c, sub) { return `<div class="chead ${c.kd === 'gpb' ? 'fg' : 'fs'}"><span class="chsym">${c.kd === 'gpb' ? SVG_HELM : SVG_RUN}</span><span class="chtxt"><span class="chn">${up(disp(c))}</span><span class="chs">${sub || (c.kd === 'gpb' ? 'Geschichte' : 'Sport')}</span></span></div>`; }
   /* Vorschlag „Schüler 2“ (Sport): Turnsaal / Schwimmhalle / Gesamt mit Balken */
   function sportStud2(c, G) {
@@ -2189,7 +2189,7 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
     const kd = c.kd, G = primary(kd === 'gpb' ? c.gpb : c.bspk), html = subject(c, kd).replace(/<!--H-->[\s\S]*?<!--\/H-->/, '');
     const tmp = document.createElement('div'); tmp.innerHTML = html;
     const card = (t) => { const el = [...tmp.querySelectorAll('.card')].find((x) => { const h = x.querySelector('h2'); return h && h.textContent.trim().indexOf(t) === 0; }); return el ? el.outerHTML : ''; };
-    const CT = CTof(c), tabs = (U.kmTab = U.kmTab || {}), cur = CT.some((x) => x[0] === tabs[c.key]) ? tabs[c.key] : (kd === 'bspk' ? 'u2' : 'u'), P = {};
+    const CT = CTof(c), tabs = (U.kmTab = U.kmTab || {}), cur = CT.some((x) => x[0] === tabs[c.key]) ? tabs[c.key] : (kd === 'bspk' ? 'u2' : 'pr'), P = {};
     P.u = card('Schülerliste');
     if (CT.some((x) => x[0] === 'ov')) P.ov = kvOverview(c);
     if (kd === 'bspk') P.u2 = sportStud2(c, G);
