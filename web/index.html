@@ -339,7 +339,7 @@ body[data-fach=gpb] .kmh,body[data-fach=bspk] .kmh{border-bottom-color:rgba(0,0,
   <nav class="nav" id="nav"></nav>
   <main id="main" class="wrap" style="padding:0"></main>
 </div>
-<div id="appver" class="muted sm" style="text-align:center;padding:4px 0 18px;opacity:.7">Version 24.11.2026 · Neue Oberfläche S13</div>
+<div id="appver" class="muted sm" style="text-align:center;padding:4px 0 18px;opacity:.7">Version 24.11.2026 · Neue Oberfläche S14</div>
 <div id="drw" class="drw" aria-hidden="true"><div class="drwbg" data-act="drwx"></div><aside class="drwp" role="dialog" aria-label="Einstellungen"><div class="drwh"><b>Einstellungen</b><button class="drwc" data-act="drwx" aria-label="Schließen">×</button></div><div id="drwl" class="drwl"></div><p class="muted sm" style="margin:12px 4px 0">Am Symbol ⠿ ziehen, um die Reihenfolge zu ändern.</p></aside></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
@@ -750,7 +750,7 @@ function klassenView(){
     const bl=[];gs.forEach(G=>{const k=rank(G)<2?(rank(G)?'BSPK':'GPB'):G.subject||'Sonstige';let b=bl.find(x=>x.k===k);if(!b)bl.push(b={k,list:[]});b.list.push(G)});
     body=bl.map(b=>`<h3 class="gh">${esc(b.k)}</h3><div class="cgrid">${b.list.map(G=>card(G)).join('')}</div>`).join('');
   }
-  if(mode==='next'&&ttRows().length){U.hcur=nxO?{slug:nxO.G.slug,date:nxO.date,von:nxO.von,bis:nxO.bis}:null;body=window.homeShell?homeShell(body,`<section class="card npcard"><div class="npnav"><span class="row" style="gap:6px"><button class="btn sm npb" data-act="nptoday" title="Zurück zu heute">Aktueller Tag</button><button class="btn sm npb" data-act="go" data-v="uebersicht">Woche anzeigen</button></span><span class="row" style="gap:6px"><button class="btn sm npb" data-act="npprev" aria-label="Vorige Tage">‹</button><button class="btn sm npb" data-act="npnext" aria-label="Nächste Tage">›</button></span></div>${ttGridHtml(ttRows(),true,0,true,false,10)}</section>`,nxO,lessonStatus):body}
+  if(mode==='next'&&ttRows().length){U.hcur=nxO?{slug:nxO.G.slug,date:nxO.date,von:nxO.von,bis:nxO.bis}:null;body=window.homeShell?homeShell(body,`<section class="card npcard"><div class="npnav"><span class="row" style="gap:6px"><button class="btn sm npb" data-act="nptoday" title="Zurück zu heute">Aktueller Tag</button><button class="btn sm npb${U.pwk?' on':''}" data-act="npweek">Woche anzeigen</button></span><span class="row" style="gap:6px"><button class="btn sm npb" data-act="npprev" aria-label="Vorige Tage">‹</button><button class="btn sm npb" data-act="npnext" aria-label="Nächste Tage">›</button></span></div>${U.pwk?ttGridHtml(ttRows(),false,U.pwo||0,true,false,10):ttGridHtml(ttRows(),true,0,true,false,10)}</section>`,nxO,lessonStatus):body}
   return mode==='next'?`<div class="homewrap">${body}</div>`:`<section class="card${mode==='fach'?'':' nohd'}">${mode==='fach'?`<div class="hd"><h2>Klassenmappen</h2></div>`:''}${body}</section>`;
 }
 /* Tage, an denen diese Klasse Unterricht hat (Regelplan, ohne Ferien/Feiertage) */
@@ -1452,9 +1452,10 @@ const A={
   ttsel:e=>{U.ttTab=e.dataset.id;render()},
   daytog:e=>{U.dayShut=Object.assign({},U.dayShut);U.dayShut[e.dataset.d]=!U.dayShut[e.dataset.d];render()},
   nspane:e=>homePane(e.dataset.p),
-  nptoday:()=>{U.pdo=0;render()},
-  npprev:()=>{U.pdo=stepWd(U.pdo||0,-1);render()},
-  npnext:()=>{U.pdo=stepWd(U.pdo||0,1);render()},
+  nptoday:()=>{U.pdo=0;U.pwk=false;U.pwo=0;render()},
+  npweek:()=>{U.pwk=!U.pwk;U.pwo=0;render()},
+  npprev:()=>{if(U.pwk)U.pwo=(U.pwo||0)-1;else U.pdo=stepWd(U.pdo||0,-1);render()},
+  npnext:()=>{if(U.pwk)U.pwo=(U.pwo||0)+1;else U.pdo=stepWd(U.pdo||0,1);render()},
   settab:e=>{U.setTab=e.dataset.v;render()},
   setnav:e=>{const v=e.dataset.v;if(v==='skin')U.setTab='skin';else if(v==='daten')U.setTab='data';drwClose();setView(v==='skin'?'daten':v);render()},
   drwx:()=>drwClose(),
