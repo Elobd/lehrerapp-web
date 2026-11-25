@@ -278,15 +278,18 @@ def build_all(data,out,vorlage=None,cover_custom=None):
     if data.get('prozess'): im['steps']=igen.steps(os.path.join(imgd,'steps.png'),data['prozess'],data.get('prozess_titel','Überblick'),L.COL)
     res=[]
     from PIL import Image
-    Image.open(im['cover']).convert('RGB').save(os.path.join(out,'Cover_%s.jpg'%SAFE(data.get('titel'))),quality=93,subsampling=0); res.append('Cover_%s.jpg'%SAFE(data.get('titel')))
-    jobs=[lambda:textblatt(data,out,im),lambda:arbeitsblatt(data,out,False),lambda:arbeitsblatt(data,out,True),lambda:luecken(data,out,False),lambda:luecken(data,out,True),lambda:kreuzwort(data,out,False),lambda:kreuzwort(data,out,True),lambda:checkups(data,out),lambda:wiederholung(data,out)]
+    if not os.environ.get('NUR'): Image.open(im['cover']).convert('RGB').save(os.path.join(out,'Cover_%s.jpg'%SAFE(data.get('titel'))),quality=93,subsampling=0); res.append('Cover_%s.jpg'%SAFE(data.get('titel')))
+    # NUR=schluessel,... (Umgebung): nur diese Bausteine neu bauen (Baustein nachträglich ergänzen)
+    nur=set(x for x in os.environ.get('NUR','').split(',') if x)
+    jobs=[('textblatt',lambda:textblatt(data,out,im)),('arbeitsblatt',lambda:arbeitsblatt(data,out,False)),('arbeitsblatt',lambda:arbeitsblatt(data,out,True)),('luecken',lambda:luecken(data,out,False)),('luecken',lambda:luecken(data,out,True)),('kreuzwort',lambda:kreuzwort(data,out,False)),('kreuzwort',lambda:kreuzwort(data,out,True)),('checkup',lambda:checkups(data,out)),('wiederholung',lambda:wiederholung(data,out))]
+    jobs=[j for k,j in jobs if not nur or k in nur]
     for j in jobs:
         try:
             r=j()
             if isinstance(r,list): res+= [os.path.relpath(x,out) for x in r]
             elif r: res.append(os.path.relpath(r,out))
         except Exception as e: print('FEHLER bei',j,e,file=sys.stderr)
-    if vorlage and os.path.exists(vorlage):
+    if vorlage and os.path.exists(vorlage) and (not nur or 'praesentation' in nur):
         try:
             import gen_ppt; r=gen_ppt.build(data,out,vorlage,im); 
             if r: res.append(os.path.relpath(r,out))

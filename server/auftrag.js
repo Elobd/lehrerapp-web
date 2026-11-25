@@ -59,12 +59,32 @@ export function createAuftrag(ctx) {
   const src = (p) => (p.quellen || []).map((q, i) => `QUELLE ${i + 1} (${q.ref || 'ohne Titel'}):\n${String(q.text || '').slice(0, 9000)}`).join('\n\n').slice(0, 45000) || (p.quellenmodus === 'web' ? '(keine Quellen vorgegeben: recherchiere selbst im Internet mit der Web-Suche, bevorzuge seriöse Quellen wie Fachlexika, Museen, Archive, Bildungsserver, öffentlich-rechtliche Medien und Universitäten; fasse in eigenen Worten zusammen und nenne die genutzten Quellen im Feld quellenliste)' : '(keine Quellen angegeben: nutze gesichertes Fachwissen und kennzeichne Unsicheres)');
   const head = (p) => `${SYS}\nThema: „${p.titel}“. Klassenstufe: ${p.klasse}. Klasse (AHS Oberstufe; Niveau entsprechend). Epoche: ${p.epoche}${p.zeitraum ? ' (' + p.zeitraum + ')' : ''}.${p.notizen ? '\nWünsche der Lehrkraft: ' + p.notizen : ''}\n\nQUELLENMATERIAL:\n${src(p)}\n\n`;
 
+  // Bausteine nach dem Textblatt: in dieser Reihenfolge bei „Material erstellen“; einzeln über „Baustein ergänzen“.
+  // Neuer Baustein = Eintrag hier (+ Mock + Funktion in gen/gen.py mit gleichem gen-Schlüssel).
+  const BAUSTEINE = [
+    { k: 'arbeitsblatt', n: 'Arbeitsblatt (mit Lösung)', nr: 3, gen: ['arbeitsblatt'], has: (d) => !!(d.arbeitsblatt && (d.arbeitsblatt.aufgaben || []).length),
+      run: async (data, p, say, save) => { say('3/9 Arbeitsblatt …', 3); const ab = await aiJson('arbeitsblatt', head(p) + `Erstelle das Arbeitsblatt „Offene Fragen“ (ohne Punkte, keine Testoptik) als JSON: {"aufgaben":[genau 8 Aufgaben]}. Jede Aufgabe: {"titel":"","afb":"AFB I|II|III · Operator","einleitung":"optional","quelle":{"label":"Autor/Werk/Jahr","text":"kurzer Quellenauszug AUS DEN QUELLEN"} optional,"typ":"frei|tabelle|skizze","tabelle":{"spalten":["Kriterium","A","B"],"zeilen":[["Kriterium","Lösung A","Lösung B"]]} nur bei typ tabelle,"teile":[{"text":"Arbeitsauftrag mit Operator","erwartung":"Erwartungshorizont (Stichpunkte, ohne Punkte)","zeilen":3–6}]}. Aufgabe 1–2: Wiedergeben, 3–5: Erklären/Vergleichen (eine mit Quelle, eine Tabelle), 6: Beurteilen mit Klassenbezug ('Notiere, welcher Standpunkt unserer Diskussion vom ______ (Datum) am stärksten war'), 7: Transfer mit selbst erlebtem Beispiel der letzten 7 Tage, 8: typ skizze (Mindmap/Zeitstrahl). Gestalte die Aufgaben so, dass sie ohne den Unterricht und das Textblatt nicht von einer KI gelöst werden können (Bezug auf Blatt-Quelle, Unterrichtsdiskussion, eigenes Beispiel, Skizze).`, 8000); data.arbeitsblatt = ab; save(); } },
+    { k: 'luecken', n: 'Lückentext und Kreuzworträtsel (mit Lösung)', nr: 4, gen: ['luecken', 'kreuzwort'], has: (d) => !!(d.luecken && d.luecken.text),
+      run: async (data, p, say, save) => { say('4/9 Lückentext und Kreuzworträtsel …', 4); const lk = await aiJson('luecken', head(p) + `Erstelle als JSON: {"text":"zusammenhängender Lückentext, mindestens 600 Wörter, gegliedert mit **Zwischenüberschrift.** (fett mit zwei Sternchen, endet mit Punkt) vor jedem Abschnitt; 35–40 Lücken, jede Lücke als {Wort} mitten im Satz, nur sinnvolle Fachbegriffe","zusatz":["4 Wörter, die NICHT in den Text passen, aber plausibel wirken"],"kreuzwort":[{"wort":"EIN Wort 4–12 Buchstaben ohne Leerzeichen","hinweis":"präzise Frage/Umschreibung"}] (genau 16 Begriffe aus dem Thema)}`, 8000); data.luecken = { text: lk.text, zusatz: lk.zusatz || [] }; data.kreuzwort = lk.kreuzwort || []; save(); } },
+    { k: 'single', n: 'Check-up Single Choice', nr: 5, gen: ['checkup'], has: (d) => !!(d.checkup && (d.checkup.single || []).length),
+      run: async (data, p, say, save) => { say('5/9 Check-up Single Choice (20 Fragen) …', 5); const sc = await aiJson('single', head(p) + `Erstelle 20 Single-Choice-Fragen als JSON: {"single":[{"frage":"max. 120 Zeichen","antworten":["4 Antworten, je max. 75 Zeichen"],"richtig":0 bis 3 (Index, gleichmäßig verteilen)}]}. Anspruchsvoll, eindeutig, plausible Distraktoren, quer durchs Thema.`, 7000); data.checkup = Object.assign({}, data.checkup, { single: sc.single || [] }); save(); } },
+    { k: 'multiple', n: 'Check-up Multiple Choice', nr: 6, gen: ['checkup'], has: (d) => !!(d.checkup && (d.checkup.multiple || []).length),
+      run: async (data, p, say, save) => { say('6/9 Check-up Multiple Choice (20 Fragen) …', 6); const mc = await aiJson('multiple', head(p) + `Erstelle 20 Multiple-Choice-Fragen (2 oder 3 richtige Antworten von 4) als JSON: {"multiple":[{"frage":"max. 120 Zeichen","antworten":["4 Antworten, je max. 75 Zeichen"],"richtig":[Indizes 0–3]}]}. Andere Fragen als bei Single Choice.`, 7000); data.checkup = Object.assign({}, data.checkup, { multiple: mc.multiple || [] }); save(); } },
+    { k: 'wdh', n: 'Mündliche Wiederholungen (20)', nr: 7, gen: ['wiederholung'], has: (d) => !!(d.wiederholung || []).length,
+      run: async (data, p, say, save) => { data.wiederholung = [];
+        for (const [a, b] of [[0, 10], [10, 20]]) {
+          say(`7/9 Mündliche Wiederholungen ${a + 1}–${b} …`, 7);
+          const w = await aiJson('wdh', head(p) + `Erstelle ${b - a} mündliche Stundenwiederholungen (je max. 5 Minuten) als JSON: {"wiederholung":[{"titel":"Teilthema","fragen":[{"frage":"in 1–2 Sätzen beantwortbar","antwort":"Musterantwort in 1–2 Sätzen","kriterien":["1 oder 2 prüfbare Kriterien, je 1 Punkt"]}] (genau 4 Fragen)}]}. Reihenfolge der Teilthemen chronologisch ab Wiederholung ${a + 1} von 20, die zusammen das ganze Thema abdecken.`, 7000, [a, b]); (w.wiederholung || []).forEach((x) => data.wiederholung.push(x)); save();
+        } } },
+    { k: 'praesentation', n: 'Präsentation', nr: 8, gen: ['praesentation'], has: (d) => !!(d.praesentation && (d.praesentation.folien || []).length),
+      run: async (data, p, say, save) => { const nF = p.folien === 'kurz' ? 15 : p.folien === 'ausfuehrlich' ? 40 : 25; say('8/9 Präsentation planen …', 8); const pr = await aiJson('praesentation', head(p) + `Plane die Präsentation mit ca. ${nF} Folien (insgesamt, ohne Titel-, Video-, Aufgaben- und Quellenfolie) als JSON: {"praesentation":{"titeljahr":"Jahreszahl für die Titelfolie","folien":[ ... ]}}. Folientypen: {"typ":"divider","titel":""} (Kapitelfolie), {"typ":"text","titel":"","untertitel":"","bloecke":[{"lead":"fett","text":"1–2 Sätze, max. 35 Wörter"}] (2–3 Blöcke),"bild":"illus oder person:Name oder zeit oder steps oder null","notizen":"Sprechtext"}, {"typ":"person","titel":"Name","untertitel":"Rolle","personen":[{"name":"","lebensdaten":"","rolle":""}],"bloecke":[{"lead":"","text":""}]}, {"typ":"zeitstrahl","titel":"Zeitstrahl","untertitel":""}. Die Folien sind KEIN Duplikat des Textblatts: Überblick, Zusammenhänge, Personen, Gegenüberstellungen (Vorteile/Nachteile), Impulse und Diskussionsfragen. Setze Divider zur Gliederung ein.`, 8000); data.praesentation = pr.praesentation || {}; save(); } },
+  ];
   async function erstelle(job, p) {
     const say = (m, step) => { job.msg = m; if (step) job.step = step; }; job.total = 9;
     const dir = path.join(AUF, `${p.klasse}. Klasse`, '_neu_' + job.id); fs.mkdirSync(dir, { recursive: true }); job.dir = dir;
-    const data = { titel: p.titel, klasse: p.klasse, epoche: p.epoche, zeitraum: p.zeitraum || '', jahr: p.jahr || '', id: job.id, erstellt: Date.now() };
+    const data = { titel: p.titel, klasse: p.klasse, epoche: p.epoche, zeitraum: p.zeitraum || '', jahr: p.jahr || '', id: job.id, erstellt: Date.now(), optionen: { seiten: p.seiten, folien: p.folien, notizen: p.notizen || '', quellenmodus: p.quellenmodus } };
     const save = () => fs.writeFileSync(path.join(dir, 'auftrag.json'), JSON.stringify(data, null, 1));
-    const kap = p.seiten >= 18 ? 12 : p.seiten >= 14 ? 10 : 8, nF = p.folien === 'kurz' ? 15 : p.folien === 'ausfuehrlich' ? 40 : 25;
+    const kap = p.seiten >= 18 ? 12 : p.seiten >= 14 ? 10 : 8;
     say('Bibliotheken prüfen …', 0); await ensureLibs((m) => say(m)); save();
     say('1/9 Gliederung, Zeitstrahl und Epochenübersicht …', 1);
     const plan = await aiJson('plan', head(p) + `Erstelle einen Plan als JSON: {"untertitel":"kurzer Untertitel","zeitraum":"z. B. 1450–1517","jahr":"Jahreszahl als Zahl (Beginn)","kurz":["4–6 Stichpunkte 'Das Wichtigste in Kürze'"],"kapitel":["genau ${kap} Kapitelüberschriften in sinnvoller Reihenfolge"],"zeitstrahl":[{"jahr":1450,"text":"max. 5 Wörter"}] (6 Einträge),"prozess":[{"titel":"max. 3 Wörter","text":"max. 6 Wörter"}] (4–5 Schritte oder Phasen),"prozess_titel":"Überschrift der Grafik","epochen":[{"epoche":"Vor- und Frühgeschichte|Antike|Mittelalter|Neuzeit|Zeitgeschichte","ereignisse":[{"text":"max. 4 Wörter","jahr":"Jahr/Zeitraum","seite":1 oder -1,"hervorheben":true nur beim Thema selbst}]}] (für ALLE fünf Epochen je 2–3 abwechslungsreiche Ereignisse oder Persönlichkeiten, in der Epoche des Themas auch das Thema selbst),"glossar":[{"begriff":"","text":"kurz"}] (8 Einträge),"quellenliste":["3–5 seriöse Literatur-/Quellenangaben; bei gelieferten Quellen deren Titel"]}`, 5000, undefined, p.quellenmodus === 'web');
@@ -76,31 +96,26 @@ export function createAuftrag(ctx) {
       const r = await aiJson('textblatt', head(p) + `Gesamtgliederung des Textblatts: ${JSON.stringify(titles)}.\nSchreibe NUR die Kapitel ${JSON.stringify(part)} ausführlich als JSON: {"kapitel":[{"titel":"unverändert","absaetze":["3–4 Absätze, je 100–140 Wörter, Fließtext für Schüler/innen, präzise, mit Fachbegriffen"],"boxen":[{"typ":"merke|begriff|quelle|zahl|nachdenken","titel":"nur bei quelle: Autor, Werk, Jahr","text":"..."}] (2–3 Boxen, darunter mindestens eine 'merke'),"personen":[{"name":"","lebensdaten":"","rolle":"","text":"2–3 Sätze Bedeutung"}] (nur wenn wichtige Personen vorkommen; insgesamt im Textblatt mindestens 5 verschiedene)}]}. Insgesamt soll das Textblatt etwa ${p.seiten} Seiten füllen.`, 8000, part, p.quellenmodus === 'web');
       (r.kapitel || []).forEach((k) => data.textblatt.kapitel.push(k)); save();
     }
-    say('3/9 Arbeitsblatt …', 3);
-    const ab = await aiJson('arbeitsblatt', head(p) + `Erstelle das Arbeitsblatt „Offene Fragen“ (ohne Punkte, keine Testoptik) als JSON: {"aufgaben":[genau 8 Aufgaben]}. Jede Aufgabe: {"titel":"","afb":"AFB I|II|III · Operator","einleitung":"optional","quelle":{"label":"Autor/Werk/Jahr","text":"kurzer Quellenauszug AUS DEN QUELLEN"} optional,"typ":"frei|tabelle|skizze","tabelle":{"spalten":["Kriterium","A","B"],"zeilen":[["Kriterium","Lösung A","Lösung B"]]} nur bei typ tabelle,"teile":[{"text":"Arbeitsauftrag mit Operator","erwartung":"Erwartungshorizont (Stichpunkte, ohne Punkte)","zeilen":3–6}]}. Aufgabe 1–2: Wiedergeben, 3–5: Erklären/Vergleichen (eine mit Quelle, eine Tabelle), 6: Beurteilen mit Klassenbezug ('Notiere, welcher Standpunkt unserer Diskussion vom ______ (Datum) am stärksten war'), 7: Transfer mit selbst erlebtem Beispiel der letzten 7 Tage, 8: typ skizze (Mindmap/Zeitstrahl). Gestalte die Aufgaben so, dass sie ohne den Unterricht und das Textblatt nicht von einer KI gelöst werden können (Bezug auf Blatt-Quelle, Unterrichtsdiskussion, eigenes Beispiel, Skizze).`, 8000); data.arbeitsblatt = ab; save();
-    say('4/9 Lückentext und Kreuzworträtsel …', 4);
-    const lk = await aiJson('luecken', head(p) + `Erstelle als JSON: {"text":"zusammenhängender Lückentext, mindestens 600 Wörter, gegliedert mit **Zwischenüberschrift.** (fett mit zwei Sternchen, endet mit Punkt) vor jedem Abschnitt; 35–40 Lücken, jede Lücke als {Wort} mitten im Satz, nur sinnvolle Fachbegriffe","zusatz":["4 Wörter, die NICHT in den Text passen, aber plausibel wirken"],"kreuzwort":[{"wort":"EIN Wort 4–12 Buchstaben ohne Leerzeichen","hinweis":"präzise Frage/Umschreibung"}] (genau 16 Begriffe aus dem Thema)}`, 8000);
-    data.luecken = { text: lk.text, zusatz: lk.zusatz || [] }; data.kreuzwort = lk.kreuzwort || []; save();
-    say('5/9 Check-up Single Choice (20 Fragen) …', 5);
-    const sc = await aiJson('single', head(p) + `Erstelle 20 Single-Choice-Fragen als JSON: {"single":[{"frage":"max. 120 Zeichen","antworten":["4 Antworten, je max. 75 Zeichen"],"richtig":0 bis 3 (Index, gleichmäßig verteilen)}]}. Anspruchsvoll, eindeutig, plausible Distraktoren, quer durchs Thema.`, 7000); data.checkup = { single: sc.single || [] }; save();
-    say('6/9 Check-up Multiple Choice (20 Fragen) …', 6);
-    const mc = await aiJson('multiple', head(p) + `Erstelle 20 Multiple-Choice-Fragen (2 oder 3 richtige Antworten von 4) als JSON: {"multiple":[{"frage":"max. 120 Zeichen","antworten":["4 Antworten, je max. 75 Zeichen"],"richtig":[Indizes 0–3]}]}. Andere Fragen als bei Single Choice.`, 7000); data.checkup.multiple = mc.multiple || []; save();
-    data.wiederholung = [];
-    for (const [a, b] of [[0, 10], [10, 20]]) {
-      say(`7/9 Mündliche Wiederholungen ${a + 1}–${b} …`, 7);
-      const w = await aiJson('wdh', head(p) + `Erstelle ${b - a} mündliche Stundenwiederholungen (je max. 5 Minuten) als JSON: {"wiederholung":[{"titel":"Teilthema","fragen":[{"frage":"in 1–2 Sätzen beantwortbar","antwort":"Musterantwort in 1–2 Sätzen","kriterien":["1 oder 2 prüfbare Kriterien, je 1 Punkt"]}] (genau 4 Fragen)}]}. Reihenfolge der Teilthemen chronologisch ab Wiederholung ${a + 1} von 20, die zusammen das ganze Thema abdecken.`, 7000, [a, b]); (w.wiederholung || []).forEach((x) => data.wiederholung.push(x)); save();
-    }
-    say('8/9 Präsentation planen …', 8);
-    const pr = await aiJson('praesentation', head(p) + `Plane die Präsentation mit ca. ${nF} Folien (insgesamt, ohne Titel-, Video-, Aufgaben- und Quellenfolie) als JSON: {"praesentation":{"titeljahr":"Jahreszahl für die Titelfolie","folien":[ ... ]}}. Folientypen: {"typ":"divider","titel":""} (Kapitelfolie), {"typ":"text","titel":"","untertitel":"","bloecke":[{"lead":"fett","text":"1–2 Sätze, max. 35 Wörter"}] (2–3 Blöcke),"bild":"illus oder person:Name oder zeit oder steps oder null","notizen":"Sprechtext"}, {"typ":"person","titel":"Name","untertitel":"Rolle","personen":[{"name":"","lebensdaten":"","rolle":""}],"bloecke":[{"lead":"","text":""}]}, {"typ":"zeitstrahl","titel":"Zeitstrahl","untertitel":""}. Die Folien sind KEIN Duplikat des Textblatts: Überblick, Zusammenhänge, Personen, Gegenüberstellungen (Vorteile/Nachteile), Impulse und Diskussionsfragen. Setze Divider zur Gliederung ein.`, 8000);
-    data.praesentation = pr.praesentation || {}; save();
+    for (const B of BAUSTEINE) await B.run(data, p, say, save);
     say('9/9 Dokumente werden erzeugt …', 9); await generiere(job, dir); const fin = path.join(path.dirname(dir), 'zz ' + slug(p.titel) + ' ' + job.id); fs.renameSync(dir, fin); job.dir = fin; renumber(); job.state = 'fertig'; say('Fertig.');
   }
-  async function generiere(job, dir) {
+  // Baustein nachträglich: nur dieser KI-Schritt, Grundlage ist das vorhandene Textblatt; nur seine Dateien werden neu gebaut
+  async function ergaenze(job, x, B, hint) {
+    const say = (m) => { job.msg = m; }, data = x.m, o = data.optionen || {};
+    const tb = data.textblatt || {}, text = [(tb.kurz || []).join('\n'), ...(tb.kapitel || []).map((k) => (k.titel || '') + '\n' + (k.absaetze || []).join('\n') + '\n' + (k.boxen || []).map((b) => b.text || '').join('\n'))].join('\n\n');
+    const p = { titel: data.titel, klasse: data.klasse, epoche: data.epoche, zeitraum: data.zeitraum || '', seiten: o.seiten || 10, folien: o.folien || 'mittel', notizen: [o.notizen, hint].filter(Boolean).join(' · '), quellenmodus: 'eigen', quellen: text.trim() ? [{ ref: 'Textblatt dieses Arbeitsauftrags', text: text.slice(0, 40000) }] : [] };
+    if (!p.quellen.length) p.quellenmodus = 'wissen';
+    const save = () => fs.writeFileSync(path.join(x.dir, 'auftrag.json'), JSON.stringify(data, null, 1));
+    say('Bibliotheken prüfen …'); await ensureLibs(say);
+    await B.run(data, p, (m) => say(m.replace(/^\d\/9 /, '')), save);
+    say('Dokumente werden erzeugt …'); await generiere(job, x.dir, B.gen); job.state = 'fertig'; say('Fertig: ' + B.n + ' ergänzt.');
+  }
+  async function generiere(job, dir, nur) {
     const cc = path.join(dir, 'cover_custom.png'); void cc;
     const args = ['gen.py', path.join(dir, 'auftrag.json'), dir]; if (fs.existsSync(VORLAGE)) args.push(VORLAGE);
-    const r = await py(args); if (r.code !== 0) throw new Error('Dokumente konnten nicht erzeugt werden: ' + (r.e || r.o).slice(-400));
+    const r = await py(args, nur ? { env: { ...pyEnv(), NUR: nur.join(',') } } : {}); if (r.code !== 0) throw new Error('Dokumente konnten nicht erzeugt werden: ' + (r.e || r.o).slice(-400));
     if (r.e && /FEHLER/.test(r.e) && job) job.warn = r.e.slice(-400);
-    if (!fs.existsSync(VORLAGE) && job) job.warn = (job.warn ? job.warn + ' ' : '') + 'Hinweis: Keine Präsentationsvorlage hochgeladen (Material/Vorlage/praesentation.pptx), daher ohne Präsentation.';
+    if (!fs.existsSync(VORLAGE) && job && (!nur || nur.includes('praesentation'))) job.warn = (job.warn ? job.warn + ' ' : '') + 'Hinweis: Keine Präsentationsvorlage hochgeladen (Material/Vorlage/praesentation.pptx), daher ohne Präsentation.';
   }
   function scan() {
     const out = []; if (!fs.existsSync(AUF)) return out;
@@ -121,7 +136,7 @@ export function createAuftrag(ctx) {
     return scan().map((x) => { const nr = /^(\d+)\s/.exec(path.basename(x.dir)); const rel = path.relative(FILES_DIR, x.dir).split(path.sep).join('/');
       const files = []; const walk = (d, pre) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { if (e.name.startsWith('_') || e.name === 'auftrag.json' || e.name.startsWith('cover_custom')) continue; if (e.isDirectory()) walk(path.join(d, e.name), pre + e.name + '/'); else files.push(pre + e.name); } }; walk(x.dir, '');
       files.sort((a, b) => (/^\d/.test(a) === /^\d/.test(b) ? a.localeCompare(b, 'de') : /^\d/.test(a) ? -1 : 1));
-      return { id: x.m.id, titel: x.m.titel, klasse: x.m.klasse, epoche: x.m.epoche, jahr: x.m.jahr, nr: nr ? nr[1] : '', dir: rel, files, cover: files.find((f) => /^Cover_.*\.jpg$/.test(f)) || '' };
+      return { bs: BAUSTEINE.map((B) => ({ k: B.k, n: B.n, has: B.has(x.m) })), id: x.m.id, titel: x.m.titel, klasse: x.m.klasse, epoche: x.m.epoche, jahr: x.m.jahr, nr: nr ? nr[1] : '', dir: rel, files, cover: files.find((f) => /^Cover_.*\.jpg$/.test(f)) || '' };
     }).sort((a, b) => String(a.klasse).localeCompare(String(b.klasse)) || String(a.nr).localeCompare(String(b.nr)));
   }
   const findById = (id) => scan().find((x) => String(x.m.id) === String(id));
@@ -155,6 +170,14 @@ export function createAuftrag(ctx) {
       const buf = await bodyBuf(req, 25 * 1024 * 1024); fs.writeFileSync(path.join(x.dir, 'cover_custom.png'), buf);
       try { await generiere(null, x.dir); } catch (e) { return json(res, 500, { error: String(e.message || e) }), true; }
       return json(res, 200, { ok: true }), true;
+    }
+    if (p === '/api/auftrag/baustein' && req.method === 'POST') {
+      const x = findById(url.searchParams.get('id')), B = BAUSTEINE.find((b) => b.k === url.searchParams.get('k')); if (!x || !B) return json(res, 404, { error: 'Arbeitsauftrag oder Baustein nicht gefunden' }), true;
+      if (!aiKey() && !process.env.AI_MOCK) return json(res, 501, { error: 'KI nicht eingerichtet (ANTHROPIC_API_KEY fehlt).' }), true;
+      if ([...jobs.values()].some((j) => j.state === 'laeuft')) return json(res, 409, { error: 'Es läuft bereits eine Erstellung. Bitte warten.' }), true;
+      const q = JSON.parse((await body(req)) || '{}'), id = Date.now().toString(36), job = { id, state: 'laeuft', msg: 'Start …', step: 0, total: 0, titel: x.m.titel + ' – ' + B.n }; jobs.set(id, job);
+      ergaenze(job, x, B, String(q.hinweis || '').slice(0, 600)).catch((e) => { job.state = 'fehler'; job.msg = String(e && e.message || e); });
+      return json(res, 200, { id }), true;
     }
     if (p === '/api/auftrag/nummern' && req.method === 'POST') { renumber(); return json(res, 200, { ok: true }), true; }
     if (p === '/api/auftrag' && req.method === 'DELETE') { const x = findById(url.searchParams.get('id')); if (!x) return json(res, 404, { error: 'nicht gefunden' }), true; fs.rmSync(x.dir, { recursive: true, force: true }); renumber(); return json(res, 200, { ok: true }), true; }
