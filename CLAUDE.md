@@ -38,6 +38,12 @@ Offene Themen und Entscheidungen: **docs/OFFENE-THEMEN.md** (zu Beginn lesen, na
   - sticky/overflow:clip beachten. applyDiffs kann in skins.js neu zugewiesen werden.
   - Jedes `<select>` öffnet automatisch das App-Auswahlfenster (#selpick); Optionen mit `hidden` werden dort ausgeblendet.
 
+## Lehrmaterial-Generator (Design ist abgestimmt – nicht ohne ausdrücklichen Wunsch ändern)
+- Ablauf: web/lehrmaterial.js („Material erstellen“) → server/auftrag.js (KI-Schritte 1/9…9/9, je Baustein Prompt + JSON-Format + Mock für AI_MOCK) → server/gen/gen.py `build_all` (Word/Excel je Baustein, Liste `jobs`), lib.py (Farben/Schriften/Kopfzeilen), igen.py (Cover, Zeitstrahl, Prozessgrafik), gen_ppt.py (Präsentation).
+- Bausteine: Textblatt, Arbeitsblatt (+Lösung), Lückentext (+Lösung), Kreuzworträtsel (+Lösung), Check-ups Single/Multiple Choice, mündliche Wiederholungen, Präsentation, Cover.
+- Präsentationsvorlage liegt nur am NAS (Material/Vorlage/praesentation.pptx), nie committen.
+- Neuer Baustein = neuer KI-Schritt in auftrag.js + Mock + neue Funktion in gen.py im Stil der bestehenden (lib.py nutzen) + Eintrag in `jobs`. Bestehende Funktionen/Design dabei nicht verändern. Test lokal mit `AI_MOCK=1` und server/gen/beispiel.json.
+
 ## Design
 - Fachfarben: Geschichte #d99a26, Sport #3b5978, Text #1E293B.
 - Buttons eckig mit leicht abgerundeten Kanten.
