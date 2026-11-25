@@ -220,13 +220,18 @@ html:root .ccard{padding:10px}
   UI.pane = (items, cur, act, inner) => `<div class="uipane" data-tabs="${items.map((x) => x[0]).join(',')}" data-cur="${cur}" data-act2="${act}">${inner}</div>`;
 
   /* Home: Heute · Anwesenheit · Stundenplan · Stundeninhalte */
-  const HT = [['t', 'Heute'], ['a', 'Anwesenheit'], ['p', 'Stundenplan'], ['i', 'Stundeninhalte']];
+  const HT = [['t', 'Heute'], ['a', 'Anwesenheit'], ['p', 'Stundenplan'], ['i', 'Stundeninhalte'], ['o', 'Offen']];
+  const openLessons = () => { const out = []; groups().filter((G) => !G.sprech).forEach((G) => { const ci = cinfo(G.slug), log = Array.isArray(ci.log) ? ci.log : [], hasSt = (ci.students || []).length > 0; let ds = []; try { ds = lessonDates(G, null, -70, -1); } catch (e) { ds = []; }
+      ds.forEach((d) => { const es = log.filter((x) => x.date === d), txt = es.some((x) => String(x.text || '').trim()), chk = es.some((x) => x.chk || (Array.isArray(x.abs) && x.abs.length)), miss = []; if (!txt) miss.push('Stundeninhalt'); if (hasSt && !chk) miss.push('Anwesenheit'); if (miss.length) out.push({ G, d, miss }); }); });
+    return out.sort((a, b) => b.d.localeCompare(a.d) || LB(a.G).localeCompare(LB(b.G), 'de')); };
+  const openHtml = (L) => { if (!L.length) return '<div class="card"><p class="muted">Nichts offen – alle vergangenen Stunden sind eingetragen. 🎉</p></div>'; let last = ''; return `<div class="card"><div class="muted sm" style="margin-bottom:6px">${L.length} offene Eintragungen aus den letzten 10 Wochen. Tippen öffnet die Stunde.</div>${L.map((o) => { const h = o.d !== last ? `<div class="opdt">${esc(dshort(o.d))}</div>` : ''; last = o.d; return h + `<button class="srow opr" data-act="godate" data-slug="${esc(o.G.slug)}" data-d="${o.d}"><span><b>${LB(o.G)}</b> · ${esc(o.G.subject)}</span><small class="opm">${o.miss.map((m) => `<i>${m}</i>`).join('')}</small></button>`; }).join('')}</div>`; };
   window.homeShell = (dayBody, planPane, nxO, lessonStatus) => {
     const cur = HT.some((x) => x[0] === U.hp) ? U.hp : 't', P = { t: dayBody, p: planPane };
     const h = U.hcur, G = h && groups().find((g) => g.slug === h.slug);
     if (!G || !nxO) P.a = '<div class="card"><p class="muted">Keine laufende oder nächste Stunde.</p></div>';
     else { const key = G.slug + '|' + h.date, sv = U.attOpen; U.attOpen = key; const ls = lessonStatus(G, nxO, false); U.attOpen = sv; const x = ls.ics, panel = x.slice(x.indexOf('</div>') + 6).replace(/<div class="attp inhp">[\s\S]*$/, '');
       P.a = `<div class="card" style="padding:8px 0"><div class="muted sm" style="margin:0 12px 6px">${esc(LB(G))} · ${esc(G.subject)} · ${esc(dshort(h.date))}${h.von ? ' · ' + esc(h.von) + '–' + esc(h.bis || '') : ''}</div>${panel || '<p class="muted" style="margin:6px 12px">Noch keine Schüler in dieser Klasse.</p>'}</div>`; }
+    const OL = openLessons(); P.o = openHtml(OL); HT[4][1] = OL.length ? 'Offen (' + OL.length + ')' : 'Offen';
     if (!G) P.i = '<div class="card"><p class="muted">Keine Klasse gewählt.</p></div>';
     else { const lg = (cinfo(G.slug).log || []).slice().sort((a, b) => b.date.localeCompare(a.date) || String(b.id).localeCompare(String(a.id)));
       P.i = `<div class="card"><div class="muted sm" style="margin-bottom:6px">${esc(LB(G))} · ${esc(G.subject)} – alle Stunden</div>${lg.length ? lg.map((x) => `<button class="srow" data-act="go" data-v="stunde-${esc(G.slug)}--${esc(x.id)}"><span><b>${esc(dshort(x.date))}</b>&nbsp; ${esc(x.text || '–')}</span><small>${x.date > TODAY ? 'geplant' : ''}</small></button>`).join('') : '<p class="muted">Noch keine Stunden eingetragen.</p>'}</div>`; }
@@ -1003,4 +1008,9 @@ html:root select{font:600 14px var(--font-body)!important;color:#1E293B;border:1
 .ddt{display:flex;flex-direction:column;flex:1;min-width:0}.ddt small{font:500 11px var(--font-body);opacity:.9;margin-top:1px;text-transform:none}
 .phi{flex:none;display:inline-flex;margin-left:8px}.phi.ok{color:#1f8a3f}.phi.no{color:#c4372b}
 .kmphtop .kmphdel{background:#b3261e!important;color:#fff!important;border-color:#b3261e!important}
+`; document.head.appendChild(st); })();
+
+(() => { const st = document.createElement('style'); st.id = 'ui20'; st.textContent = `
+.opdt{font:800 12px var(--font-body);color:#64748b;text-transform:uppercase;letter-spacing:.04em;padding:10px 2px 4px}
+.opr{display:flex!important;justify-content:space-between;align-items:center;gap:8px}.opm{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}.opm i{font-style:normal;background:#fde3e1;color:#b3261e;border-radius:6px;padding:3px 7px;font:700 11px var(--font-body)}
 `; document.head.appendChild(st); })();
