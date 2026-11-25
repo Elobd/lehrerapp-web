@@ -1,0 +1,46 @@
+# Lehrer-App – Arbeitsregeln für Claude
+
+Private Lehrer-App (Repo Elobd/lehrerapp-web, lokal /home/user/lehrerapp-web). Läuft als Docker-Container auf einer Synology NAS, Zugriff über Tailscale Serve.
+Offene Themen und Entscheidungen: **docs/OFFENE-THEMEN.md** (zu Beginn lesen, nach jedem Thema aktualisieren). Funktionsübersicht: docs/FUNKTIONEN.md.
+
+## Kommunikation
+- Immer Deutsch, kurze Stichpunkte, ehrlich zum Teststand (was geprüft, was nicht).
+- Ressourcen sparen: keine unnötigen Screenshots/Tests, gezielt lesen statt ganze Dateien.
+- Jede Antwort endet mit „Versionskennung: <Commit-Hash>“.
+- Anleitungen nur im Chat (keine HTML-Berichte). Dateien für das NAS per SendUserFile (Serverdateien als .zip und .txt).
+- Lösungen bevorzugt in der App. Nie Container-Manager „Bearbeiten/Zurücksetzen/Bereinigen/Löschen“ empfehlen.
+
+## Verbote
+- Niemals committen: Schülerdaten, Passwörter, Schlüssel, docker-compose.yml, vorlage.pptx.
+- Kein Scraping von digi4school. Keine persönlichen Daten (Schüler, Kollegen) an externe Dienste. Keine Schlüssel im Chat.
+
+## Workflow
+1. Ändern → `node --check` für jede geänderte .js-Datei (Inline-Skripte in index.html per `new Function` prüfen).
+2. Lokaler Playwright-Test: `serviceWorkers:'block'`, Viewport 390×844, Testserver
+   `PORT=8099 APP_PASSWORD=t AI_MOCK=1 DATA_DIR=<scratchpad>/data node server/server.js`.
+   - Login: `POST /api/login {password:'t'}`; Testdaten: `PUT /api/c/settings/<id>` (Header `x-ts`).
+   - Stundenplan: id `timetable` mit `{rows:[{wd:2,period:3,cls:'5CS',classes:['5CS'],subject:'GPB'}],times:{3:{von:'09:50',bis:'10:40'}}}`; Klasseninfo: id `cn_<slug>` (z. B. `cn_5cs-gpb`) mit `students`, `log`.
+   - Klassenmappe öffnen: `setView('mappe-'+KM.classes()[0].key)`, Reiter über `U.kmTab[c.key]`.
+3. Sichtbare Version in web/index.html (#appver, „Version TT.MM.JJJJ · Neue Oberfläche S<n>“) hochzählen.
+4. Commit mit Trailer:
+   `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>` und die Claude-Session-Zeile laut System-Hinweis.
+5. `git push origin HEAD:main` (zusätzlich den Session-Branch pushen, falls vorgegeben).
+
+## Technik
+- Reine Vanilla-JS-Single-Page-App. Frontend web/: index.html (dichte Einzeiler-Funktionen), kmap.js (Klassenmappen/Leistungen/Schüler/Sport/Tools), skins.js (Design + angehängte UI-Blöcke S9…S44 mit eigenen `<style>`-Blöcken), material.js, lehrmaterial.js inkl. fahrplan.js, sw.js, shim.js (Offline-Cache/Sync/Login).
+- Server server/ (Node 22, SQLite): server.js, auftrag.js. `/api/ai` nimmt `{prompt, images}` und liefert JSON. Dateien über `/api/file?path=…`.
+- Globale Objekte: U (UI-Zustand), S.settings (Dokumente per `put('settings',{id,…})`), render(), setView(v), Handlertabellen A (data-act, Klick) und C (data-ch, change), groups(), cinfo(slug) (= S.settings['cn_'+slug] mit students, log, kv, ueoff), saveLog(slug, fn), lessonDates(G,null,von,bis), lessonSlots(G,von,bis) (inkl. Ferien mit Namen), holFor(d), syStart(), studentsSorted(G), KM (Exporte kmap.js), UI (Exporte skins.js: UI.tabs/UI.carousel/UI.pane, homeShell, toolsPage, schoolPage …).
+- Ferienkalender: Liste `NOE` in index.html (NÖ). **Jedes Schuljahr ergänzen** (inkl. Sommerferien), sonst entstehen falsche Stunden.
+- Fallen:
+  - Klassenname `tdr` ist von den Tool-Kästchen belegt (To-Do nutzt `tdrow`).
+  - id-Attribute an Inputs können beim render() Werte zurücksetzen → data-Attribute verwenden. Datei-Inputs nie mit id.
+  - Konstante Funktionen in anderen IIFEs sind nicht sichtbar → über `UI._xyz` exportieren.
+  - sticky/overflow:clip beachten. applyDiffs kann in skins.js neu zugewiesen werden.
+  - Jedes `<select>` öffnet automatisch das App-Auswahlfenster (#selpick); Optionen mit `hidden` werden dort ausgeblendet.
+
+## Design
+- Fachfarben: Geschichte #d99a26, Sport #3b5978, Text #1E293B.
+- Buttons eckig mit leicht abgerundeten Kanten.
+- Reiter-Menüs über UI.tabs + UI.carousel (Wischen) im Stil von Home („homewrap“).
+- Alle Dropdowns öffnen ein App-eigenes Auswahlfenster (Bottom-Sheet).
+- Kopfzeile: Zeile 1 Datum links, Icons rechts (Sprechblase = To-Do-Diktat, Klassentools, Suche, Einstellungen); Zeile 2 „Offene Stunden (n)“.

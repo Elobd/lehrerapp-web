@@ -1,0 +1,52 @@
+# Offene Themen
+
+Pro Thema: Ziel · Stand · offene Fragen · Vorschlag. Nach Abschluss nach „Erledigt“ verschieben (mit Versionskennung).
+Neuen Chat so starten: „Thema <Name> aus docs/OFFENE-THEMEN.md. Antworten: …“
+
+---
+
+## 1. Schülerfotos am Smartphone werden nicht angezeigt
+- **Stand (S44, 1baf744):** Fotos werden jetzt im Service Worker zwischengespeichert (auch offline sichtbar), bei Fehler einmal neu geladen, Hinweis mit Ursache (Server nicht erreichbar / Anmeldung abgelaufen / Fehlercode).
+- **Vermutete Ursache:** Handy erreicht den Server nicht (Tailscale aus), App zeigt Daten aus dem Speicher, Fotos fehlen. Nicht bestätigt.
+- **Offen:** Welche Hinweismeldung erscheint am Handy? iPhone oder Android? Homescreen-App oder Browser?
+
+## 2. WebUntis-Änderungen automatisch übernehmen
+- **Ziel:** Supplierungen, Zusatzstunden, Entfall, Konferenzen erscheinen ohne manuelles Aktualisieren.
+- **Stand:** Nur manuell („Stundenplan holen“ / Lesezeichen).
+- **Vorschlag:** Offizielles WebUntis-Kalender-Abo (iCal-Link); NAS-Server holt es z. B. stündlich und übernimmt Änderungen. Kein Scraping, kein Passwort am NAS.
+- **Offen:** Gibt es in WebUntis unter Profil → „Freigaben“/„Kalender abonnieren“ einen Link?
+
+## 3. Wöchentliche Word-Datei (Schul-Microsoft-Konto) → Termine in der App
+- **Ziel:** Termine aus der wöchentlichen Word-Mail automatisch gespeichert und einsehbar.
+- **Vorschlag Stufe 1:** Knopf „Wochen-Info hochladen“ (Android zusätzlich „Teilen → Lehrer-App“), App liest Daten/Termine aus und speichert eine Terminliste.
+- **Vorschlag Stufe 2:** Power Automate (Mail-Anhang → OneDrive), falls Schule erlaubt – Weg zum NAS braucht evtl. IT-Freigabe.
+- **Offen:** Darf die KI die Datei lesen (enthält vermutlich Kollegennamen → sonst nur lokale Auswertung)? Gibt es Power Automate? Beispieldatei ohne Namen.
+
+## 4. Turnierplaner für Schülerliga
+- **Ziel:** Ausbau des vorhandenen Turnier-Rechners (Sport-Tools).
+- **Vorschlag:** Gruppen (jeder gegen jeden), Spielplan nach Feldern/Zeiten, Ergebnis-Eingabe, Tabelle (Punkte, Tordifferenz, direkter Vergleich), K.-o.-Runde, Druck.
+- **Offen:** Sportart(en), Anzahl Teams/Felder, Spieldauer, Wertungsregeln.
+
+## 5. Material-Workflow (Jahresplanung → Material → Stunde)
+- **Ist:** „Lehrmaterial erarbeiten“ → „Material erstellen“ legt pro Klick einen neuen Arbeitsauftrag an („Fertige Arbeitsaufträge“); mehrere Varianten pro Thema möglich. Nicht geprüft, ob sie in der Bibliothek erscheinen. Jahresplanung verteilt Themen auf Unterrichtstage (Ferien ausgenommen); als „Entfallen“ markierte Stunden (ueoff) noch nicht berücksichtigt.
+- **Vorschlag:** Material automatisch dem Jahresplan-Thema zuordnen → beim Thema alle Varianten sehen → „In Stunde übernehmen“ füllt Stundenablauf mit Seiten und verlinkt Material → bei Entfall (Ferien, Krankheit, Exkursion) rutschen Thema und Planung in die nächste Stunde.
+- **Offen:** Hängt mit Thema 6 zusammen; Spezifikation erstellen (Planungsmodus).
+
+## 6. Schülerprobe ↔ Arbeitsaufträge/Tests/Folien, Neuaufbau Tests-Seite
+- **Offen:** Spezifikation fehlt.
+
+## 7. Schuljahreswechsel
+- **Stand:** Kein Archiv; Import ergänzt nur, löscht nie; Wiederholer als neue Person.
+- **Vorschlag:** „Schuljahr abschließen“ mit Archiv und „Klassen weiterführen“. Entscheidung steht aus.
+- Dabei Ferienkalender `NOE` (index.html) für das neue Schuljahr ergänzen.
+
+## 8. Kleinere offene Punkte
+- Name „Jahresplanung“ (Umbenennung unklar).
+- Echte Geräte-Tests: Gesten, Ton (Spülsound), Spotify-Playlist-Rechte, KI-Qualität, App-Icon (icon-*.png beim NAS-Update mitkopieren).
+- Pull-to-Refresh-Flackern nur durch Verdecken bis zum Laden entschärft.
+- Krankheit ganzer Tag: Entfall derzeit pro Stunde/Klasse; evtl. „ganzer Tag entfällt“ für alle Klassen.
+
+---
+
+## Erledigt
+- **S44 (1baf744):** UE-Überblick beginnt ab Schulbeginn (Sommerferien 2026 im Kalender – Ursache der Phantom-Termine 21.07.–01.09.), Ferien/Feiertage als graue Zeilen, „⋯“-Menü: Entfallen (Krankheit/Exkursion/Konferenz/…) oder Termin löschen; Foto-Zwischenspeicher und Fehlerhinweis.
