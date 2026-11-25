@@ -206,7 +206,7 @@ html:root .ccard{padding:10px}
   };
   const sheet = (title, inner) => `<div class="lspop" data-ui="1"><div class="lspopb" role="dialog" aria-label="${title}" style="max-width:640px;width:min(640px,100%)"><div class="lspoph"><h2 style="margin:0">${title}</h2><button class="btn sm" data-act="uisheetx">Schließen</button></div><div class="lspopc" style="padding:14px">${inner}</div></div></div>`;
   function toolsSheet() {
-    const p = U.toolsPop; if (p === true) return sheet('Klassentools', `<div class="ttiles"><button class="ttile g" data-act="toolsgo" data-kd="gpb">${IC.book}Geschichte</button><button class="ttile s" data-act="toolsgo" data-kd="bspk">${IC.run}Sport</button></div>`);
+    const p = U.toolsPop; if (p === true) return sheet('Klassentools', `<div class="ttiles"><button class="ttile g" data-act="toolsgo" data-kd="gpb">${IC.book}Geschichte</button><button class="ttile s" data-act="toolsgo" data-kd="bspk">${IC.run}Sport</button></div>${UI._spPanel ? UI._spPanel() : ''}`);
     const h = (typeof KM !== 'undefined' && KM.toolsSheetHtml) ? KM.toolsSheetHtml(p) : ''; return sheet('Klassentools · ' + (p.kd === 'gpb' ? 'Geschichte' : 'Sport'), h || '<p class="muted">Für dieses Fach gibt es keine Stunde im Stundenplan.</p>');
   }
   const allStudents = () => { const out = []; groups().forEach((G) => { (Array.isArray(cinfo(G.slug).students) ? cinfo(G.slug).students : []).forEach((x) => out.push({ G, x })); }); return out; };
@@ -407,6 +407,7 @@ html:root body .ccard>.attp{background:#fff!important;border-radius:0!important;
   UI._spBox = () => { if (!spOn() || !SP.now || !SP.now.item) return ''; const open = U.spOpen !== false, it = SP.now.item, cov = it.album && it.album.images && it.album.images.length ? it.album.images[it.album.images.length > 1 ? it.album.images.length - 2 : 0].url : '', art = (it.artists || []).map((a) => a.name).join(', '); return `<section class="dd spbx" style="grid-column:1/-1;margin:0 0 10px"${open ? ' data-noswipe="1"' : ''}><div class="ddh" data-act="spbxt" role="button" tabindex="0">${cov ? `<img class="spbxc" src="${esc2(cov)}" alt="">` : '<span class="spbxc"></span>'}<b class="spword" data-act="spopen">Spotify</b><span class="spbxt2"><span class="spmq"><span>${esc2(it.name)}</span></span><span class="spmq sm2"><span>${esc2(art)}</span></span></span><button class="spmb" data-act="spnext" aria-label="Weiter">${SPI.next}</button><button class="spmb" data-act="sptog" aria-label="Start/Pause">${SP.now.is_playing ? SPI.pause : SPI.play}</button><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="${open ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'}"/></svg></div>${open ? `<div class="ddb">${spNowHtml()}</div>` : ''}</section>`; };
   const spMarquee = () => document.querySelectorAll('.spmq').forEach((m) => { const sp = m.firstElementChild, d = sp.scrollWidth - m.clientWidth; m.classList.toggle('run', d > 4); if (d > 4) m.style.setProperty('--d', -d + 'px'); });
   UI._spMq = spMarquee;
+  UI._spPanel = () => { setTimeout(() => { if (spOn()) spPoll(); }, 60); return `<section class="dd spbx spsheet" data-noswipe="1"><div class="ddh" style="cursor:default"><b class="spword" data-act="spopen">Spotify</b></div><div class="ddb">${spNowHtml()}</div></section>`; };
   (() => { let lastOn = null; const tick = async () => { if (!spOn()) return; try { SP.now = await spApi('/me/player'); SP.err = ''; } catch (e) { SP.err = e.message; } const vis = !!(SP.now && SP.now.item); if (!(document.activeElement && document.activeElement.type === 'range')) { const bx = document.querySelector('.spbx'); if (bx) { const h = UI._spBox(); if (h) { const nb = bx.cloneNode(false); bx.outerHTML = h; } } else if (document.getElementById('spnow')) { document.getElementById('spnow').outerHTML = spNowHtml(); } spMarquee(); } if (lastOn !== null && lastOn !== vis && U.view === 'klassen') render(); lastOn = vis; }; setInterval(tick, 8000); setTimeout(tick, 1500); })();
   UI._sbHtml = sbHtml; UI._sbFull = () => sbHtml() + cfgHtml(); UI._teamsHtml = teamsHtml; UI._spHtml = spHtml; UI._COLS = COLS;
   UI.toolsPage = (kd) => { const gpb = kd === 'gpb'; U.tdd = U.tdd || { clock: true }; const prep = typeof KM !== 'undefined' && KM.toolsPrepare ? KM.toolsPrepare(kd) : null, T = prep && KM.toolsObj ? KM.toolsObj(prep) : null, o = U.tdd;
@@ -1030,3 +1031,37 @@ html:root select{font:600 14px var(--font-body)!important;color:#1E293B;border:1
     const el = document.createElement('div'); el.id = 'oppop'; el.innerHTML = `<div class="sppb" data-act="opx"></div><div class="oppc"><div class="opph"><span>${LB(G)} · ${esc(G.subject)} · ${esc(dshort(P.d))}</span><button class="btn sm" data-act="opx">Fertig</button></div><div style="padding:8px 8px 0">${panel}</div></div>`; document.body.appendChild(el); const sc = el.querySelector('.oppc'); if (U._opSc) sc.scrollTop = U._opSc; };
   Object.assign(A, { opatt: (e) => { const slug = e.dataset.slug, d = e.dataset.d; if (!(cinfo(slug).log || []).some((x) => x.date === d)) saveLog(slug, (log) => log.push({ id: uid('l'), date: d, text: '' })); U.opPop = { slug, d }; render(); }, opx: () => { U.opPop = null; render(); } });
   const prev = window.uiAfterRender; window.uiAfterRender = function () { prev && prev(); popSync(); }; })();
+
+(() => { const st = document.createElement('style'); st.id = 'ui22'; st.textContent = `
+html:root body .ccard>.prg{position:static!important;display:none;height:6px!important;margin:0 12px 8px!important;border-radius:3px!important;background:rgba(15,23,42,.1)!important}html:root body .ccard>.prg.on{display:block!important}
+html:root body .ccard>.prg i{opacity:1!important;border-radius:3px;background:#3b5978!important}html:root body .ccard[data-k=gpb]>.prg i{background:#d99a26!important}
+html:root body .ccard>.cdm{top:9px!important;right:112px!important;height:22px;box-sizing:border-box;padding:0 8px!important;gap:4px!important;border:0!important;border-radius:6px!important;background:rgba(255,255,255,.25)!important;font:700 12px var(--font-body)!important;letter-spacing:0!important;z-index:2}
+html:root body .ccard>.cdm.y{top:9px!important;right:186px!important;background:#fff!important}
+html:root body .ccard>.cdm,html:root body .ccard>.cdm b,html:root body .ccard>.cdm svg{color:#fff!important}
+html:root body .ccard>.cdm.y,html:root body .ccard>.cdm.y b,html:root body .ccard>.cdm.y svg{color:#1E293B!important}
+html:root body .ccard>.cdm svg{width:12px;height:12px}
+`; document.head.appendChild(st);
+  const mv = () => document.querySelectorAll('.ccard>.prg').forEach((b) => { const c = b.parentElement, ics = c.querySelector(':scope>.ics'); if (ics && b.nextElementSibling !== ics) c.insertBefore(b, ics); });
+  const prev = window.uiAfterRender; window.uiAfterRender = function () { prev && prev(); mv(); }; })();
+
+(() => { const st = document.createElement('style'); st.id = 'ui23'; st.textContent = `
+.attt>span:first-child{display:none!important}.attt{justify-content:flex-end!important}
+.attact{gap:5px!important;align-items:baseline;flex-wrap:nowrap;font-size:13px!important}.attact small{font:500 11px var(--font-body);color:#64748b;margin-left:2px}.attact i{font-style:normal;color:#94a3b8}.attact .tot{color:#000!important;font-size:18px!important}
+`; document.head.appendChild(st); })();
+
+(() => { const st = document.createElement('style'); st.id = 'ui24'; st.textContent = `.kvf{margin-left:auto;margin-right:8px;padding:6px 10px;border-radius:8px;background:#eef1f5;color:#334155;font:600 12px var(--font-body);white-space:nowrap;max-width:46%;overflow:hidden;text-overflow:ellipsis}.crow{display:flex;align-items:center}`; document.head.appendChild(st); })();
+
+(() => { const st = document.createElement('style'); st.id = 'ui25'; st.textContent = `.spsheet{margin:14px 0 0!important}`; document.head.appendChild(st); })();
+
+(() => { const prev = window.uiAfterRender; window.uiAfterRender = function () { prev && prev(); try { if (typeof KM !== 'undefined' && KM.syncPhotos) KM.syncPhotos(); } catch (e) { /* */ } }; })();
+
+(() => { const st = document.createElement('style'); st.id = 'ui26'; st.textContent = `
+.kmavwrap{position:relative;flex:none;display:inline-block}.befx{position:absolute;right:-4px;bottom:-4px;width:28px;height:28px;border-radius:50%;background:#c4372b;border:2px solid #fff;display:inline-flex;align-items:center;justify-content:center;padding:0;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.befcam{display:flex;align-items:center;justify-content:center;width:100%;box-sizing:border-box;padding:16px;border-radius:12px;font:700 16px var(--font-body);cursor:pointer;background:#3b5978;color:#fff}.befcam.dis{opacity:.6}
+.befc{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:#fff;border:0;border-left:5px solid #c4372b;border-radius:12px;padding:12px;margin:8px 0;box-shadow:0 1px 4px rgba(0,0,0,.08);cursor:pointer}.befc.old{border-left-color:#94a3b8;opacity:.7}.befav .kmav{width:48px;height:48px;font-size:15px}.befm{display:flex;flex-direction:column;gap:2px;min-width:0}.befm b{font:800 16px var(--font-body);color:#1E293B}.befm small{color:#64748b;font:500 12px var(--font-body)}.befb{font:700 13px var(--font-body);color:#c4372b}.befc.old .befb{color:#64748b}
+.befform .f{display:block;margin-top:8px}.befform input,.befform select{width:100%;box-sizing:border-box}.befimg{width:100%;max-height:260px;object-fit:contain;border-radius:10px;background:#f1f5f9;margin-top:8px}
+#befpop{position:fixed;inset:0;z-index:4700;display:flex;align-items:flex-end;justify-content:center}#befpop .sppb{position:absolute;inset:0;background:rgba(15,23,42,.45)}#befpop .oppc{position:relative;width:min(560px,100%);max-height:88vh;overflow:auto;background:#fff;border-radius:18px 18px 0 0;padding:10px 0 24px}
+.befd{border-bottom:1px solid #e6ebf1;padding:10px 0}.befh2{font:600 15px var(--font-body);margin-bottom:6px}.befrow{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f1f4f8;font:500 14px var(--font-body)}.befrow span{color:#64748b}.befact{display:flex;gap:8px;margin-top:10px}
+.befrow2 small{color:#c4372b;font-weight:600}
+`; document.head.appendChild(st); })();
+(() => { const st = document.createElement('style'); st.id = 'ui27'; st.textContent = `#befpop .opph{display:flex;align-items:center;justify-content:space-between;padding:6px 16px 10px;font:700 16px var(--font-body);color:#1E293B;border-bottom:1px solid #e6ebf1}`; document.head.appendChild(st); })();
