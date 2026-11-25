@@ -339,7 +339,7 @@ body[data-fach=gpb] .kmh,body[data-fach=bspk] .kmh{border-bottom-color:rgba(0,0,
   <nav class="nav" id="nav"></nav>
   <main id="main" class="wrap" style="padding:0"></main>
 </div>
-<div id="appver" class="muted sm" style="text-align:center;padding:4px 0 18px;opacity:.7">Version 24.11.2026 · Neue Oberfläche S43</div>
+<div id="appver" class="muted sm" style="text-align:center;padding:4px 0 18px;opacity:.7">Version 25.11.2026 · Neue Oberfläche S44</div>
 <div id="drw" class="drw" aria-hidden="true"><div class="drwbg" data-act="drwx"></div><aside class="drwp" role="dialog" aria-label="Einstellungen"><div class="drwh"><b>Einstellungen</b><button class="drwc" data-act="drwx" aria-label="Schließen">×</button></div><div id="drwl" class="drwl"></div><p class="muted sm" style="margin:12px 4px 0">Am Symbol ⠿ ziehen, um die Reihenfolge zu ändern.</p></aside></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
@@ -465,7 +465,7 @@ document.addEventListener('pointerup',ptrUp,true);document.addEventListener('poi
 document.addEventListener('focusout',()=>{if(pending)setTimeout(()=>{if(!editing()&&!ptrDown){pending=false;scheduleRender()}},60)});
 
 /* ---------- Ferien, Feiertage, schulautonome Tage (NÖ, Schuljahr 2026/27) ---------- */
-const NOE=[['2026-10-26',0,'Nationalfeiertag'],['2026-10-27','2026-10-31','Herbstferien'],['2026-11-01',0,'Allerheiligen'],['2026-11-02',0,'Allerseelen (schulfrei)'],['2026-11-15',0,'Landespatron Leopold'],['2026-12-08',0,'Mariä Empfängnis'],['2026-12-24','2027-01-06','Weihnachtsferien'],['2027-01-30',0,'Schulfrei laut Verordnung'],['2027-02-01','2027-02-06','Semesterferien'],['2027-03-20','2027-03-29','Osterferien'],['2027-05-01',0,'Staatsfeiertag'],['2027-05-06',0,'Christi Himmelfahrt'],['2027-05-15','2027-05-17','Pfingstferien'],['2027-05-27',0,'Fronleichnam'],['2027-07-03','2027-09-05','Sommerferien']];
+const NOE=[['2026-07-04','2026-09-06','Sommerferien'],['2026-10-26',0,'Nationalfeiertag'],['2026-10-27','2026-10-31','Herbstferien'],['2026-11-01',0,'Allerheiligen'],['2026-11-02',0,'Allerseelen (schulfrei)'],['2026-11-15',0,'Landespatron Leopold'],['2026-12-08',0,'Mariä Empfängnis'],['2026-12-24','2027-01-06','Weihnachtsferien'],['2027-01-30',0,'Schulfrei laut Verordnung'],['2027-02-01','2027-02-06','Semesterferien'],['2027-03-20','2027-03-29','Osterferien'],['2027-05-01',0,'Staatsfeiertag'],['2027-05-06',0,'Christi Himmelfahrt'],['2027-05-15','2027-05-17','Pfingstferien'],['2027-05-27',0,'Fronleichnam'],['2027-07-03','2027-09-05','Sommerferien']];
 const autoList=()=>{const a=S.settings.autonom;return a&&Array.isArray(a.list)?a.list:[]};
 function holFor(d){
   for(const a of autoList())if(d>=a.from&&d<=(a.to||a.from))return a.name||'Schulautonomer Tag';
@@ -760,6 +760,12 @@ function lessonDates(G,extra,from,to){
   if(extra&&!out.includes(extra))out.push(extra);
   return out.sort();
 }
+/* Erster Schultag-Grenze: Ende der letzten Sommerferien vor heute (davor keine Stunden anzeigen) */
+const syStart=()=>{let s='';for(const h of NOE)if(h[2]==='Sommerferien'&&h[1]&&h[1]<TODAY&&h[1]>s)s=h[1];return s};
+/* Regel-Unterrichtstage inkl. Ferien/Feiertage mit Namen (für die UE-Übersicht), ohne Sommerferien */
+function lessonSlots(G,from,to){const wds=new Set(mergeRows(G.rows).map(b=>b.wd)),out=[],now=new Date(),sy=syStart();
+  for(let i=from;i<=to;i++){const d=new Date(now);d.setHours(12,0,0,0);d.setDate(d.getDate()+i);const wd=((d.getDay()+6)%7)+1;if(!wds.has(wd))continue;const ds=ymd(d),h=holFor(ds);if(h==='Sommerferien'||ds<=sy)continue;out.push({d:ds,h})}
+  return out}
 const dopt=d=>{const x=parse(d);return WD[((x.getDay()+6)%7)+1]+' '+pad(x.getDate())+'.'+pad(x.getMonth()+1)+'.'+(d===TODAY?' (heute)':'')};
 const DPL={};const lessonDatesFor=id=>DPL[id]||[];
 function dateSelect(G,id,sel,extra,attrs,from,to){
@@ -1512,6 +1518,7 @@ const A={
 const C={
   cinh:e=>{const slug=e.dataset.slug,d=e.dataset.d,f=e.dataset.f,v=f==='mat'?e.value.trim().replace(/\n/g,' '):e.value;
     saveLog(slug,log=>{const es=log.filter(x=>x.date===d),x=es.find(y=>y.text&&String(y.text).trim())||es[0];if(x){if(v)x[f]=v;else delete x[f]}else if(v)log.push({id:uid('l'),date:d,text:'',[f]:v})})},
+  ueoff:e=>{const v=e.value;if(!v)return;const ci=cinfo(e.dataset.slug),o=Object.assign({},ci.ueoff&&typeof ci.ueoff==='object'?ci.ueoff:{});if(v==='-')delete o[e.dataset.d];else o[e.dataset.d]=v;put('settings',Object.assign({},ci,{id:'cn_'+e.dataset.slug,ueoff:o}));toast(v==='x'?'Termin entfernt':v==='-'?'Wieder als offene Stunde angezeigt':'Als „'+v+'“ markiert');render()},
   thmin:e=>{const slug=e.dataset.slug,d=e.dataset.d,v=e.value.trim().replace(/\n/g,' ');
     saveLog(slug,log=>{const es=log.filter(x=>x.date===d),x=es.find(y=>y.text&&String(y.text).trim())||es[0];if(x)x.text=v;else if(v)log.push({id:uid('l'),date:d,text:v})});
     {const m=e.closest('.thm');if(m)m.classList.toggle('empty',!v)}
