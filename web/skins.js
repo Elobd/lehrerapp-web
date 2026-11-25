@@ -1241,3 +1241,5 @@ html:root body .ccard a.cl{flex-wrap:wrap!important;height:auto!important;min-he
 .sitzx{position:absolute;top:-7px;right:-7px;width:22px;height:22px;border-radius:50%;border:2px solid #fff;background:#c4372b;color:#fff;font:800 14px/1 var(--font-body);padding:0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.3)}.sitzplus{font:600 24px var(--font-body);color:#94a3b8;font-style:normal}
 .spai.sitzst{gap:12px}.spai.sitzst .kmav{width:38px;height:38px}
 `; document.head.appendChild(st); })();
+
+(() => { const st = document.createElement('style'); st.id = 'ui44'; st.textContent = `.sitzplan .seat.sblk{background:repeating-linear-gradient(45deg,#f1f3f6,#f1f3f6 6px,#e6e9ee 6px,#e6e9ee 12px);border-color:#c4cad4}.sitzbl{font:600 9px var(--font-body);font-style:normal;color:#64748b}`; document.head.appendChild(st); })();
