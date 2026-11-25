@@ -1145,3 +1145,21 @@ html:root .dd.tdr[data-tk=clock],html:root .dd.tdr[data-tk=score],html:root .dd.
 .attact .atc{display:inline-flex;flex-direction:column;align-items:center;line-height:1.15}.attact .atc b{font:800 20px var(--font-body)}.attact .atc em{font:500 11px var(--font-body);font-style:normal;color:#475569;white-space:nowrap}.attact .atc small{font:500 11px var(--font-body);margin:0;color:#64748b}
 .attact .atc .tot{color:#000}.attact .attht{margin-left:auto;text-align:right;font:700 11px/1.2 var(--font-body);color:#64748b;text-transform:uppercase;letter-spacing:.04em;align-self:center}
 `; document.head.appendChild(st); })();
+
+(() => { const st = document.createElement('style'); st.id = 'ui36'; st.textContent = `
+.attact{flex-direction:column!important;align-items:flex-end!important;gap:4px!important}.attact .attht{margin:0!important;text-align:right;align-self:flex-end}.attact .attrow{align-self:flex-end}
+.attact .atc b,.attact .atc .tot{font-size:17px!important;font-weight:800}
+.synwrap{padding-top:2px}
+`; document.head.appendChild(st);
+  /* Alle Dropdowns im App-Design: eigenes Auswahlfenster statt Systemliste */
+  const esc3 = (x) => String(x == null ? '' : x).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const openSel = (sel) => { if (!sel || sel.disabled || sel.multiple) return; const old = document.getElementById('selpick'); if (old) old.remove(); const lab = sel.getAttribute('aria-label') || (sel.closest('label') && sel.closest('label').firstChild && String(sel.closest('label').firstChild.textContent || '').trim()) || (sel.previousElementSibling && sel.previousElementSibling.tagName === 'SPAN' ? sel.previousElementSibling.textContent.trim() : '') || 'Auswahl';
+    const el = document.createElement('div'); el.id = 'selpick'; el.innerHTML = `<div class="sppb" data-x="1"></div><div class="sppc"><div class="spph"><b>${esc3(lab)}</b><button class="btn sm" data-x="1">Schließen</button></div><div class="spps">${[...sel.options].map((o, i) => `<button class="spai${o.selected ? ' now' : ''}${o.disabled ? ' dis' : ''}" data-i="${i}"${o.disabled ? ' disabled' : ''}><span><b>${esc3(o.textContent.trim()) || '–'}</b></span>${o.selected ? '<i>✓</i>' : ''}</button>`).join('')}</div></div>`;
+    document.body.appendChild(el); const sc = el.querySelector('.now'); if (sc) setTimeout(() => sc.scrollIntoView({ block: 'center' }), 20);
+    el.addEventListener('click', (ev) => { if (ev.target.closest('[data-x]')) { el.remove(); return; } const b = ev.target.closest('.spai'); if (!b || b.disabled) return; sel.selectedIndex = +b.dataset.i; el.remove(); sel.dispatchEvent(new Event('input', { bubbles: true })); sel.dispatchEvent(new Event('change', { bubbles: true })); }); };
+  const isSel = (e) => e.target && e.target.tagName === 'SELECT' && !e.target.hasAttribute('data-native');
+  document.addEventListener('mousedown', (e) => { if (isSel(e)) e.preventDefault(); }, true);
+  document.addEventListener('touchend', (e) => { if (isSel(e) && e.cancelable) { e.preventDefault(); openSel(e.target); } }, { capture: true, passive: false });
+  document.addEventListener('click', (e) => { if (isSel(e)) { e.preventDefault(); if (!('ontouchstart' in window) || e.detail) openSel(e.target); } }, true);
+  document.addEventListener('keydown', (e) => { if (isSel(e) && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openSel(e.target); } }, true);
+  const st2 = document.createElement('style'); st2.id = 'ui37'; st2.textContent = `#selpick{position:fixed;inset:0;z-index:4800;display:flex;align-items:flex-end;justify-content:center}#selpick .sppb{position:absolute;inset:0;background:rgba(15,23,42,.4)}#selpick .sppc{position:relative;width:min(560px,100%);max-height:72vh;background:#fff;border-radius:18px 18px 0 0;display:flex;flex-direction:column;box-shadow:0 -8px 30px rgba(0,0,0,.25)}#selpick .spps{overflow:auto;padding-bottom:20px}#selpick .spai{justify-content:space-between}`; document.head.appendChild(st2); })();
