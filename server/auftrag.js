@@ -55,7 +55,7 @@ export function createAuftrag(ctx) {
     for (let i = 0; i < 3; i++) {
       const user = { role: 'user', content: prompt + '\n\nAntworte ausschließlich mit gültigem JSON (kein Text davor oder danach).' }; let inhalt = [], out = null;
       for (let k = 0; k < 4; k++) { // Web-Suche kann mit „pause_turn“ unterbrechen → fortsetzen
-        const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'x-api-key': aiKey(), 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify({ model: AI_MODEL, max_tokens: tok, ...(web ? { tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 6 }] } : {}), messages: inhalt.length ? [user, { role: 'assistant', content: inhalt }] : [user] }), signal: AbortSignal.timeout(600000) });
+        const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'x-api-key': aiKey(), 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify({ model: AI_MODEL, max_tokens: tok, ...(/claude-(sonnet|opus|haiku)-5/.test(AI_MODEL) ? { output_config: { effort: 'medium' } } : {}), ...(web ? { tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 6 }] } : {}), messages: inhalt.length ? [user, { role: 'assistant', content: inhalt }] : [user] }), signal: AbortSignal.timeout(600000) });
         out = await r.json(); if (!r.ok) throw new Error(out?.error?.message || 'KI-Fehler ' + r.status); zaehle(section, out.usage);
         inhalt = inhalt.concat(out.content || []); if (out.stop_reason !== 'pause_turn') break;
       }
@@ -96,6 +96,8 @@ export function createAuftrag(ctx) {
 
   // Bausteine nach dem Textblatt: in dieser Reihenfolge bei „Material erstellen“; einzeln über „Baustein ergänzen“.
   // Neuer Baustein = Eintrag hier (+ Mock + Funktion in gen/gen.py mit gleichem gen-Schlüssel).
+  // Kapitel in Zweiergruppen schreiben lassen; klappt eine Gruppe nicht (z. B. Antwort zu lang), jedes Kapitel einzeln
+  async function mitRueckfall(run, part) { try { return await run(part); } catch (e) { if (part.length < 2 || !/nicht lesbar/.test(String(e.message))) throw e; const out = { kapitel: [] }; for (const t of part) { const r = await run([t]); (r.kapitel || []).forEach((k) => out.kapitel.push(k)); } return out; } }
   // Anzahl je Baustein aus der App (Plus/Minus), sonst Standardwert
   const anz = (p, k, d) => Math.max(1, Math.min(100, Math.round(+((p.anzahl || {})[k]) || d)));
   const BAUSTEINE = [
@@ -105,9 +107,9 @@ export function createAuftrag(ctx) {
         const pl = await aiJson('handout_plan', head(p) + `Plane ein LEHRER-HANDOUT zu diesem Thema: Hintergrundwissen nur für die Lehrkraft zum Einlesen, ca. ${anz(p, 'handout', 30)} Seiten, fachlich anspruchsvoll auf Niveau Lehramtsstudium, deutlich tiefer und detaillierter als ein Schüler-Textblatt (Forschungsstand, Deutungen und Kontroversen, Ursachen und Zusammenhänge, Zahlen, Personen, Begriffe, Gegenwartsbezüge). Antworte als JSON: {"ueberblick":["6–8 Kernaussagen in je 1–2 Sätzen"],"kapitel":["genau ${Math.max(4, Math.round(anz(p, 'handout', 30) / 3))} Kapitelüberschriften in sinnvoller Reihenfolge"],"didaktik":["6–8 Hinweise für den Unterricht: Schülervorstellungen und typische Fehlvorstellungen, gute Einstiege, Gegenwartsbezüge, Stolpersteine"],"fragen":[{"frage":"typische Schülerfrage","antwort":"fundierte Antwort in 2–4 Sätzen"}] (8 Fragen),"literatur":["6–10 seriöse Fachliteratur- und Quellenangaben"]}`, 8000, undefined, web);
         data.handout = { ueberblick: pl.ueberblick || [], kapitel: [], didaktik: pl.didaktik || [], fragen: pl.fragen || [], literatur: pl.literatur || [] }; save();
         const titles = pl.kapitel || [];
-        for (let i = 0; i < titles.length; i += 3) {
-          const part = titles.slice(i, i + 3); say(`Lehrer-Handout: Kapitel ${i + 1}–${Math.min(i + 3, titles.length)} von ${titles.length} …`, 3);
-          const r = await aiJson('handout', head(p) + `LEHRER-HANDOUT (Hintergrundwissen für die Lehrkraft, Niveau Lehramtsstudium). Gesamtgliederung: ${JSON.stringify(titles)}.\nSchreibe NUR die Kapitel ${JSON.stringify(part)} ausführlich als JSON: {"kapitel":[{"titel":"unverändert","absaetze":["5–7 Absätze, je 150–220 Wörter: fachlich präzise, mit Forschungsstand, Fachbegriffen, Daten, Zusammenhängen, unterschiedlichen Deutungen"],"boxen":[{"typ":"forschung|kontroverse|didaktik|quelle|zahl|merke","titel":"bei quelle: Autor, Werk, Jahr; sonst kurzer Titel","text":"..."}] (2–3 Boxen),"personen":[{"name":"","lebensdaten":"","rolle":"","text":"3–4 Sätze Bedeutung"}] (nur wenn wichtig)}]}. Das ganze Handout soll etwa ${anz(p, 'handout', 30)} Seiten füllen.`, 16000, part, web);
+        for (let i = 0; i < titles.length; i += 2) {
+          const part0 = titles.slice(i, i + 2); say(`Lehrer-Handout: Kapitel ${i + 1}–${Math.min(i + 2, titles.length)} von ${titles.length} …`, 3);
+          const r = await mitRueckfall((part) => aiJson('handout', head(p) + `LEHRER-HANDOUT (Hintergrundwissen für die Lehrkraft, Niveau Lehramtsstudium). Gesamtgliederung: ${JSON.stringify(titles)}.\nSchreibe NUR die Kapitel ${JSON.stringify(part)} ausführlich als JSON: {"kapitel":[{"titel":"unverändert","absaetze":["5–7 Absätze, je 150–220 Wörter: fachlich präzise, mit Forschungsstand, Fachbegriffen, Daten, Zusammenhängen, unterschiedlichen Deutungen"],"boxen":[{"typ":"forschung|kontroverse|didaktik|quelle|zahl|merke","titel":"bei quelle: Autor, Werk, Jahr; sonst kurzer Titel","text":"..."}] (2–3 Boxen),"personen":[{"name":"","lebensdaten":"","rolle":"","text":"3–4 Sätze Bedeutung"}] (nur wenn wichtig)}]}. Das ganze Handout hat etwa ${anz(p, 'handout', 30)} Seiten – schreibe hier nur diese Kapitel in der angegebenen Länge.`, 16000, part, web), part0);
           (r.kapitel || []).forEach((k) => data.handout.kapitel.push(k)); save();
         }
       } },
@@ -177,9 +179,9 @@ export function createAuftrag(ctx) {
     Object.assign(data, { untertitel: plan.untertitel || '', zeitraum: p.zeitraum || plan.zeitraum || '', jahr: p.jahr || plan.jahr || '', zeitstrahl: plan.zeitstrahl, prozess: plan.prozess, prozess_titel: plan.prozess_titel, epochen: plan.epochen, quellenliste: [...(plan.quellenliste || []), ...(p.quellen || []).map((q) => q.ref).filter(Boolean)] });
     data.textblatt = { kurz: plan.kurz || [], kapitel: [], glossar: plan.glossar || [] }; save();
     const titles = plan.kapitel || []; let n = 0;
-    for (let i = 0; i < titles.length; i += 3) {
-      const part = titles.slice(i, i + 3); say(`2/9 Textblatt: Kapitel ${i + 1}–${Math.min(i + 3, titles.length)} von ${titles.length} …`, 2);
-      const r = await aiJson('textblatt', head(p) + `Gesamtgliederung des Textblatts: ${JSON.stringify(titles)}.\nSchreibe NUR die Kapitel ${JSON.stringify(part)} ausführlich als JSON: {"kapitel":[{"titel":"unverändert","absaetze":["3–4 Absätze, je 100–140 Wörter, Fließtext für Schüler/innen, präzise, mit Fachbegriffen"],"boxen":[{"typ":"merke|begriff|quelle|zahl|nachdenken","titel":"nur bei quelle: Autor, Werk, Jahr","text":"..."}] (2–3 Boxen, darunter mindestens eine 'merke'),"personen":[{"name":"","lebensdaten":"","rolle":"","text":"2–3 Sätze Bedeutung"}] (nur wenn wichtige Personen vorkommen; insgesamt im Textblatt mindestens 5 verschiedene)}]}. Insgesamt soll das Textblatt etwa ${p.seiten} Seiten füllen.`, 12000, part, p.quellenmodus === 'web');
+    for (let i = 0; i < titles.length; i += 2) {
+      const part0 = titles.slice(i, i + 2); say(`2/9 Textblatt: Kapitel ${i + 1}–${Math.min(i + 2, titles.length)} von ${titles.length} …`, 2);
+      const r = await mitRueckfall((part) => aiJson('textblatt', head(p) + `Gesamtgliederung des Textblatts: ${JSON.stringify(titles)}.\nSchreibe NUR die Kapitel ${JSON.stringify(part)} ausführlich als JSON: {"kapitel":[{"titel":"unverändert","absaetze":["3–4 Absätze, je 100–140 Wörter, Fließtext für Schüler/innen, präzise, mit Fachbegriffen"],"boxen":[{"typ":"merke|begriff|quelle|zahl|nachdenken","titel":"nur bei quelle: Autor, Werk, Jahr","text":"..."}] (2–3 Boxen, darunter mindestens eine 'merke'),"personen":[{"name":"","lebensdaten":"","rolle":"","text":"2–3 Sätze Bedeutung"}] (nur wenn wichtige Personen vorkommen; insgesamt im Textblatt mindestens 5 verschiedene)}]}. Das ganze Textblatt hat etwa ${p.seiten} Seiten – schreibe hier nur diese Kapitel in der angegebenen Länge.`, 12000, part, p.quellenmodus === 'web'), part0);
       (r.kapitel || []).forEach((k) => data.textblatt.kapitel.push(k)); save();
     }
     Object.defineProperty(data, '_dir', { value: dir, enumerable: false, writable: true });

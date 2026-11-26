@@ -10,6 +10,17 @@ Offene Themen und Entscheidungen: **docs/OFFENE-THEMEN.md** (zu Beginn lesen, na
 - Anleitungen nur im Chat (keine HTML-Berichte). Dateien für das NAS per SendUserFile (Serverdateien als .zip und .txt).
 - Lösungen bevorzugt in der App. Nie Container-Manager „Bearbeiten/Zurücksetzen/Bereinigen/Löschen“ empfehlen.
 
+## NAS-Update (bei JEDER Änderung an server/ oder tailscale/ selbst erledigen, ohne Nachfrage)
+- Oberfläche (web/) holt die NAS automatisch – dafür ist nichts zu tun.
+- Serverdateien: nach dem Push sofort `server-S<n>.zip` (nur die geänderten Dateien, mit Ordnerstruktur `server/…`) plus `server-S<n>-anleitung.txt` erstellen und per SendUserFile schicken. Ein Paket darf frühere, noch nicht bestätigte Pakete enthalten („ersetzt S…“).
+- Anleitung immer konkret und gleich aufgebaut:
+  1. ZIP entpacken.
+  2. Dateien in der File Station im App-Ordner der NAS an dieselbe Stelle kopieren/überschreiben (neue Dateien ausdrücklich nennen, z. B. „kommt in server/gen/“).
+  3. Container Manager → Container **lehrerapp-app** stoppen → starten. Den **Tailscale-Container** (Image tailscale/tailscale) nur nennen, wenn tailscale/serve.json geändert wurde. Nie „Bearbeiten/Zurücksetzen/Bereinigen/Löschen“.
+  4. Woran man in der App erkennt, dass es geklappt hat (konkreter Ort + was dort stehen muss).
+- Im Chat dieselben Schritte kurz wiederholen und genau sagen, wo in der App etwas zu finden ist (Menü → Seite → Bereich → Knopfname).
+- Fehlerdateien der KI: `ki-fehler-<schritt>.txt` im Datenordner (neben ki-schluessel.txt); erste Zeile `stop_reason` erfragen.
+
 ## Verbote
 - Niemals committen: Schülerdaten, Passwörter, Schlüssel, docker-compose.yml, vorlage.pptx.
 - Kein Scraping von digi4school. Keine persönlichen Daten (Schüler, Kollegen) an externe Dienste. Keine Schlüssel im Chat.
