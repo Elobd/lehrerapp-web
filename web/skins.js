@@ -1361,3 +1361,19 @@ h4.gbe{margin:16px 2px 8px;font:800 12px var(--font-body);color:#64748b;text-tra
 .btn,a.btn,label.btn,button.btn,.btn.sm,.btn.good,.btn.bad,.btn.primary,.lsseg .btn,.kmmore.btn{border-radius:8px!important}
 .lsseg{border-radius:8px!important}.lsseg .btn:first-child{border-top-right-radius:0!important;border-bottom-right-radius:0!important}.lsseg .btn:last-child{border-top-left-radius:0!important;border-bottom-left-radius:0!important}
 `; document.head.appendChild(st); })();
+
+/* S63: neuer Haken (kräftiger Pinsel-Haken) für alle grünen „erledigt“-Häkchen; Einstellungen → Klassen verwalten: Reiter */
+(() => {
+  UI.ck = (n) => `<svg class="ck" viewBox="0 0 24 24" width="${n || 14}" height="${n || 14}" aria-hidden="true"><path fill="currentColor" d="M1.6 13.6c1.3-1.4 3-1.6 4.1-.5l3.4 3.4C12.6 10.6 16.9 5.4 21.8 2.3c.5-.3.9.3.5.7-4.1 4.2-7.9 9.8-10.7 16.2-.7 1.5-2.2 1.6-3.3.5L1.8 15.3c-.5-.5-.6-1.2-.2-1.7z"/></svg>`;
+  Object.assign(A, { klvtab: (e) => { U.klvTab = e.dataset.p; render(); } });
+  const st = document.createElement('style'); st.id = 'ui63'; st.textContent = `
+svg.ck{display:inline-block;vertical-align:-2px;flex:none}
+.attrt{display:flex;flex-direction:column;align-items:flex-end;gap:4px;margin-left:auto}.attcnt{font:600 13px var(--font-body);color:#475569}.attcnt b{color:#1E293B;font-size:15px}
+.befcw{display:flex;align-items:center;gap:6px}.befcw .befc{flex:1;min-width:0}.befarb{flex:none}
+.befarch{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;margin:8px 0}.befarch>summary{cursor:pointer;font-weight:700}.befover{outline:2px dashed #3b5978;background:#eef3f8}
+.phdd{background:#fff;border:1px solid #e2e8f0;border-radius:10px;margin:0 0 8px;overflow:hidden}.phdd>summary{display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;list-style:none}.phdd>summary::-webkit-details-marker{display:none}
+.phddn{flex:1;display:flex;flex-direction:column}.phddn small{color:#64748b;font-size:12px}.phddst{font:700 12.5px var(--font-body);display:inline-flex;gap:4px;align-items:center;border-radius:8px;padding:3px 8px}.phddst.ok{color:#1f7a3a;background:#edf7ee}.phddst.no{color:#b3261e;background:#fdecea}.phddb{padding:0 8px 8px}
+.kvzeile{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;padding:8px 0;border-top:1px solid #eef1f5}.kvzeile>b{min-width:70px}.kvin{display:flex;gap:6px;align-items:center;flex:1;min-width:160px}.kvin span{font-size:12px;color:#64748b}.kvin input{flex:1}
+.kvl{cursor:default!important;pointer-events:none}
+`; document.head.appendChild(st);
+})();
