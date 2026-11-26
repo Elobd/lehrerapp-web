@@ -133,7 +133,7 @@ export function createAuftrag(ctx) {
         const mp3 = path.join(dir, `09_Podcast_${T}.mp3`), t = await podcast.tts(text, mp3, (m) => say(m, 9));
         if (acc) { acc.usd += t.usd; acc.teile.tts = (acc.teile.tts || 0) + t.usd; }
         const nr = p.themaNr || data.themaNr || 0, kl = +data.klasse || 0;
-        data.podcast.datei = podcast.aufnehmen(mp3, { id: data.id, dateiname: `${kl}.${String(nr || 0).padStart(2, '0')} ${data.titel}`, titel: `${kl}. Klasse · ${nr ? String(nr).padStart(2, '0') + ' ' : ''}${data.titel}`, text: (data.untertitel || '') + ' – ' + data.epoche, klasse: kl, nr, dauer: (data.podcast.woerter / 130) * 60 });
+        data.podcast.datei = podcast.aufnehmen(mp3, { id: data.id, dateiname: `${kl}.${String(nr || 0).padStart(2, '0')} ${data.titel}`, titel: `${kl}. Klasse · ${nr ? String(nr).padStart(2, '0') + ' ' : ''}${data.titel}`, text: data.untertitel || '', epoche: data.epoche, klasse: kl, nr, dauer: (data.podcast.woerter / 130) * 60 });
         data.podcast.zeichen = t.zeichen; save();
       } },
   ];
@@ -221,6 +221,7 @@ export function createAuftrag(ctx) {
     }).sort((a, b) => String(a.klasse).localeCompare(String(b.klasse)) || String(a.nr).localeCompare(String(b.nr)));
   }
   const findById = (id) => scan().find((x) => String(x.m.id) === String(id));
+  if (podcast) podcast.setCover((id) => { const x = findById(id); if (!x) return null; const c = fs.readdirSync(x.dir).find((f) => /^Cover_.*\.jpg$/.test(f)); return c ? path.join(x.dir, c) : null; }); // Podcast-Folge bekommt das Cover des Arbeitsauftrags
 
   return async function handle(req, res, url) {
     const p = url.pathname;
