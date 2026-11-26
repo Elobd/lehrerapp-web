@@ -40,7 +40,8 @@ Offene Themen und Entscheidungen: **docs/OFFENE-THEMEN.md** (zu Beginn lesen, na
 
 ## Lehrmaterial-Generator (Design ist abgestimmt – nicht ohne ausdrücklichen Wunsch ändern)
 - Ablauf: web/lehrmaterial.js („Material erstellen“) → server/auftrag.js (KI-Schritte 1/9…9/9, je Baustein Prompt + JSON-Format + Mock für AI_MOCK) → server/gen/gen.py `build_all` (Word/Excel je Baustein, Liste `jobs`), lib.py (Farben/Schriften/Kopfzeilen), igen.py (Cover, Zeitstrahl, Prozessgrafik), gen_ppt.py (Präsentation).
-- Bausteine: Textblatt, Arbeitsblatt (+Lösung), Lückentext (+Lösung), Kreuzworträtsel (+Lösung), Check-ups Single/Multiple Choice, mündliche Wiederholungen, Präsentation, Cover.
+- Kategorien: „Grundlagen & Methoden“ (epochenübergreifend) + 5 Epochen (lib.py `EPOCHEN`, Farben; Präsentation färbt eine Vorlage je Epoche um).
+- Bausteine: Lehrer-Handout (optional, ca. 30 S.), Textblatt, Arbeitsblatt (+Lösung), Lückentext (+Lösung), Kreuzworträtsel (+Lösung), Check-ups Single/Multiple Choice, mündliche Wiederholungen, Präsentation, Cover.
 - Kosten: auftrag.js zählt usage je KI-Aufruf (Preistabelle `PREIS`, Web-Suche `AI_SEARCH_USD`), speichert `kosten` in auftrag.json; `/api/auftrag/schaetzung` schätzt aus dem Verlauf. Auswahl `bausteine`/`exporte` kommt aus der App.
 - Arbeitsauftrag-Dateien je Thema auf Stunden: `jahresplan.sub[slug].af = {Stundenindex: [{a, f, n}]}`, in Stunden als `log[].af` (lehrmaterial.js `jpAfHtml`/`afRow`).
 - Präsentationsvorlage liegt nur am NAS (Material/Vorlage/praesentation.pptx), nie committen.

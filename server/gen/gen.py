@@ -6,7 +6,7 @@ from lib import *
 from docx.enum.table import WD_ROW_HEIGHT_RULE
 import igen
 SAFE=lambda s: re.sub(r'[^A-Za-z0-9ÄÖÜäöüß_-]+','-',str(s)).strip('-')[:60] or 'Arbeitsauftrag'
-BOX={'merke':('FBF3E4',None,False),'begriff':(LIGHT,None,False),'quelle':('EEF3F4',None,True),'zahl':('F6EBD9',None,False),'nachdenken':('F2F2F2','888888',False)}
+BOX={'forschung':('EEF3F4',None,False),'kontroverse':('FBEDEA','B41617',False),'didaktik':('EDF5EC','38761D',False),'merke':('FBF3E4',None,False),'begriff':(LIGHT,None,False),'quelle':('EEF3F4',None,True),'zahl':('F6EBD9',None,False),'nachdenken':('F2F2F2','888888',False)}
 def box_typ(d,typ,titel,text,font):
     k=str(typ or 'begriff').lower(); k='nachdenken' if k.startswith('nach') or k.startswith('zum') else k; fill,bar,it=BOX.get(k,BOX['begriff'])
     bar=bar or (L.OCHER if k in('merke','zahl') else L.COL); label={'nachdenken':'Zum Nachdenken'}.get(k,k.capitalize())
@@ -47,6 +47,37 @@ def aufgabe_kopf(d,nr,titel,afb,font):
     r=p.add_run('%d   '%nr); setfont(r,font,15,True,color=L.COL); r=p.add_run(titel); setfont(r,font,12.5,True,color='222222'); r=p.add_run('      '+str(afb or '')); setfont(r,font,9,italic=True,color='888888')
 def lines(d,n,font):
     for _ in range(int(round(n*1.25))): p=d.add_paragraph(); no_space(p,0,0); p.paragraph_format.line_spacing=1.9; r=p.add_run('_'*98); setfont(r,font,9.5,color='999999')
+def handout(data,out,im):
+    """Lehrer-Handout: Hintergrundwissen für die Lehrkraft (ca. 30 Seiten), gleicher Stil wie das Textblatt."""
+    ho=data.get('handout') or {}
+    if not ho.get('kapitel'): return None
+    F=FONT_M; d=new_doc(font=F,size=11); build_header_footer(d,'Lehrer-Handout',data.get('titel',''),font=F)
+    p=d.add_paragraph(); no_space(p,10,4); r=p.add_run('LEHRER-HANDOUT  |  HINTERGRUNDWISSEN'); setfont(r,F,11,True,color=L.OCHER)
+    p=d.add_paragraph(); no_space(p,0,2); r=p.add_run(data.get('titel','')); setfont(r,F,32,True,color=L.COL)
+    p=d.add_paragraph(); no_space(p,0,12); r=p.add_run(data.get('untertitel','')); setfont(r,F,14,color='444444')
+    image(d,im['cover'],16.4)
+    para(d,'',after=4); box(d,'Für die Lehrkraft',['Dieses Handout dient zum Einlesen in das Thema und geht deutlich über das Schüler-Textblatt hinaus: Forschungsstand, Deutungen, Zusammenhänge und didaktische Hinweise. Nicht für Schülerinnen und Schüler bestimmt.'],font=F)
+    pagebreak(d)
+    h1(d,'Überblick in Kernaussagen',font=F,before=0,size=17); bullets(d,ho.get('ueberblick') or [],font=F)
+    chs=ho.get('kapitel') or []; h2(d,'Inhalt',font=F)
+    for i,c in enumerate(chs,1): para(d,'**%d**   %s'%(i,c.get('titel','')),font=F,size=11,after=2)
+    for i,c in enumerate(chs,1):
+        h1(d,'%d  %s'%(i,c.get('titel','')),font=F)
+        for a in c.get('absaetze') or []: para(d,a,font=F,align='j')
+        for b in c.get('boxen') or []: box_typ(d,b.get('typ'),b.get('titel'),b.get('text',''),F)
+        for pr in c.get('personen') or []:
+            ip=os.path.join(im['dir'],'p_%d.png'%(abs(hash(pr.get('name','')))%10**8)); igen.person(ip,pr.get('name',''),pr.get('lebensdaten',''),pr.get('rolle',''),L.COL)
+            person_card(d,pr.get('name',''),pr.get('lebensdaten',''),pr.get('rolle',''),ip,pr.get('text',''),font=F)
+        if i==2 and im.get('zeit'): image(d,im['zeit'],16.2,'Abb. 1: Wichtige Ereignisse im Zeitstrahl.',font=F)
+        if i==4 and im.get('steps'): image(d,im['steps'],16.2,'Abb. 2: Überblick (eigene Darstellung).',font=F)
+    if ho.get('didaktik'): h1(d,'Didaktische Hinweise',font=F); bullets(d,ho['didaktik'],font=F)
+    if ho.get('fragen'):
+        h1(d,'Typische Schülerfragen',font=F)
+        for q in ho['fragen']: para(d,'**%s**'%q.get('frage',''),font=F,size=11,after=1); para(d,q.get('antwort',''),font=F,size=10.5,after=6)
+    if ho.get('literatur'):
+        h2(d,'Literatur und Quellen',font=F)
+        for x in ho['literatur']: para(d,x,font=F,size=10,after=2)
+    quellen(d,L.QUELLEN,font=F); fn=os.path.join(out,'01_Lehrer-Handout_%s.docx'%SAFE(data.get('titel'))); d.save(fn); return fn
 def arbeitsblatt(data,out,loesung):
     F=FONT_S; ab=data.get('arbeitsblatt') or {}; tasks=(ab.get('aufgaben') or [])[:8]
     d=new_doc(font=F,size=10.5); build_header_footer(d,'Arbeitsblatt – Offene Fragen',data.get('titel',''),loesung=loesung,font=F)
@@ -282,7 +313,7 @@ def build_all(data,out,vorlage=None,cover_custom=None):
     if not os.environ.get('NUR'): Image.open(im['cover']).convert('RGB').save(os.path.join(out,'Cover_%s.jpg'%SAFE(data.get('titel'))),quality=93,subsampling=0); res.append('Cover_%s.jpg'%SAFE(data.get('titel')))
     # NUR=schluessel,... (Umgebung): nur diese Bausteine neu bauen (Baustein nachträglich ergänzen)
     nur=set(x for x in os.environ.get('NUR','').split(',') if x)
-    jobs=[('textblatt',lambda:textblatt(data,out,im)),('arbeitsblatt',lambda:arbeitsblatt(data,out,False)),('arbeitsblatt',lambda:arbeitsblatt(data,out,True)),('luecken',lambda:luecken(data,out,False)),('luecken',lambda:luecken(data,out,True)),('kreuzwort',lambda:kreuzwort(data,out,False)),('kreuzwort',lambda:kreuzwort(data,out,True)),('checkup',lambda:checkups(data,out)),('wiederholung',lambda:wiederholung(data,out))]
+    jobs=[('handout',lambda:handout(data,out,im)),('textblatt',lambda:textblatt(data,out,im)),('arbeitsblatt',lambda:arbeitsblatt(data,out,False)),('arbeitsblatt',lambda:arbeitsblatt(data,out,True)),('luecken',lambda:luecken(data,out,False)),('luecken',lambda:luecken(data,out,True)),('kreuzwort',lambda:kreuzwort(data,out,False)),('kreuzwort',lambda:kreuzwort(data,out,True)),('checkup',lambda:checkups(data,out)),('wiederholung',lambda:wiederholung(data,out))]
     jobs=[j for k,j in jobs if not nur or k in nur]
     for j in jobs:
         try:

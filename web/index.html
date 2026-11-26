@@ -339,7 +339,7 @@ body[data-fach=gpb] .kmh,body[data-fach=bspk] .kmh{border-bottom-color:rgba(0,0,
   <nav class="nav" id="nav"></nav>
   <main id="main" class="wrap" style="padding:0"></main>
 </div>
-<div id="appver" class="muted sm" style="text-align:center;padding:4px 0 18px;opacity:.7">Version 26.11.2026 · Neue Oberfläche S46</div>
+<div id="appver" class="muted sm" style="text-align:center;padding:4px 0 18px;opacity:.7">Version 26.11.2026 · Neue Oberfläche S47</div>
 <div id="drw" class="drw" aria-hidden="true"><div class="drwbg" data-act="drwx"></div><aside class="drwp" role="dialog" aria-label="Einstellungen"><div class="drwh"><b>Einstellungen</b><button class="drwc" data-act="drwx" aria-label="Schließen">×</button></div><div id="drwl" class="drwl"></div><p class="muted sm" style="margin:12px 4px 0">Am Symbol ⠿ ziehen, um die Reihenfolge zu ändern.</p></aside></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
@@ -1475,7 +1475,7 @@ const A={
   settab:e=>{U.setTab=e.dataset.v;render()},
   setnav:e=>{const v=e.dataset.v;if(v==='skin')U.setTab='skin';else if(v==='daten')U.setTab='data';drwClose();setView(v==='skin'?'daten':v);render()},
   drwx:()=>drwClose(),
-  jpmk:e=>{const slug=e.dataset.k,f=jpFind(slug);if(!f)return;const title=f.line.replace(/\s*\(\d+\s*Std\.?\)\s*$/,''),t=title.toLowerCase();let ep=/antike|römer|griech|rom\b|ägypt/.test(t)?'Antike':/mittelalter|ritter|burg|kreuzz|karoling/.test(t)?'Mittelalter':/steinzeit|urgeschicht|frühgeschicht|eiszeit|jäger/.test(t)?'Vor- und Frühgeschichte':/weltkrieg|nationalsozial|zweite republik|kalter krieg/.test(t)?'Zeitgeschichte':'Neuzeit';if(typeof erbPrefill!=='function')return;erbPrefill({titel:title,klasse:String(f.k),epoche:ep},slug);setView('erarbeiten')},
+  jpmk:e=>{const slug=e.dataset.k,f=jpFind(slug);if(!f)return;const title=f.line.replace(/\s*\(\d+\s*Std\.?\)\s*$/,''),t=title.toLowerCase();let ep=/was ist geschichte|quellen, methoden|zeitrechnung|geschichtsbewusst|grundlagen/.test(t)?'Grundlagen & Methoden':/antike|römer|griech|rom\b|ägypt/.test(t)?'Antike':/mittelalter|ritter|burg|kreuzz|karoling/.test(t)?'Mittelalter':/steinzeit|urgeschicht|frühgeschicht|eiszeit|jäger/.test(t)?'Vor- und Frühgeschichte':/weltkrieg|nationalsozial|zweite republik|kalter krieg/.test(t)?'Zeitgeschichte':'Neuzeit';if(typeof erbPrefill!=='function')return;erbPrefill({titel:title,klasse:String(f.k),epoche:ep},slug);setView('erarbeiten')},
   jptpl:e=>{const d=S.settings.jahresplan||{id:'jahresplan'},k=e.dataset.k;if(!JP_TPL[k]||String(d[k]||'').trim())return;put('settings',Object.assign({},d,{id:'jahresplan',[k]:JP_TPL[k]}));U.jpo=Object.assign({},U.jpo,{[k]:true});toast('Lehrplan-Vorschlag eingesetzt – du kannst ihn jederzeit ändern');render()},
   jpmrm:e=>{const d=S.settings.jahresplan||{id:'jahresplan'},sub=Object.assign({},d.sub||{}),it=Object.assign({},sub[e.dataset.k]||{});it.mats=(it.mats||[]).filter(x=>x!==e.dataset.id);sub[e.dataset.k]=it;put('settings',Object.assign({},d,{id:'jahresplan',sub}));render()},
   setskin:e=>{if(window.SKIN)window.SKIN.apply(e.dataset.v);render()},

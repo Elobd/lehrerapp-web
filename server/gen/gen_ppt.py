@@ -37,7 +37,7 @@ def build(data,out,vorlage,im):
         for sh in l.shapes:
             try:
                 if sh.name in ('Rechteck 9','Rechteck 18') and sh.shape_type==1: sh.fill.solid(); sh.fill.fore_color.rgb=C(col)
-                if sh.has_text_frame and sh.text_frame.text.strip()=='Die Neuzeit': sh.text_frame.paragraphs[0].runs[0].text='Die '+ep if ep!='Antike' else 'Die Antike'
+                if sh.has_text_frame and sh.text_frame.text.strip()=='Die Neuzeit': sh.text_frame.paragraphs[0].runs[0].text='Grundlagen' if ep=='Grundlagen & Methoden' else 'Die '+ep
                 if sh.has_text_frame and 'ca. 1500' in sh.text_frame.text: sh.text_frame.paragraphs[0].runs[0].text='(%s)'%L.ZEIT
             except Exception: pass
     def ph(s,idx):
@@ -101,7 +101,7 @@ def build(data,out,vorlage,im):
             t=s.shapes.add_textbox(Inches(x),Inches(y),Inches(w),Inches(h)); tf=t.text_frame; tf.word_wrap=True; tf.vertical_anchor=anchor; tf.margin_left=tf.margin_right=Inches(0.02); tf.margin_top=tf.margin_bottom=0
             for i,l in enumerate(lines):
                 p=tf.paragraphs[0] if i==0 else tf.add_paragraph(); p.alignment=PP_ALIGN.CENTER; r=p.add_run(); r.text=l; r.font.name=FONT; r.font.size=Pt(size if i==0 else size-1.5); r.font.bold=bold if i==0 else False; r.font.color.rgb=C(color if i==0 else '666666')
-        order=list(L.EPOCHEN.keys())
+        order=[k for k in L.EPOCHEN.keys() if k!='Grundlagen & Methoden']  # Übersicht zeigt nur die fünf Epochen
         byep={e.get('epoche'):e.get('ereignisse') or [] for e in EPD}
         for i,n in enumerate(order):
             colr,zt=L.EPOCHEN[n]; tc='222222' if colr=='F1C232' else 'FFFFFF'; x=bx+i*bw

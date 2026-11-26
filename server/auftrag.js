@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dir = path.dirname(fileURLToPath(import.meta.url));
 const GEN = path.join(__dir, 'gen');
-const EPOCHEN = ['Vor- und Frühgeschichte', 'Antike', 'Mittelalter', 'Neuzeit', 'Zeitgeschichte'];
+const EPOCHEN = ['Grundlagen & Methoden', 'Vor- und Frühgeschichte', 'Antike', 'Mittelalter', 'Neuzeit', 'Zeitgeschichte']; // „Grundlagen & Methoden“ = epochenübergreifend (Was ist Geschichte, Quellen, Zeitrechnung …)
 const jobs = new Map();
 const slug = (s) => String(s || 'Arbeitsauftrag').normalize('NFC').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) || 'Arbeitsauftrag';
 const yearOf = (m) => { const x = /-?\d{3,4}/.exec(String(m.jahr || m.zeitraum || '')); return x ? +x[0] : 9999; };
@@ -39,6 +39,10 @@ export function createAuftrag(ctx) {
     if (!acc || !u) return; const [pi, po] = preis(), ein = (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) * 1.25 + (u.cache_read_input_tokens || 0) * 0.1, aus = u.output_tokens || 0, su = (u.server_tool_use && u.server_tool_use.web_search_requests) || 0;
     const usd = (ein * pi + aus * po) / 1e6 + su * SUCHE_USD; acc.usd += usd; acc.ein += Math.round(ein); acc.aus += aus; acc.suchen += su; acc.aufrufe++; acc.teile[section] = (acc.teile[section] || 0) + usd;
   }
+  let kurs = { eur: +process.env.EUR_PRO_USD || 0.92, am: 0, quelle: 'Annahme' };
+  async function eurKurs() { if (Date.now() - kurs.am < 12 * 3600e3) return kurs.eur; kurs.am = Date.now();
+    try { const t = await (await fetch('https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml', { signal: AbortSignal.timeout(8000) })).text(), m = /currency='USD' rate='([\d.]+)'/.exec(t); if (m && +m[1] > 0) kurs = { eur: 1 / +m[1], am: Date.now(), quelle: 'EZB-Referenzkurs' }; } catch { /* Annahme behalten */ }
+    return kurs.eur; }
   const rund = (k) => k && Object.assign({}, k, { usd: Math.round(k.usd * 10000) / 10000, teile: Object.fromEntries(Object.entries(k.teile || {}).map(([a, b]) => [a, Math.round(b * 10000) / 10000])) });
   // ---------- KI ----------
   async function aiJson(section, prompt, maxTok, mockArg, web) {
@@ -63,6 +67,8 @@ export function createAuftrag(ctx) {
     if (section === 'multiple') return { multiple: m.checkup.multiple };
     if (section === 'wdh') return { wiederholung: m.wiederholung.slice(arg[0], arg[1]) };
     if (section === 'praesentation') return { praesentation: m.praesentation };
+    if (section === 'handout_plan') return { ueberblick: m.textblatt.kurz, kapitel: m.textblatt.kapitel.map((k) => k.titel), didaktik: ['Hinweis 1', 'Hinweis 2'], fragen: [{ frage: 'Warum?', antwort: 'Darum.' }], literatur: m.quellenliste || [] };
+    if (section === 'handout') return { kapitel: m.textblatt.kapitel.filter((k) => arg.includes(k.titel)) };
     if (section === 'stunden') return { einheiten: Array.from({ length: arg.n }, (_, i) => ({ thema: `${arg.titel}: Stunde ${i + 1}`, inhalt: 'Inhalt der Stunde ' + (i + 1), ziele: 'Die Schüler:innen können …', methoden: 'Lehrervortrag, Partnerarbeit', ph: [{ t: 'Einstieg', m: 10 }, { t: 'Erarbeitung', m: 25 }, { t: 'Sicherung', m: 10 }], ha: i === arg.n - 1 ? 'Wiederholung' : '' })) };
     return pick(section);
   }
@@ -76,6 +82,18 @@ export function createAuftrag(ctx) {
   // Bausteine nach dem Textblatt: in dieser Reihenfolge bei „Material erstellen“; einzeln über „Baustein ergänzen“.
   // Neuer Baustein = Eintrag hier (+ Mock + Funktion in gen/gen.py mit gleichem gen-Schlüssel).
   const BAUSTEINE = [
+    { k: 'handout', n: 'Lehrer-Handout (ca. 30 Seiten)', nr: 3, gen: ['handout'], has: (d) => !!(d.handout && (d.handout.kapitel || []).length),
+      run: async (data, p, say, save) => {
+        say('Lehrer-Handout: Gliederung …', 3); const web = p.quellenmodus === 'web';
+        const pl = await aiJson('handout_plan', head(p) + `Plane ein LEHRER-HANDOUT zu diesem Thema: Hintergrundwissen nur für die Lehrkraft zum Einlesen, ca. 30 Seiten, fachlich anspruchsvoll auf Niveau Lehramtsstudium, deutlich tiefer und detaillierter als ein Schüler-Textblatt (Forschungsstand, Deutungen und Kontroversen, Ursachen und Zusammenhänge, Zahlen, Personen, Begriffe, Gegenwartsbezüge). Antworte als JSON: {"ueberblick":["6–8 Kernaussagen in je 1–2 Sätzen"],"kapitel":["genau 10 Kapitelüberschriften in sinnvoller Reihenfolge"],"didaktik":["6–8 Hinweise für den Unterricht: Schülervorstellungen und typische Fehlvorstellungen, gute Einstiege, Gegenwartsbezüge, Stolpersteine"],"fragen":[{"frage":"typische Schülerfrage","antwort":"fundierte Antwort in 2–4 Sätzen"}] (8 Fragen),"literatur":["6–10 seriöse Fachliteratur- und Quellenangaben"]}`, 8000, undefined, web);
+        data.handout = { ueberblick: pl.ueberblick || [], kapitel: [], didaktik: pl.didaktik || [], fragen: pl.fragen || [], literatur: pl.literatur || [] }; save();
+        const titles = pl.kapitel || [];
+        for (let i = 0; i < titles.length; i += 3) {
+          const part = titles.slice(i, i + 3); say(`Lehrer-Handout: Kapitel ${i + 1}–${Math.min(i + 3, titles.length)} von ${titles.length} …`, 3);
+          const r = await aiJson('handout', head(p) + `LEHRER-HANDOUT (Hintergrundwissen für die Lehrkraft, Niveau Lehramtsstudium). Gesamtgliederung: ${JSON.stringify(titles)}.\nSchreibe NUR die Kapitel ${JSON.stringify(part)} ausführlich als JSON: {"kapitel":[{"titel":"unverändert","absaetze":["5–7 Absätze, je 150–220 Wörter: fachlich präzise, mit Forschungsstand, Fachbegriffen, Daten, Zusammenhängen, unterschiedlichen Deutungen"],"boxen":[{"typ":"forschung|kontroverse|didaktik|quelle|zahl|merke","titel":"bei quelle: Autor, Werk, Jahr; sonst kurzer Titel","text":"..."}] (2–3 Boxen),"personen":[{"name":"","lebensdaten":"","rolle":"","text":"3–4 Sätze Bedeutung"}] (nur wenn wichtig)}]}. Das ganze Handout soll etwa 30 Seiten füllen.`, 16000, part, web);
+          (r.kapitel || []).forEach((k) => data.handout.kapitel.push(k)); save();
+        }
+      } },
     { k: 'arbeitsblatt', n: 'Arbeitsblatt (mit Lösung)', nr: 3, gen: ['arbeitsblatt'], has: (d) => !!(d.arbeitsblatt && (d.arbeitsblatt.aufgaben || []).length),
       run: async (data, p, say, save) => { say('3/9 Arbeitsblatt …', 3); const ab = await aiJson('arbeitsblatt', head(p) + `Erstelle das Arbeitsblatt „Offene Fragen“ (ohne Punkte, keine Testoptik) als JSON: {"aufgaben":[genau 8 Aufgaben]}. Jede Aufgabe: {"titel":"","afb":"AFB I|II|III · Operator","einleitung":"optional","quelle":{"label":"Autor/Werk/Jahr","text":"kurzer Quellenauszug AUS DEN QUELLEN"} optional,"typ":"frei|tabelle|skizze","tabelle":{"spalten":["Kriterium","A","B"],"zeilen":[["Kriterium","Lösung A","Lösung B"]]} nur bei typ tabelle,"teile":[{"text":"Arbeitsauftrag mit Operator","erwartung":"Erwartungshorizont (Stichpunkte, ohne Punkte)","zeilen":3–6}]}. Aufgabe 1–2: Wiedergeben, 3–5: Erklären/Vergleichen (eine mit Quelle, eine Tabelle), 6: Beurteilen mit Klassenbezug ('Notiere, welcher Standpunkt unserer Diskussion vom ______ (Datum) am stärksten war'), 7: Transfer mit selbst erlebtem Beispiel der letzten 7 Tage, 8: typ skizze (Mindmap/Zeitstrahl). Gestalte die Aufgaben so, dass sie ohne den Unterricht und das Textblatt nicht von einer KI gelöst werden können (Bezug auf Blatt-Quelle, Unterrichtsdiskussion, eigenes Beispiel, Skizze).`, 8000); data.arbeitsblatt = ab; save(); } },
     { k: 'luecken', n: 'Lückentext und Kreuzworträtsel (mit Lösung)', nr: 4, gen: ['luecken', 'kreuzwort'], has: (d) => !!(d.luecken && d.luecken.text),
@@ -112,7 +130,7 @@ export function createAuftrag(ctx) {
       (r.kapitel || []).forEach((k) => data.textblatt.kapitel.push(k)); save();
     }
     for (const B of BAUSTEINE) if (!p.bausteine || p.bausteine.includes(B.k)) await B.run(data, p, say, save);
-    data.kosten = rund(acc); data.thema = p.thema || ''; save(); acc = null;
+    data.kosten = rund(acc); data.thema = p.thema || ''; if (p.themaNr) data.themaNr = p.themaNr; save(); acc = null;
     say('9/9 Dokumente werden erzeugt …', 9); await generiere(job, dir, null, !!(p.bausteine && !p.bausteine.includes('praesentation'))); const fin = path.join(path.dirname(dir), 'zz ' + slug(p.titel) + ' ' + job.id); fs.renameSync(dir, fin); job.dir = fin; renumber(); job.state = 'fertig'; say('Fertig.');
   }
   // Baustein nachträglich: nur dieser KI-Schritt, Grundlage ist das vorhandene Textblatt; nur seine Dateien werden neu gebaut
@@ -140,13 +158,15 @@ export function createAuftrag(ctx) {
       for (const a of fs.readdirSync(kd)) { if (a.startsWith('_neu_')) continue; const ad = path.join(kd, a), jf = path.join(ad, 'auftrag.json'); if (!fs.existsSync(jf)) continue; try { const m = JSON.parse(fs.readFileSync(jf, 'utf8')); out.push({ dir: ad, kdir: kd, m }); } catch { /* */ } } }
     return out;
   }
+  // Ordnernummern: Aufträge mit Themennummer aus der Jahresplanung tragen diese Nummer, die übrigen folgen danach (nach Epoche/Jahr)
   function renumber() {
-    const all = scan().filter((x) => !x.m.id || true), byK = new Map();
+    const all = scan(), byK = new Map();
     all.forEach((x) => { const k = x.kdir; if (!byK.has(k)) byK.set(k, []); byK.get(k).push(x); });
     for (const [kd, list] of byK) {
-      list.sort((a, b) => EPOCHEN.indexOf(a.m.epoche) - EPOCHEN.indexOf(b.m.epoche) || yearOf(a.m) - yearOf(b.m) || String(a.m.titel).localeCompare(String(b.m.titel), 'de'));
+      list.sort((a, b) => (a.m.themaNr || 999) - (b.m.themaNr || 999) || EPOCHEN.indexOf(a.m.epoche) - EPOCHEN.indexOf(b.m.epoche) || yearOf(a.m) - yearOf(b.m) || String(a.m.titel).localeCompare(String(b.m.titel), 'de'));
       const tmp = list.map((x, i) => { const t = path.join(kd, '__t' + i); fs.renameSync(x.dir, t); return t; });
-      list.forEach((x, i) => { const nn = String(i + 1).padStart(2, '0'); fs.renameSync(tmp[i], path.join(kd, `${nn} ${slug(x.m.titel)}`)); });
+      let next = Math.max(0, ...list.map((x) => x.m.themaNr || 0)) + 1; const used = new Set();
+      list.forEach((x, i) => { const nn = String(x.m.themaNr || next++).padStart(2, '0'); let name = `${nn} ${slug(x.m.titel)}`, q = 2; while (used.has(name)) name = `${nn} ${slug(x.m.titel)} (${q++})`; used.add(name); fs.renameSync(tmp[i], path.join(kd, name)); });
     }
   }
   function listing() {
@@ -160,13 +180,13 @@ export function createAuftrag(ctx) {
 
   return async function handle(req, res, url) {
     const p = url.pathname;
-    if (p === '/api/auftraege' && req.method === 'GET') return json(res, 200, { items: listing(), vorlage: fs.existsSync(VORLAGE), ai: !!aiKey() || !!process.env.AI_MOCK }), true;
+    if (p === '/api/auftraege' && req.method === 'GET') return json(res, 200, { eurProUsd: await eurKurs(), kursQuelle: kurs.quelle, items: listing(), vorlage: fs.existsSync(VORLAGE), ai: !!aiKey() || !!process.env.AI_MOCK }), true;
     if (p === '/api/auftrag/erstellen' && req.method === 'POST') {
       const q = JSON.parse((await body(req)) || '{}'); if (!q.titel || !EPOCHEN.includes(q.epoche)) return json(res, 400, { error: 'Bitte Thema und Epoche angeben.' }), true;
       if (!aiKey() && !process.env.AI_MOCK) return json(res, 501, { error: 'KI nicht eingerichtet (ANTHROPIC_API_KEY fehlt).' }), true;
       if ([...jobs.values()].some((j) => j.state === 'laeuft')) return json(res, 409, { error: 'Es läuft bereits eine Erstellung. Bitte warten.' }), true;
       const id = Date.now().toString(36), job = { id, state: 'laeuft', msg: 'Start …', step: 0, total: 9, titel: q.titel }; jobs.set(id, job);
-      const prm = { titel: String(q.titel).slice(0, 120), klasse: [5, 6, 7, 8].includes(+q.klasse) ? +q.klasse : 6, epoche: q.epoche, zeitraum: String(q.zeitraum || '').slice(0, 60), jahr: String(q.jahr || '').slice(0, 10), quellenmodus: ['web', 'wissen', 'eigen'].includes(q.quellenmodus) ? q.quellenmodus : 'web', bausteine: Array.isArray(q.bausteine) ? q.bausteine.filter((k) => BAUSTEINE.some((b) => b.k === k)) : null, exporte: q.exporte && typeof q.exporte === 'object' ? { kahoot: q.exporte.kahoot !== false, plickers: q.exporte.plickers !== false, forms: q.exporte.forms !== false } : undefined, thema: String(q.thema || '').slice(0, 80), seiten: +q.seiten || 10, folien: q.folien || 'mittel', notizen: String(q.notizen || '').slice(0, 1500), quellen: Array.isArray(q.quellen) ? q.quellen.slice(0, 20) : [] };
+      const prm = { titel: String(q.titel).slice(0, 120), klasse: [5, 6, 7, 8].includes(+q.klasse) ? +q.klasse : 6, epoche: q.epoche, zeitraum: String(q.zeitraum || '').slice(0, 60), jahr: String(q.jahr || '').slice(0, 10), quellenmodus: ['web', 'wissen', 'eigen'].includes(q.quellenmodus) ? q.quellenmodus : 'web', bausteine: Array.isArray(q.bausteine) ? q.bausteine.filter((k) => BAUSTEINE.some((b) => b.k === k)) : null, exporte: q.exporte && typeof q.exporte === 'object' ? { kahoot: q.exporte.kahoot !== false, plickers: q.exporte.plickers !== false, forms: q.exporte.forms !== false } : undefined, thema: String(q.thema || '').slice(0, 80), themaNr: Math.max(0, Math.min(99, parseInt(q.themaNr) || 0)), seiten: +q.seiten || 10, folien: q.folien || 'mittel', notizen: String(q.notizen || '').slice(0, 1500), quellen: Array.isArray(q.quellen) ? q.quellen.slice(0, 20) : [] };
       erstelle(job, prm).catch((e) => { acc = null; job.state = 'fehler'; job.msg = String(e && e.message || e); try { if (job.dir) fs.rmSync(job.dir, { recursive: true, force: true }); } catch { /* */ } });
       return json(res, 200, { id }), true;
     }
@@ -181,7 +201,7 @@ export function createAuftrag(ctx) {
         return json(res, 200, { einheiten: E }), true;
       } catch (e) { return json(res, 502, { error: String(e && e.message || e) }), true; }
     }
-    if (p === '/api/auftrag/status' && req.method === 'GET') { const j = jobs.get(url.searchParams.get('id')); return json(res, j ? 200 : 404, j ? { state: j.state, msg: j.msg, step: j.step, total: j.total, warn: j.warn || '', usd: j.kosten ? Math.round(j.kosten.usd * 10000) / 10000 : null } : { error: 'unbekannt' }), true; }
+    if (p === '/api/auftrag/status' && req.method === 'GET') { const j = jobs.get(url.searchParams.get('id')); return json(res, j ? 200 : 404, j ? { state: j.state, msg: j.msg, step: j.step, total: j.total, warn: j.warn || '', usd: j.kosten ? Math.round(j.kosten.usd * 10000) / 10000 : null, eur: j.kosten ? Math.round(j.kosten.usd * kurs.eur * 100) / 100 : null } : { error: 'unbekannt' }), true; }
     if (p === '/api/auftrag/cover' && req.method === 'POST') {
       const x = findById(url.searchParams.get('id')); if (!x) return json(res, 404, { error: 'Arbeitsauftrag nicht gefunden' }), true;
       const buf = await bodyBuf(req, 25 * 1024 * 1024); fs.writeFileSync(path.join(x.dir, 'cover_custom.png'), buf);
@@ -192,10 +212,10 @@ export function createAuftrag(ctx) {
       // Durchschnitt aus bisherigen Aufträgen je Teil; sonst grobe Annahme aus typischen Token-Mengen
       const bs = (url.searchParams.get('bs') || '').split(',').filter(Boolean), web = url.searchParams.get('web') === '1', eigen = +url.searchParams.get('eigen') || 0, seiten = +url.searchParams.get('seiten') || 10, folien = url.searchParams.get('folien') || 'mittel';
       const hist = scan().map((x) => x.m.kosten).filter((k) => k && k.teile), [pi, po] = preis(), kap = seiten >= 18 ? 12 : seiten >= 14 ? 10 : 8, extraIn = Math.min(12000, eigen * 2500);
-      const T = { plan: [3000, 3000, 1, true], textblatt: [4000, 6000, Math.ceil(kap / 3), true], arbeitsblatt: [3000, 5000, 1], luecken: [3000, 5000, 1], single: [3000, 3500, 1], multiple: [3000, 3500, 1], wdh: [3000, 4000, 2], praesentation: [3000, folien === 'kurz' ? 4000 : folien === 'ausfuehrlich' ? 9000 : 6000, 1] };
-      const teile = ['plan', 'textblatt', ...bs.map((k) => (k === 'wdh' ? 'wdh' : k))]; let usd = 0, ausVerlauf = 0;
+      const T = { plan: [3000, 3000, 1, true], textblatt: [4000, 6000, Math.ceil(kap / 3), true], arbeitsblatt: [3000, 5000, 1], luecken: [3000, 5000, 1], single: [3000, 3500, 1], multiple: [3000, 3500, 1], wdh: [3000, 4000, 2], handout_plan: [3000, 3000, 1, true], handout: [5000, 9000, 4, true], praesentation: [3000, folien === 'kurz' ? 4000 : folien === 'ausfuehrlich' ? 9000 : 6000, 1] };
+      const teile = ['plan', 'textblatt', ...bs.flatMap((k) => (k === 'handout' ? ['handout_plan', 'handout'] : [k]))]; let usd = 0, ausVerlauf = 0;
       teile.forEach((t) => { const h = hist.map((k) => k.teile[t]).filter((v) => v > 0); if (h.length) { usd += h.reduce((a, b) => a + b, 0) / h.length; ausVerlauf++; return; } const d = T[t]; if (!d) return; const ein = (d[0] + extraIn + (web && d[3] ? 30000 : 0)) * d[2], aus = d[1] * d[2] * 1.6; usd += (ein * pi + aus * po) / 1e6 + (web && d[3] ? 3 * d[2] * SUCHE_USD : 0); });
-      return json(res, 200, { usd: Math.round(usd * 100) / 100, basis: ausVerlauf === teile.length ? 'verlauf' : ausVerlauf ? 'gemischt' : 'annahme', modell: AI_MODEL, n: hist.length }), true;
+      return json(res, 200, { eur: Math.round(usd * (await eurKurs()) * 100) / 100, usd: Math.round(usd * 100) / 100, basis: ausVerlauf === teile.length ? 'verlauf' : ausVerlauf ? 'gemischt' : 'annahme', modell: AI_MODEL, n: hist.length }), true;
     }
     if (p === '/api/auftrag/baustein' && req.method === 'POST') {
       const x = findById(url.searchParams.get('id')), B = BAUSTEINE.find((b) => b.k === url.searchParams.get('k')); if (!x || !B) return json(res, 404, { error: 'Arbeitsauftrag oder Baustein nicht gefunden' }), true;
@@ -205,7 +225,7 @@ export function createAuftrag(ctx) {
       ergaenze(job, x, B, String(q.hinweis || '').slice(0, 600)).catch((e) => { acc = null; job.state = 'fehler'; job.msg = String(e && e.message || e); });
       return json(res, 200, { id }), true;
     }
-    if (p === '/api/auftrag/nummern' && req.method === 'POST') { renumber(); return json(res, 200, { ok: true }), true; }
+    if (p === '/api/auftrag/nummern' && req.method === 'POST') { const q = JSON.parse((await body(req)) || '{}'), map = q.map && typeof q.map === 'object' ? q.map : {}; scan().forEach((x) => { const n = parseInt(map[x.m.thema]); if (x.m.thema && n > 0 && n !== x.m.themaNr) { x.m.themaNr = n; fs.writeFileSync(path.join(x.dir, 'auftrag.json'), JSON.stringify(x.m, null, 1)); } }); renumber(); return json(res, 200, { ok: true }), true; }
     if (p === '/api/auftrag' && req.method === 'DELETE') { const x = findById(url.searchParams.get('id')); if (!x) return json(res, 404, { error: 'nicht gefunden' }), true; fs.rmSync(x.dir, { recursive: true, force: true }); renumber(); return json(res, 200, { ok: true }), true; }
     return false;
   };

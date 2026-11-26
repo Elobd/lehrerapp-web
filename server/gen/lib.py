@@ -123,7 +123,7 @@ def quellen(d,items,font=FONT_S,bilder=None):
     h2(d,'Bilder und Grafiken',font=font)
     for it in (bilder or ['Alle Grafiken: eigene Darstellung für dieses Arbeitsmaterial.','Titelbild: Probebild (Platzhalter) – im Echtbetrieb KI-generiert oder frei lizenziert; Quelle und Lizenz stehen dann hier.']): para(d,it,font=font,size=10,after=3)
     para(d,'Hinweis: Dieses Material wurde mit KI-Unterstützung auf Basis der genannten Quellen erstellt und von der Lehrkraft fachlich geprüft.',font=font,size=9.5,italic=True,color='666666',before=8)
-EPOCHEN={'Vor- und Frühgeschichte':('783F04','bis ca. 750 v. Chr.'),'Antike':('F1C232','750 v. Chr. – 500 n. Chr.'),'Mittelalter':('38761D','500 – 1500'),'Neuzeit':('134F5C','1500 – 1914'),'Zeitgeschichte':('B41617','1914 – heute')}
+EPOCHEN={'Grundlagen & Methoden':('4A5A8C','epochenübergreifend'),'Vor- und Frühgeschichte':('783F04','bis ca. 750 v. Chr.'),'Antike':('F1C232','750 v. Chr. – 500 n. Chr.'),'Mittelalter':('38761D','500 – 1500'),'Neuzeit':('134F5C','1500 – 1914'),'Zeitgeschichte':('B41617','1914 – heute')}
 QUELLEN=[]
 def configure(meta):
     """Setzt Titel, Epoche, Farbe und Quellen für alle Dokumente (Module-Variablen von lib)."""
