@@ -189,7 +189,7 @@ html:root .ccard{padding:10px}
   function build() {
     const h = document.querySelector('.hero'); if (!h || h.querySelector('.tb')) return;
     const tb = document.createElement('div'); tb.className = 'tb';
-    tb.innerHTML = `<div class="tl"><button class="tback" id="tback" data-act="back" aria-label="Zurück" title="Zurück" hidden>${IC.back}</button><div class="tdate"><b id="tdd">–</b><span id="tkw"></span></div></div><a class="tm" data-act="go" data-v="offen" role="button" tabindex="0" aria-label="Offene Stunden" title="Offene Stunden"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5C10.5 5.2 8 4.5 3.5 4.5v14c4.5 0 7 .7 8.5 2 1.5-1.3 4-2 8.5-2v-14c-4.5 0-7 .7-8.5 2z"/><path d="M12 6.5v14"/><path d="M7.6 8.6v4.2" stroke-width="2.4"/><circle cx="7.6" cy="15.6" r=".5" fill="currentColor"/><path d="M15.5 9.5h2.4M15.5 12.3h2.4M15.5 15.1h2.4"/></svg><span>Offene Stunden <b id="opn"></b></span></a><div class="tr"><button id="uimic" data-act="todomic" aria-label="Diktieren (To-Do)" title="Diktieren: To-Do aufschreiben"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9.5h8M8 12.5h5"/></svg></button><button data-act="toolsopen" aria-label="Klassentools" title="Klassentools">${IC.tools}</button><button data-act="srchopen" aria-label="Suchen" title="Schüler suchen">${IC.search}</button><button data-act="uigear" aria-label="Einstellungen" title="Einstellungen">${IC.gear}</button></div>`;
+    tb.innerHTML = `<div class="tl"><button class="tback" id="tback" data-act="back" aria-label="Zurück" title="Zurück" hidden>${IC.back}</button><div class="tdate"><b id="tdd">–</b><span id="tkw"></span></div></div><a class="tm" data-act="go" data-v="offen" role="button" tabindex="0" aria-label="Offene Stunden" title="Offene Stunden"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5C10.5 5.2 8 4.5 3.5 4.5v14c4.5 0 7 .7 8.5 2 1.5-1.3 4-2 8.5-2v-14c-4.5 0-7 .7-8.5 2z"/><path d="M12 6.5v14"/><path d="M7.6 8.6v4.2" stroke-width="2.4"/><circle cx="7.6" cy="15.6" r=".5" fill="currentColor"/><path d="M15.5 9.5h2.4M15.5 12.3h2.4M15.5 15.1h2.4"/></svg><span>Offene Stunden <b id="opn"></b></span></a><div class="tr"><button id="uimic" data-act="todomic" aria-label="Diktieren (To-Do)" title="Diktieren: To-Do aufschreiben"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9.5h8M8 12.5h5"/></svg></button><button data-act="usbinfo" class="usbtop" aria-label="USB-Stick" title="USB-Stick: grau = nicht erkannt, grün = erkannt">${UI.usbIc ? UI.usbIc(22) : 'USB'}</button><button data-act="toolsopen" aria-label="Klassentools" title="Klassentools">${IC.tools}</button><button data-act="srchopen" aria-label="Suchen" title="Schüler suchen">${IC.search}</button><button data-act="uigear" aria-label="Einstellungen" title="Einstellungen">${IC.gear}</button></div>`;
     h.insertBefore(tb, h.firstChild);
   }
   window.uiTick = function (n) {
@@ -1376,4 +1376,23 @@ svg.ck{display:inline-block;vertical-align:-2px;flex:none}
 .kvzeile{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;padding:8px 0;border-top:1px solid #eef1f5}.kvzeile>b{min-width:70px}.kvin{display:flex;gap:6px;align-items:center;flex:1;min-width:160px}.kvin span{font-size:12px;color:#64748b}.kvin input{flex:1}
 .kvl{cursor:default!important;pointer-events:none}
 `; document.head.appendChild(st);
+})();
+
+
+/* S64: USB-Stick – Symbol, Status (grau/grün), Kopieren nach „Druckaufträge/JJJJ-MM-TT“ */
+(() => {
+  UI.usbIc = (n) => `<svg class="usbic" viewBox="0 0 24 24" width="${n || 18}" height="${n || 18}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="9" width="10" height="13" rx="2"/><path d="M9 9V3h6v6"/><path d="M10.5 5.5h.01M13.5 5.5h.01"/></svg>`;
+  U.usb = U.usb || { ok: false, done: {} };
+  const setzen = () => document.querySelectorAll('.usbtop').forEach((b) => b.classList.toggle('on', !!U.usb.ok));
+  const pruefen = () => fetch('/api/usb/status', { credentials: 'same-origin' }).then((r) => (r.ok ? r.json() : { usb: false })).then((j) => { const alt = U.usb.ok; U.usb.ok = !!j.usb; setzen(); if (alt !== U.usb.ok && document.querySelector('[data-usbf]')) render(); }).catch(() => {});
+  setInterval(pruefen, 20000); setTimeout(pruefen, 1500);
+  const prev = window.uiAfterRender; window.uiAfterRender = function () { prev && prev(); setzen(); };
+  // Dateien (relativ zum Dateiordner) kopieren; markiert sie danach grün
+  UI.usbKopie = async (files) => { if (!files.length) return; toast('Kopiere ' + files.length + ' Datei(en) …');
+    try { const r = await fetch('/api/usb/copy', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ files }) }), j = await r.json();
+      if (!r.ok) return toast(j.error || 'Kopieren fehlgeschlagen'); files.forEach((f) => { U.usb.done[f] = true; }); toast(j.copied.length + ' Datei(en) → ' + (j.ziel || 'USB-Stick') + (j.failed.length ? ' · ' + j.failed.length + ' fehlgeschlagen' : '')); render(); } catch (e) { toast('Kopieren fehlgeschlagen'); } };
+  Object.assign(A, { usbinfo: () => { pruefen(); toast(U.usb.ok ? 'USB-Stick erkannt – Dateien landen in „Druckaufträge/<Datum>“.' : 'Kein USB-Stick erkannt. Kopierte Dateien landen dann im NAS-Ordner „Druckaufträge/<Datum>“.'); },
+    usbcp: (e) => UI.usbKopie(String(e.dataset.usbf || '').split('|').filter(Boolean)) });
+  const st = document.createElement('style'); st.id = 'ui64'; st.textContent = `.usbtop{color:#94a3b8}.usbtop.on{color:#22c55e}.usbbtn{border:1px solid #d6dde6;background:#fff;border-radius:8px;width:32px;height:30px;display:inline-grid;place-items:center;color:#94a3b8;cursor:pointer;padding:0}.usbbtn.on{color:#16a34a;border-color:#86c79a;background:#edf7ee}`;
+  document.head.appendChild(st);
 })();

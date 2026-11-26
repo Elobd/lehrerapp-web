@@ -227,15 +227,18 @@ const server = http.createServer(async (req, res) => {
           return json(res, 200, { text: String(j.text || '').trim() });
         } catch (e) { return json(res, 502, { error: 'Spracherkennung nicht erreichbar: ' + (e && e.message || e) }); }
       }
+      // USB-Stick: Status für die App (grünes/graues Symbol)
+      if (p === '/api/usb/status') return json(res, 200, { usb: usbOk(), ordner: 'Druckaufträge' });
+      // Kopieren in „Druckaufträge/JJJJ-MM-TT“ – auf den USB-Stick, sonst (kein Stick eingebunden) in den gleichnamigen NAS-Ordner
       if (p === '/api/usb/copy' && req.method === 'POST') {
-        if (!usbOk()) return json(res, 409, { error: 'Kein USB-Stick gefunden. Bitte Stick an die NAS stecken und in der docker-compose.yml einbinden (USB_PATH).' });
-        const { files } = JSON.parse((await body(req)) || '{}'); const dir = path.join(USB_PATH, 'Druck'); fs.mkdirSync(dir, { recursive: true });
+        const { files } = JSON.parse((await body(req)) || '{}'), heute = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Vienna' }), usb = usbOk();
+        const dir = usb ? path.join(USB_PATH, 'Druckaufträge', heute) : path.join(FILES_DIR, 'Druckaufträge', heute); fs.mkdirSync(dir, { recursive: true });
         const copied = [], failed = [];
         for (const f of Array.isArray(files) ? files : []) {
           try { const rel = safeRel(String(f)); const src = path.join(FILES_DIR, rel); if (!rel || !fs.statSync(src).isFile()) throw new Error('nicht gefunden'); let dst = path.join(dir, path.basename(rel)); const ex = path.extname(dst); let k = 1; while (fs.existsSync(dst)) dst = path.join(dir, path.basename(rel, ex) + ' (' + (++k) + ')' + ex);
             fs.copyFileSync(src, dst); const fd = fs.openSync(dst, 'r'); try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); } copied.push(path.basename(dst)); } catch (e) { failed.push(String(f) + ': ' + (e && e.message || e)); }
         }
-        return json(res, 200, { ok: !failed.length, copied, failed, hint: 'Vor dem Abziehen den Stick in DSM auswerfen.' });
+        return json(res, 200, { ok: !failed.length, usb, ziel: (usb ? 'USB-Stick' : 'NAS') + ' → Druckaufträge/' + heute, copied, failed, hint: usb ? 'Vor dem Abziehen den Stick in DSM auswerfen.' : 'Kein USB-Stick eingebunden – Dateien liegen im NAS-Ordner Druckaufträge.' });
       }
       if (p === '/api/ki-schluessel') {
         const f = path.join(DATA_DIR, 'ki-schluessel.txt');

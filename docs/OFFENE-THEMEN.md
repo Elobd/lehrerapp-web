@@ -51,7 +51,13 @@ Neuen Chat so starten: „Thema <Name> aus docs/OFFENE-THEMEN.md. Antworten: …
 ## 9. Video zum Thema (offen)
 - Vertonte Folien aus Präsentation/Grafiken mit ffmpeg – nach den ersten Erfahrungen mit dem Podcast.
 
+## 10. PDF-Dateien und Bearbeiten in der App (Entscheidung offen)
+- Derzeit entstehen KEINE PDFs (kein Umwandler auf der NAS). Vorschlag: Umwandler-Container (z. B. Gotenberg/LibreOffice) auf der NAS → nach jeder Erstellung und nach dem Cover-Tausch automatisch PDFs.
+- Word/PowerPoint in der App bearbeiten mit Design-Erhalt ist im Browser nicht machbar; Alternativen: Datei herunterladen, in Word/PowerPoint ändern, über „Ersetzen“ wieder hochladen (noch zu bauen) → PDF neu.
+- USB-Erkennung braucht die Einbindung des Sticks in den Container (USB_PATH). Bis dahin landen „USB“-Kopien im NAS-Ordner files/Druckaufträge/<Datum>; Synology-Paket „USB Copy“ kann diesen Ordner beim Anstecken automatisch auf den Stick exportieren.
+
 ## Erledigt
+- **S64:** Bibliothek → Arbeitsaufträge → KI-Auftrag aufklappen: Werkzeugleiste (Coverbild bearbeiten, USB ganzer Auftrag, Ordner-Pfad), Dateien gruppiert (PowerPoint, PDF, Word, Weitere, Bilder) mit Typ-Symbolen, Download + USB je Datei, Klick = Vorschau im Fenster; USB-Symbol oben in der Kopfzeile (grau/grün); Kopien nach „Druckaufträge/JJJJ-MM-TT“ (USB oder NAS-Ordner).
 - **S63:** Anwesenheitsliste: „anwesend: x/y“ rechts oben über „Anwesenheit kontrolliert“, Prozente bei „Mitmachende Schüler“ entfernt; kleinere Schrift in Bausteinen/Chips; neuer Pinsel-Haken `UI.ck(n)` für grüne Häkchen; Turnbefreiungen: „von … bis …“, ohne 🚫, Archiv (Knopf/Ziehen, bleibt gespeichert); Klassenmappe: Reiter „Schüler (w / m)“, Kamera-Symbol in Übersicht weg, KV nicht mehr anklickbar; Einstellungen „Klassen verwalten“ mit Reitern Klassenfotos (Dropdown je Klasse, Haken erst wenn alle Teilklassen) und Klassenvorstände (Eingabe je Klasse).
 - **S62:** Knöpfe überall rechteckig mit 8px-Rundung (skins.js S62, Regel in CLAUDE.md); Bausteinkästchen kleiner; KI-Arbeitsaufträge in Bibliothek → Arbeitsaufträge sichtbar; Podcasts: Epochen-Reiter immer (mit Zählern) wie Bibliothek, Kachel/Liste, „Bearbeiten“ mit „gehört“, Archiv (Ziehen auf „🗄 Archiv“ oder Knopf; Server: POST /api/podcast/folge).
 - **S61:** Wischen links/rechts zwischen Material-Unterseiten (bei Jahresplan erst am Rand der Reiter Geschichte/Sport); Jahresplan-Thema: „KI-Material aus Arbeitsaufträgen“ je Auftrag aufklappbar (Kachel/Liste, × entfernen), Popup „Dateien auswählen“ mit Haken und „Angehakte hinzufügen“ (gespeichert in jahresplan.sub[slug].afm).
