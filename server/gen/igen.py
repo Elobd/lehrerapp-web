@@ -31,7 +31,7 @@ def cover(path,title,sub='',color='134F5C',w=1800,h=1000,band=False):
     if sub: d.text((90,h-70),sub,font=F(int(w/40)),fill=(215,230,235))
     d.text((w-420,24),'Platzhalter-Titelbild',font=F(32),fill=(200,215,220))
     im.save(path,quality=92); return path
-def person(path,name,dates='',role='',color='134F5C',w=640,h=800):
+def person(path,name,dates='',role='',color='134F5C',w=640,h=800,band=True):
     r=seed(name); S=2; im=Image.new('RGB',(w*S,h*S)); d=ImageDraw.Draw(im)
     for y in range(h*S):
         t=y/(h*S); d.line([(0,y),(w*S,y)],fill=tuple(int(a*(1-t)+b*t) for a,b in zip((244,239,228),(216,205,184))))
@@ -49,6 +49,7 @@ def person(path,name,dates='',role='',color='134F5C',w=640,h=800):
     if hat==0: d.ellipse((cx-135*S,cy-170*S,cx+140*S,cy-60*S),fill=hc); d.rectangle((cx-98*S,cy-98*S,cx+98*S,cy-60*S),fill=hc)
     elif hat==1: d.pieslice((cx-105*S,cy-135*S,cx+105*S,cy+25*S),180,360,fill=hc); d.rectangle((cx-105*S,cy-60*S,cx+105*S,cy-45*S),fill=hc)
     else: d.polygon([(cx-110*S,cy-50*S),(cx-85*S,cy-150*S),(cx+85*S,cy-150*S),(cx+110*S,cy-50*S)],fill=hc); d.rectangle((cx-110*S,cy-60*S,cx+110*S,cy-42*S),fill=rgb('#222222'))
+    if not band: im.resize((w,h),Image.LANCZOS).save(path); return path  # Bildunterschrift steht dann als eigenes Textfeld in der Folie
     ec=rgb(color); d.rectangle((0,(h-170)*S,w*S,h*S),fill=ec); tc=(30,30,30) if color.upper() in('F1C232','6FA8DC') else (255,255,255)
     d.text((30*S,(h-158)*S),name[:28],font=F(40*S,True),fill=tc); d.text((30*S,(h-100)*S),dates[:34],font=F(28*S),fill=tc); d.text((30*S,(h-56)*S),'Platzhalter-Porträt (Illustration)',font=F(22*S),fill=tc)
     im.resize((w,h),Image.LANCZOS).save(path); return path

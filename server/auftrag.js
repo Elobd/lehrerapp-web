@@ -335,8 +335,10 @@ export function createAuftrag(ctx) {
     if (p === '/api/auftrag/pptbild' && req.method === 'POST') {
       const x = findById(url.searchParams.get('id')), datei = path.basename(url.searchParams.get('datei') || ''), folie = +url.searchParams.get('folie'), shape = +url.searchParams.get('shape');
       if (!x || !/\.pptx$/i.test(datei) || !folie || !shape) return json(res, 400, { error: 'Angaben fehlen' }), true;
-      const tmp = path.join(x.dir, '_neues-bild.jpg'); fs.writeFileSync(tmp, await bodyBuf(req, 25 * 1024 * 1024));
-      const r = await py(['pptbilder.py', 'set', path.join(x.dir, datei), String(folie), String(shape), tmp]); fs.rmSync(tmp, { force: true });
+      const akt = url.searchParams.get('aktion'); let r;
+      if (akt === 'reset' || akt === 'del') r = await py(['pptbilder.py', akt, path.join(x.dir, datei), String(folie), String(shape)]);
+      else { const tmp = path.join(x.dir, '_neues-bild.jpg'); fs.writeFileSync(tmp, await bodyBuf(req, 25 * 1024 * 1024));
+        r = await py(['pptbilder.py', 'set', path.join(x.dir, datei), String(folie), String(shape), tmp]); fs.rmSync(tmp, { force: true }); }
       if (r.code !== 0) return json(res, 500, { error: 'Bild konnte nicht eingesetzt werden: ' + (r.e || r.o).slice(-200) }), true;
       if (![...jobs.values()].some((j) => j.state === 'laeuft')) { const job = { id: 'pdf' + Date.now().toString(36), state: 'laeuft', msg: 'PDF wird aktualisiert …', titel: x.m.titel }; jobs.set(job.id, job); pdfsErstellen(x.dir, (m) => { job.msg = m; }).then(() => { job.state = 'fertig'; job.msg = 'PDF aktualisiert'; }).catch((e) => { job.state = 'fehler'; job.msg = String(e.message || e); }); }
       return json(res, 200, { ok: true }), true;

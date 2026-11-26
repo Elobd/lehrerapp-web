@@ -29,13 +29,46 @@ def liste(pptx, ordner):
     for i, s in enumerate(prs.slides, 1):
         for sh in bilder(s):
             fn = 'f%02d_%d.%s' % (i, sh.shape_id, sh.image.ext); open(os.path.join(ordner, fn), 'wb').write(sh.image.blob)
-            out.append({'folie': i, 'shape': sh.shape_id, 'titel': titel(s), 'w': sh.width, 'h': sh.height, 'vorschau': fn})
+            out.append({'folie': i, 'shape': sh.shape_id, 'titel': titel(s), 'w': sh.width, 'h': sh.height, 'vorschau': fn, 'orig': hatorig(pptx, i, sh.shape_id)})
     print(json.dumps(out, ensure_ascii=False))
+
+def sicher(pptx, folie, sh):
+    """Originalbild (und Zuschnitt) beim ersten Austausch sichern: <pptx-Ordner>/_pptorig/f<folie>_<shape>.<ext> + .json"""
+    d = os.path.join(os.path.dirname(pptx), '_pptorig'); os.makedirs(d, exist_ok=True); base = os.path.join(d, 'f%02d_%d' % (int(folie), sh.shape_id))
+    if os.path.exists(base + '.json'): return
+    src = sh._element.find('.//' + qn('a:srcRect')); open(base + '.' + sh.image.ext, 'wb').write(sh.image.blob)
+    json.dump({'ext': sh.image.ext, 'src': dict(src.attrib) if src is not None else {}}, open(base + '.json', 'w'))
+
+def hatorig(pptx, folie, shape):
+    return os.path.exists(os.path.join(os.path.dirname(pptx), '_pptorig', 'f%02d_%d.json' % (int(folie), int(shape))))
+
+def zurueck(pptx, folie, shape_id):
+    prs = Presentation(pptx); s = prs.slides[int(folie) - 1]; sh = next((x for x in s.shapes if x.shape_id == int(shape_id)), None)
+    if sh is None: raise SystemExit('Bildrahmen nicht gefunden')
+    base = os.path.join(os.path.dirname(pptx), '_pptorig', 'f%02d_%d' % (int(folie), int(shape_id)))
+    if not os.path.exists(base + '.json'): raise SystemExit('Kein Original gesichert')
+    meta = json.load(open(base + '.json'))
+    with open(base + '.' + meta['ext'], 'rb') as f: _, rid = s.part.get_or_add_image_part(f)
+    blip = sh._element.find('.//' + qn('a:blip')); blip.set(qn('r:embed'), rid)
+    old = sh._element.find('.//' + qn('a:srcRect'))
+    if old is not None: old.getparent().remove(old)
+    if meta.get('src'):
+        from lxml import etree
+        el = etree.Element(qn('a:srcRect'))
+        for k, v in meta['src'].items(): el.set(k, v)
+        blip.addnext(el)
+    prs.save(pptx); print('ok')
+
+def entfernen(pptx, folie, shape_id):
+    prs = Presentation(pptx); s = prs.slides[int(folie) - 1]; sh = next((x for x in s.shapes if x.shape_id == int(shape_id)), None)
+    if sh is None: raise SystemExit('Bildrahmen nicht gefunden')
+    sicher(pptx, folie, sh); sh._element.getparent().remove(sh._element); prs.save(pptx); print('ok')
 
 def setzen(pptx, folie, shape_id, bild):
     prs = Presentation(pptx); s = prs.slides[int(folie) - 1]
     sh = next((x for x in s.shapes if x.shape_id == int(shape_id)), None)
     if sh is None: raise SystemExit('Bildrahmen nicht gefunden')
+    sicher(pptx, folie, sh)
     with open(bild, 'rb') as f:
         _, rid = s.part.get_or_add_image_part(f)
     blip = sh._element.find('.//' + qn('a:blip')); blip.set(qn('r:embed'), rid)
@@ -45,4 +78,6 @@ def setzen(pptx, folie, shape_id, bild):
 
 if __name__ == '__main__':
     if sys.argv[1] == 'list': liste(sys.argv[2], sys.argv[3])
+    elif sys.argv[1] == 'reset': zurueck(sys.argv[2], sys.argv[3], sys.argv[4])
+    elif sys.argv[1] == 'del': entfernen(sys.argv[2], sys.argv[3], sys.argv[4])
     else: setzen(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])

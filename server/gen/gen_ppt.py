@@ -67,6 +67,14 @@ def build(data,out,vorlage,im):
         p=s.shapes.add_picture(path,Inches(x),Inches(y),Inches(w) if w else None,Inches(h) if h else None)
         if round_: rounded(p)
         return p
+    def persnpic(s,name,dates,x,y,w):
+        """Porträt-Platzhalter OHNE eingebrannten Text; Name/Lebensdaten als eigenes Textfeld darunter (beim Bildtausch bleibt der Text erhalten)."""
+        pth=os.path.join(imgd,'pq_%d.png'%(abs(hash(name))%10**8)); igen.person(pth,name,dates,'',col,band=False)
+        pic=addpic(s,pth,x,y,w=w); hh=w*800/640; tb=s.shapes.add_textbox(Inches(x),Inches(y+hh+0.05),Inches(w),Inches(0.55)); tb.fill.solid(); tb.fill.fore_color.rgb=C(col); tf=tb.text_frame; tf.word_wrap=True
+        r=tf.paragraphs[0].add_run(); r.text=name[:40]; r.font.bold=True; r.font.size=Pt(12); r.font.color.rgb=C('1E1E1E' if col.upper() in ('F1C232','6FA8DC') else 'FFFFFF')
+        if dates:
+            q=tf.add_paragraph(); r2=q.add_run(); r2.text=dates[:40]; r2.font.size=Pt(9.5); r2.font.color.rgb=C('1E1E1E' if col.upper() in ('F1C232','6FA8DC') else 'FFFFFF')
+        return pic
     def new(layout): return prs.slides.add_slide(Ls[layout])
     def imgfor(spec):
         if not spec: return None
@@ -81,7 +89,7 @@ def build(data,out,vorlage,im):
         if sp.get('notizen'): s.notes_slide.notes_text_frame.text=sp['notizen']
         pic=imgfor(sp.get('bild'))
         if pic:
-            if sp.get('bild','').startswith('person:'): addpic(s,pic,6.6,1.4,w=2.6)
+            if sp.get('bild','').startswith('person:'): persnpic(s,sp['bild'][7:],'',6.6,1.4,2.6)
             else: addpic(s,pic,6.0,1.45,w=3.5)
         return s
     slides_data=(data.get('praesentation') or {}).get('folien') or []
@@ -126,9 +134,8 @@ def build(data,out,vorlage,im):
         elif t=='person':
             ps=(sp.get('personen') or [])[:2]; sp2=dict(sp); sp2['bild']=None; s=textslide(sp2)
             for i,pr in enumerate(ps):
-                pth=os.path.join(imgd,'pq_%d.png'%(abs(hash(pr.get('name','')))%10**8)); igen.person(pth,pr.get('name',''),pr.get('lebensdaten',''),pr.get('rolle',''),col)
-                if len(ps)==1: addpic(s,pth,6.5,1.4,w=2.7)
-                else: addpic(s,pth,5.65+i*2.0,1.45,w=1.85)
+                if len(ps)==1: persnpic(s,pr.get('name',''),pr.get('lebensdaten',''),6.5,1.4,2.2)
+                else: persnpic(s,pr.get('name',''),pr.get('lebensdaten',''),5.65+i*2.0,1.45,1.85)
         elif t=='video': pass
         else: textslide(sp)
     # Video-Platzhalterfolie
