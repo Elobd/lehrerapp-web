@@ -47,6 +47,7 @@ export function createAuftrag(ctx) {
   // ---------- KI ----------
   async function aiJson(section, prompt, maxTok, mockArg, web) {
     if (process.env.AI_DEBUG) console.error('--- KI ' + section + ' ---\n' + prompt.slice(0, 6000));
+    if (process.env.AI_MOCK && process.env.AI_MOCK_FAIL === section) throw new Error('KI-Antwort nicht lesbar (' + section + ') [Testabbruch]');
     if (process.env.AI_MOCK) { zaehle(section, { input_tokens: web ? 30000 : 4000, output_tokens: 4000, server_tool_use: { web_search_requests: web ? 3 : 0 } }); return mock(section, mockArg); }
     if (!aiKey()) throw new Error('KI nicht eingerichtet (ANTHROPIC_API_KEY fehlt).');
     // JSON aus der Antwort lesen: Codeblöcke entfernen, von { bis }, notfalls überzählige Kommas entfernen
@@ -101,14 +102,16 @@ export function createAuftrag(ctx) {
   // Anzahl je Baustein aus der App (Plus/Minus), sonst Standardwert
   const anz = (p, k, d) => Math.max(1, Math.min(100, Math.round(+((p.anzahl || {})[k]) || d)));
   const BAUSTEINE = [
-    { k: 'handout', n: 'Lehrer-Handout', nr: 3, gen: ['handout'], has: (d) => !!(d.handout && (d.handout.kapitel || []).length),
+    { k: 'handout', n: 'Lehrer-Handout', nr: 3, gen: ['handout'], has: (d) => !!(d.handout && (d.handout.kapitel || []).length && (d.handout.kapitel.length >= (d.handout.gliederung || []).length)),
       run: async (data, p, say, save) => {
         say('Lehrer-Handout: Gliederung …', 3); const web = p.quellenmodus === 'web';
+        if (!(data.handout && (data.handout.gliederung || []).length)) {
         const pl = await aiJson('handout_plan', head(p) + `Plane ein LEHRER-HANDOUT zu diesem Thema: Hintergrundwissen nur für die Lehrkraft zum Einlesen, ca. ${anz(p, 'handout', 30)} Seiten, fachlich anspruchsvoll auf Niveau Lehramtsstudium, deutlich tiefer und detaillierter als ein Schüler-Textblatt (Forschungsstand, Deutungen und Kontroversen, Ursachen und Zusammenhänge, Zahlen, Personen, Begriffe, Gegenwartsbezüge). Antworte als JSON: {"ueberblick":["6–8 Kernaussagen in je 1–2 Sätzen"],"kapitel":["genau ${Math.max(4, Math.round(anz(p, 'handout', 30) / 3))} Kapitelüberschriften in sinnvoller Reihenfolge"],"didaktik":["6–8 Hinweise für den Unterricht: Schülervorstellungen und typische Fehlvorstellungen, gute Einstiege, Gegenwartsbezüge, Stolpersteine"],"fragen":[{"frage":"typische Schülerfrage","antwort":"fundierte Antwort in 2–4 Sätzen"}] (8 Fragen),"literatur":["6–10 seriöse Fachliteratur- und Quellenangaben"]}`, 8000, undefined, web);
-        data.handout = { ueberblick: pl.ueberblick || [], kapitel: [], didaktik: pl.didaktik || [], fragen: pl.fragen || [], literatur: pl.literatur || [] }; save();
-        const titles = pl.kapitel || [];
+        data.handout = { ueberblick: pl.ueberblick || [], kapitel: [], didaktik: pl.didaktik || [], fragen: pl.fragen || [], literatur: pl.literatur || [], gliederung: pl.kapitel || [] }; save();
+        }
+        const titles = data.handout.gliederung, fertig = () => new Set(data.handout.kapitel.map((k) => k.titel));
         for (let i = 0; i < titles.length; i += 2) {
-          const part0 = titles.slice(i, i + 2); say(`Lehrer-Handout: Kapitel ${i + 1}–${Math.min(i + 2, titles.length)} von ${titles.length} …`, 3);
+          const part0 = titles.slice(i, i + 2).filter((t) => !fertig().has(t)); if (!part0.length) continue; say(`Lehrer-Handout: Kapitel ${i + 1}–${Math.min(i + 2, titles.length)} von ${titles.length} …`, 3);
           const r = await mitRueckfall((part) => aiJson('handout', head(p) + `LEHRER-HANDOUT (Hintergrundwissen für die Lehrkraft, Niveau Lehramtsstudium). Gesamtgliederung: ${JSON.stringify(titles)}.\nSchreibe NUR die Kapitel ${JSON.stringify(part)} ausführlich als JSON: {"kapitel":[{"titel":"unverändert","absaetze":["5–7 Absätze, je 150–220 Wörter: fachlich präzise, mit Forschungsstand, Fachbegriffen, Daten, Zusammenhängen, unterschiedlichen Deutungen"],"boxen":[{"typ":"forschung|kontroverse|didaktik|quelle|zahl|merke","titel":"bei quelle: Autor, Werk, Jahr; sonst kurzer Titel","text":"..."}] (2–3 Boxen),"personen":[{"name":"","lebensdaten":"","rolle":"","text":"3–4 Sätze Bedeutung"}] (nur wenn wichtig)}]}. Das ganze Handout hat etwa ${anz(p, 'handout', 30)} Seiten – schreibe hier nur diese Kapitel in der angegebenen Länge.`, 16000, part, web), part0);
           (r.kapitel || []).forEach((k) => data.handout.kapitel.push(k)); save();
         }
@@ -165,27 +168,32 @@ export function createAuftrag(ctx) {
     t += '\nWähle deshalb deutlich andere Schwerpunkte, Teilaspekte, Personen, Beispiele und Quellen. Bereits Behandeltes höchstens kurz als Bezug erwähnen, nicht erneut ausführen. Ziel: möglichst wenig Überschneidung.';
     return t.slice(0, 4000);
   }
-  async function erstelle(job, p) {
-    if (p.neu !== false) p.vorher = vorherText(p);
+  // alt = { dir, data } beim Fortsetzen eines abgebrochenen Auftrags: fertige Teile werden übersprungen (nicht noch einmal bezahlt)
+  async function erstelle(job, p, alt) {
+    if (p.neu !== false && !alt) p.vorher = vorherText(p);
     const say = (m, step) => { job.msg = m; if (step) job.step = step; }; job.total = 9;
-    const dir = path.join(AUF, `${p.klasse}. Klasse`, '_neu_' + job.id); fs.mkdirSync(dir, { recursive: true }); job.dir = dir;
-    acc = neuerZaehler(); job.kosten = acc;
-    const data = { exporte: p.exporte, titel: p.titel, klasse: p.klasse, epoche: p.epoche, zeitraum: p.zeitraum || '', jahr: p.jahr || '', id: job.id, erstellt: Date.now(), anzahl: p.anzahl, optionen: { seiten: p.seiten, folien: p.folien, notizen: p.notizen || '', quellenmodus: p.quellenmodus } };
-    const save = () => fs.writeFileSync(path.join(dir, 'auftrag.json'), JSON.stringify(data, null, 1));
+    const dir = alt ? alt.dir : path.join(AUF, `${p.klasse}. Klasse`, '_neu_' + job.id); fs.mkdirSync(dir, { recursive: true }); job.dir = dir;
+    fs.writeFileSync(path.join(dir, '_param.json'), JSON.stringify(p)); // für „Fortsetzen“ nach einem Abbruch
+    acc = neuerZaehler(); job.kosten = acc; if (alt && alt.data.kosten_bisher) acc.usd += alt.data.kosten_bisher;
+    const data = alt ? alt.data : { exporte: p.exporte, titel: p.titel, klasse: p.klasse, epoche: p.epoche, zeitraum: p.zeitraum || '', jahr: p.jahr || '', id: job.id, erstellt: Date.now(), anzahl: p.anzahl, optionen: { seiten: p.seiten, folien: p.folien, notizen: p.notizen || '', quellenmodus: p.quellenmodus } };
+    const save = () => fs.writeFileSync(path.join(dir, 'auftrag.json'), JSON.stringify(data, null, 1)); job.data = data;
     const kap = Math.max(4, Math.min(20, Math.round(p.seiten * 0.6 + 2)));
     say('Bibliotheken prüfen …', 0); await ensureLibs((m) => say(m)); save();
+    if (!(data.textblatt && (data.textblatt.gliederung || []).length)) {
     say('1/9 Gliederung, Zeitstrahl und Epochenübersicht …', 1);
     const plan = await aiJson('plan', head(p) + `Erstelle einen Plan als JSON: {"untertitel":"kurzer Untertitel","zeitraum":"z. B. 1450–1517","jahr":"Jahreszahl als Zahl (Beginn)","kurz":["4–6 Stichpunkte 'Das Wichtigste in Kürze'"],"kapitel":["genau ${kap} Kapitelüberschriften in sinnvoller Reihenfolge"],"zeitstrahl":[{"jahr":1450,"text":"max. 5 Wörter"}] (6 Einträge),"prozess":[{"titel":"max. 3 Wörter","text":"max. 6 Wörter"}] (4–5 Schritte oder Phasen),"prozess_titel":"Überschrift der Grafik","epochen":[{"epoche":"Vor- und Frühgeschichte|Antike|Mittelalter|Neuzeit|Zeitgeschichte","ereignisse":[{"text":"max. 4 Wörter","jahr":"Jahr/Zeitraum","seite":1 oder -1,"hervorheben":true nur beim Thema selbst}]}] (für ALLE fünf Epochen je 2–3 abwechslungsreiche Ereignisse oder Persönlichkeiten, in der Epoche des Themas auch das Thema selbst),"glossar":[{"begriff":"","text":"kurz"}] (8 Einträge),"quellenliste":["3–5 seriöse Literatur-/Quellenangaben; bei gelieferten Quellen deren Titel"]}`, 8000, undefined, p.quellenmodus === 'web');
     Object.assign(data, { untertitel: plan.untertitel || '', zeitraum: p.zeitraum || plan.zeitraum || '', jahr: p.jahr || plan.jahr || '', zeitstrahl: plan.zeitstrahl, prozess: plan.prozess, prozess_titel: plan.prozess_titel, epochen: plan.epochen, quellenliste: [...(plan.quellenliste || []), ...(p.quellen || []).map((q) => q.ref).filter(Boolean)] });
-    data.textblatt = { kurz: plan.kurz || [], kapitel: [], glossar: plan.glossar || [] }; save();
-    const titles = plan.kapitel || []; let n = 0;
+    data.textblatt = { kurz: plan.kurz || [], kapitel: [], glossar: plan.glossar || [], gliederung: plan.kapitel || [] }; save();
+    }
+    const titles = data.textblatt.gliederung, fertig = () => new Set(data.textblatt.kapitel.map((k) => k.titel));
     for (let i = 0; i < titles.length; i += 2) {
-      const part0 = titles.slice(i, i + 2); say(`2/9 Textblatt: Kapitel ${i + 1}–${Math.min(i + 2, titles.length)} von ${titles.length} …`, 2);
+      const part0 = titles.slice(i, i + 2).filter((t) => !fertig().has(t)); if (!part0.length) continue; say(`2/9 Textblatt: Kapitel ${i + 1}–${Math.min(i + 2, titles.length)} von ${titles.length} …`, 2);
       const r = await mitRueckfall((part) => aiJson('textblatt', head(p) + `Gesamtgliederung des Textblatts: ${JSON.stringify(titles)}.\nSchreibe NUR die Kapitel ${JSON.stringify(part)} ausführlich als JSON: {"kapitel":[{"titel":"unverändert","absaetze":["3–4 Absätze, je 100–140 Wörter, Fließtext für Schüler/innen, präzise, mit Fachbegriffen"],"boxen":[{"typ":"merke|begriff|quelle|zahl|nachdenken","titel":"nur bei quelle: Autor, Werk, Jahr","text":"..."}] (2–3 Boxen, darunter mindestens eine 'merke'),"personen":[{"name":"","lebensdaten":"","rolle":"","text":"2–3 Sätze Bedeutung"}] (nur wenn wichtige Personen vorkommen; insgesamt im Textblatt mindestens 5 verschiedene)}]}. Das ganze Textblatt hat etwa ${p.seiten} Seiten – schreibe hier nur diese Kapitel in der angegebenen Länge.`, 12000, part, p.quellenmodus === 'web'), part0);
       (r.kapitel || []).forEach((k) => data.textblatt.kapitel.push(k)); save();
     }
     Object.defineProperty(data, '_dir', { value: dir, enumerable: false, writable: true });
-    for (const B of BAUSTEINE) if (!p.bausteine || p.bausteine.includes(B.k)) { try { await B.run(data, p, say, save); } catch (e) { if (!e.weich) throw e; job.warn = (job.warn ? job.warn + ' ' : '') + e.message; } }
+    for (const B of BAUSTEINE) if ((!p.bausteine || p.bausteine.includes(B.k)) && !(alt && B.has(data))) { try { await B.run(data, p, say, save); } catch (e) { if (!e.weich) throw e; job.warn = (job.warn ? job.warn + ' ' : '') + e.message; } }
+    data.textblatt.kapitel.sort((a, b) => titles.indexOf(a.titel) - titles.indexOf(b.titel)); delete data.kosten_bisher; delete data.abbruch; try { fs.unlinkSync(path.join(dir, '_param.json')); } catch { /* */ }
     data.kosten = rund(acc); data.thema = p.thema || ''; if (p.themaNr) data.themaNr = p.themaNr; save(); acc = null;
     say('9/9 Dokumente werden erzeugt …', 9); await generiere(job, dir, null, !!(p.bausteine && !p.bausteine.includes('praesentation'))); const fin = path.join(path.dirname(dir), 'zz ' + slug(p.titel) + ' ' + job.id); fs.renameSync(dir, fin); job.dir = fin; renumber(); job.state = 'fertig'; say('Fertig.');
   }
@@ -210,6 +218,20 @@ export function createAuftrag(ctx) {
     if (r.e && /FEHLER/.test(r.e) && job) job.warn = r.e.slice(-400);
     if (!fs.existsSync(VORLAGE) && job && !ohnePraes && (!nur || nur.includes('praesentation'))) job.warn = (job.warn ? job.warn + ' ' : '') + 'Hinweis: Keine Präsentationsvorlage hochgeladen (Material/Vorlage/praesentation.pptx), daher ohne Präsentation.';
   }
+  // Abbruch: fertige Teile und bisherige Kosten bleiben gespeichert → „Fortsetzen“ zahlt nur den Rest
+  function abbruch(job, e) {
+    const k = acc ? acc.usd : 0; acc = null; job.state = 'fehler';
+    try { if (job.data && job.dir && fs.existsSync(job.dir)) { job.data.kosten_bisher = k; job.data.abbruch = { fehler: String(e && e.message || e), am: Date.now() }; fs.writeFileSync(path.join(job.dir, 'auftrag.json'), JSON.stringify(job.data, null, 1)); } } catch { /* */ }
+    job.msg = String(e && e.message || e) + ' – Bereits Fertiges ist gespeichert: unten bei „Abgebrochene Aufträge“ auf „Fortsetzen“ tippen, dann wird nur der Rest erstellt.';
+  }
+  function abgebrochen() {
+    const out = []; if (!fs.existsSync(AUF)) return out; const laeuft = new Set([...jobs.values()].filter((j) => j.state === 'laeuft').map((j) => j.dir));
+    for (const k of fs.readdirSync(AUF)) { const kd = path.join(AUF, k); if (!fs.statSync(kd).isDirectory()) continue;
+      for (const a of fs.readdirSync(kd)) { const ad = path.join(kd, a); if (!a.startsWith('_neu_') || laeuft.has(ad) || !fs.existsSync(path.join(ad, '_param.json'))) continue;
+        try { const m = JSON.parse(fs.readFileSync(path.join(ad, 'auftrag.json'), 'utf8')), tb = m.textblatt || {}; out.push({ id: m.id, titel: m.titel, klasse: m.klasse, fehler: (m.abbruch || {}).fehler || 'unterbrochen (z. B. Neustart)', usd: m.kosten_bisher || 0, fertig: `Textblatt ${(tb.kapitel || []).length}/${(tb.gliederung || []).length || '?'} Kapitel` + BAUSTEINE.filter((B) => B.has(m)).map((B) => ', ' + B.n).join('') }); } catch { /* */ } } }
+    return out;
+  }
+  const findAbgebrochen = (id) => { if (!fs.existsSync(AUF)) return null; for (const k of fs.readdirSync(AUF)) { const ad = path.join(AUF, k, '_neu_' + String(id).replace(/[^\w]/g, '')); if (fs.existsSync(path.join(ad, '_param.json'))) return ad; } return null; };
   function scan() {
     const out = []; if (!fs.existsSync(AUF)) return out;
     for (const k of fs.readdirSync(AUF)) { const kd = path.join(AUF, k); if (!fs.statSync(kd).isDirectory()) continue;
@@ -242,14 +264,14 @@ export function createAuftrag(ctx) {
 
   return async function handle(req, res, url) {
     const p = url.pathname;
-    if (p === '/api/auftraege' && req.method === 'GET') return json(res, 200, { laeuft: (() => { const j = [...jobs.entries()].find(([, v]) => v.state === 'laeuft'); return j ? { id: j[0], state: 'laeuft', msg: j[1].msg, step: j[1].step, total: j[1].total, titel: j[1].titel } : null; })(), eurProUsd: await eurKurs(), kursQuelle: kurs.quelle, items: listing(), vorlage: fs.existsSync(VORLAGE), ai: !!aiKey() || !!process.env.AI_MOCK }), true;
+    if (p === '/api/auftraege' && req.method === 'GET') return json(res, 200, { abgebrochen: abgebrochen(), laeuft: (() => { const j = [...jobs.entries()].find(([, v]) => v.state === 'laeuft'); return j ? { id: j[0], state: 'laeuft', msg: j[1].msg, step: j[1].step, total: j[1].total, titel: j[1].titel } : null; })(), eurProUsd: await eurKurs(), kursQuelle: kurs.quelle, items: listing(), vorlage: fs.existsSync(VORLAGE), ai: !!aiKey() || !!process.env.AI_MOCK }), true;
     if (p === '/api/auftrag/erstellen' && req.method === 'POST') {
       const q = JSON.parse((await body(req)) || '{}'); if (!q.titel || !EPOCHEN.includes(q.epoche)) return json(res, 400, { error: 'Bitte Thema und Epoche angeben.' }), true;
       if (!aiKey() && !process.env.AI_MOCK) return json(res, 501, { error: 'KI nicht eingerichtet (ANTHROPIC_API_KEY fehlt).' }), true;
       if ([...jobs.values()].some((j) => j.state === 'laeuft')) return json(res, 409, { error: 'Es läuft bereits eine Erstellung. Bitte warten.' }), true;
       const id = Date.now().toString(36), job = { id, state: 'laeuft', msg: 'Start …', step: 0, total: 9, titel: q.titel }; jobs.set(id, job);
       const prm = { titel: String(q.titel).slice(0, 120), klasse: [5, 6, 7, 8].includes(+q.klasse) ? +q.klasse : 6, epoche: q.epoche, zeitraum: String(q.zeitraum || '').slice(0, 60), jahr: String(q.jahr || '').slice(0, 10), quellenmodus: ['web', 'wissen', 'eigen'].includes(q.quellenmodus) ? q.quellenmodus : 'web', bausteine: Array.isArray(q.bausteine) ? q.bausteine.filter((k) => BAUSTEINE.some((b) => b.k === k)) : null, exporte: q.exporte && typeof q.exporte === 'object' ? { kahoot: q.exporte.kahoot !== false, plickers: q.exporte.plickers !== false, forms: q.exporte.forms !== false } : undefined, thema: String(q.thema || '').slice(0, 80), themaNr: Math.max(0, Math.min(99, parseInt(q.themaNr) || 0)), seiten: Math.max(3, Math.min(40, Math.round(+q.seiten) || 10)), anzahl: q.anzahl && typeof q.anzahl === 'object' ? Object.fromEntries(Object.entries(q.anzahl).map(([a, b]) => [a, Math.max(1, Math.min(100, Math.round(+b) || 0))]).filter(([, b]) => b > 0)) : {}, neu: q.neu !== false, folien: q.folien || 'mittel', notizen: String(q.notizen || '').slice(0, 1500), quellen: Array.isArray(q.quellen) ? q.quellen.slice(0, 20) : [] };
-      erstelle(job, prm).catch((e) => { acc = null; job.state = 'fehler'; job.msg = String(e && e.message || e); try { if (job.dir) fs.rmSync(job.dir, { recursive: true, force: true }); } catch { /* */ } });
+      erstelle(job, prm).catch((e) => abbruch(job, e));
       return json(res, 200, { id }), true;
     }
     if (p === '/api/stunden/plan' && req.method === 'POST') {
@@ -270,6 +292,14 @@ export function createAuftrag(ctx) {
       try { await generiere(null, x.dir); } catch (e) { return json(res, 500, { error: String(e.message || e) }), true; }
       return json(res, 200, { ok: true }), true;
     }
+    if (p === '/api/auftrag/fortsetzen' && req.method === 'POST') {
+      const ad = findAbgebrochen(url.searchParams.get('id')); if (!ad) return json(res, 404, { error: 'Abgebrochener Auftrag nicht gefunden' }), true;
+      if ([...jobs.values()].some((j) => j.state === 'laeuft')) return json(res, 409, { error: 'Es läuft bereits eine Erstellung. Bitte warten.' }), true;
+      const prm = JSON.parse(fs.readFileSync(path.join(ad, '_param.json'), 'utf8')), data = JSON.parse(fs.readFileSync(path.join(ad, 'auftrag.json'), 'utf8'));
+      const job = { id: data.id, state: 'laeuft', msg: 'Fortsetzen …', step: 0, total: 9, titel: data.titel }; jobs.set(job.id, job);
+      erstelle(job, prm, { dir: ad, data }).catch((e) => abbruch(job, e)); return json(res, 200, { id: job.id }), true;
+    }
+    if (p === '/api/auftrag/abgebrochen' && req.method === 'DELETE') { const ad = findAbgebrochen(url.searchParams.get('id')); if (ad) fs.rmSync(ad, { recursive: true, force: true }); return json(res, 200, { ok: true }), true; }
     if (p === '/api/auftrag/schaetzung' && req.method === 'GET') {
       // Durchschnitt aus bisherigen Aufträgen je Teil; sonst grobe Annahme aus typischen Token-Mengen
       const bs = (url.searchParams.get('bs') || '').split(',').filter(Boolean), web = url.searchParams.get('web') === '1', eigen = +url.searchParams.get('eigen') || 0, seiten = +url.searchParams.get('seiten') || 10, folien = url.searchParams.get('folien') || 'mittel';

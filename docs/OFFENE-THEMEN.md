@@ -52,6 +52,7 @@ Neuen Chat so starten: „Thema <Name> aus docs/OFFENE-THEMEN.md. Antworten: …
 - Vertonte Folien aus Präsentation/Grafiken mit ffmpeg – nach den ersten Erfahrungen mit dem Podcast.
 
 ## Erledigt
+- **S58:** Abgebrochene Aufträge bleiben gespeichert (fertige Kapitel/Bausteine, bisherige Kosten); „Fortsetzen“ erstellt nur den Rest, „Verwerfen“ löscht.
 - **S57:** „KI-Antwort nicht lesbar – abgeschnitten“ (stop_reason max_tokens): Textblatt und Handout jetzt in Zweiergruppen von Kapiteln, bei Fehler kapitelweise; Denkaufwand der KI auf „medium“ begrenzt (zählt sonst zum Antwortplatz).
 - **S56:** Laufende Material-Erstellung wird beim Wiederöffnen angezeigt (Seite darf geschlossen werden); Podcasts: Sortierung „Nach Epochen“, Suche (Titel, Personen, Begriffe, Kapitel), Kurzinhalt je Folge; Shownotes im Feed (content:encoded); Kanalbild hochladen; Folgenbild wahlweise Cover oder Vorlage mit Nummer/Titel (server/gen/podbild.py).
 - **S52:** Pocket Casts über Tailscale Funnel: nur /podcast/ auf Port 8443 öffentlich (tailscale/serve.json mit AllowFunnel), Feed-Parameter `basis` für öffentliche Adressen, Logo über /podcast/<token>/logo.png; in der App „Öffentlichen Link kopieren“/„Funnel testen“. Am NAS noch nicht erprobt.

@@ -16,7 +16,7 @@ Offene Themen und Entscheidungen: **docs/OFFENE-THEMEN.md** (zu Beginn lesen, na
 - Anleitung immer konkret und gleich aufgebaut:
   1. ZIP entpacken.
   2. Dateien in der File Station im App-Ordner der NAS an dieselbe Stelle kopieren/überschreiben (neue Dateien ausdrücklich nennen, z. B. „kommt in server/gen/“).
-  3. Container Manager → Container **lehrerapp-app** stoppen → starten. Den **Tailscale-Container** (Image tailscale/tailscale) nur nennen, wenn tailscale/serve.json geändert wurde. Nie „Bearbeiten/Zurücksetzen/Bereinigen/Löschen“.
+  3. Container Manager → Container **lehrerapp-app** → „Neu starten“ (gleichwertig zu Stoppen + Starten). Den **Tailscale-Container** (Image tailscale/tailscale) nur nennen, wenn tailscale/serve.json geändert wurde. Nie „Bearbeiten/Zurücksetzen/Bereinigen/Löschen“.
   4. Woran man in der App erkennt, dass es geklappt hat (konkreter Ort + was dort stehen muss).
 - Im Chat dieselben Schritte kurz wiederholen und genau sagen, wo in der App etwas zu finden ist (Menü → Seite → Bereich → Knopfname).
 - Fehlerdateien der KI: `ki-fehler-<schritt>.txt` im Datenordner (neben ki-schluessel.txt); erste Zeile `stop_reason` erfragen.
@@ -55,7 +55,8 @@ Offene Themen und Entscheidungen: **docs/OFFENE-THEMEN.md** (zu Beginn lesen, na
 - Bausteine: Lehrer-Handout (optional, ca. 30 S.), Textblatt, Arbeitsblatt (+Lösung), Lückentext (+Lösung), Kreuzworträtsel (+Lösung), Check-ups Single/Multiple Choice, mündliche Wiederholungen, Präsentation, Cover.
 - Kosten: auftrag.js zählt usage je KI-Aufruf (Preistabelle `PREIS`, Web-Suche `AI_SEARCH_USD`), speichert `kosten` in auftrag.json; `/api/auftrag/schaetzung` schätzt aus dem Verlauf. Auswahl `bausteine`/`exporte` kommt aus der App.
 - Arbeitsauftrag-Dateien je Thema auf Stunden: `jahresplan.sub[slug].af = {Stundenindex: [{a, f, n}]}`, in Stunden als `log[].af` (lehrmaterial.js `jpAfHtml`/`afRow`).
-- Anzahlen je Baustein: `p.anzahl` / `data.anzahl` (Helfer `anz(p,k,standard)`); frühere Ausarbeitungen gehen als `p.vorher` in jeden Prompt (`vorherText`). Prompts testen: `AI_DEBUG=1` schreibt sie ins Server-Log.
+- Anzahlen je Baustein: `p.anzahl` / `data.anzahl` (Helfer `anz(p,k,standard)`); frühere Ausarbeitungen gehen als `p.vorher` in jeden Prompt (`vorherText`). Prompts testen: `AI_DEBUG=1` schreibt sie ins Server-Log; `AI_MOCK_FAIL=<schritt>` simuliert einen Abbruch.
+- Abbruch kostet nichts doppelt: fertige Teile bleiben in `_neu_<id>` (+ `_param.json`, `kosten_bisher`); „Fortsetzen“ (`/api/auftrag/fortsetzen`) überspringt Fertiges (Gliederung, Kapitel, Bausteine mit `has`).
 - Podcast: server/podcast.js (Sprachdienst ElevenLabs/OpenAI/Azure, Konfig in DATA_DIR/sprachausgabe.json, Folgen in files/Podcast + folgen.json, öffentlicher Feed nur über geheimen Token-Link `/podcast/<token>/feed.xml`).
 - Präsentationsvorlage liegt nur am NAS (Material/Vorlage/praesentation.pptx), nie committen.
 - Bausteine stehen zentral in der Liste `BAUSTEINE` (server/auftrag.js); „Baustein ergänzen“ in der App zeigt sie automatisch an und baut über die Umgebungsvariable `NUR` nur deren Dateien neu (gen.py).
