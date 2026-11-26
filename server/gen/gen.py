@@ -173,7 +173,7 @@ def _cross(words,size=21):
     return best[1],best[2]
 def checkups(data,out):
     F=FONT_S; ck=data.get('checkup') or {}; SC=[(q['frage'],q['antworten'][:4],int(q['richtig'])) for q in ck.get('single') or [] if len(q.get('antworten',[]))>=4]; MC=[(q['frage'],q['antworten'][:4],[int(i) for i in q['richtig']]) for q in ck.get('multiple') or [] if len(q.get('antworten',[]))>=4 and q.get('richtig')]
-    res=[]; T=SAFE(data.get('titel'))
+    res=[]; T=SAFE(data.get('titel')); EXP=data.get('exporte') or {}; EX=lambda k: EXP.get(k,True)  # Exporte abwählbar (fehlt = alle)
     def doc(qs,mode,loes,num):
         d=new_doc(font=F,size=11); build_header_footer(d,'Check-up (%s)'%('Single Choice' if mode=='sc' else 'Multiple Choice'),data.get('titel',''),loesung=loes,font=F)
         title(d,'Check-up: '+data.get('titel',''),'%d Fragen | '%len(qs)+('genau eine Antwort ist richtig' if mode=='sc' else 'mehrere Antworten können richtig sein – kreuze alle richtigen an')+' (A–D)',font=F)
@@ -195,6 +195,7 @@ def checkups(data,out):
         for i,(q,o,ok) in enumerate(qs[:15],1):
             txt.append('%d. %s'%(i,q)); txt+=['%s) %s'%('ABCD'[j],x) for j,x in enumerate(o)]; txt.append('Richtig: '+', '.join('ABCD'[k] for k in ([ok] if mode=='sc' else ok))); txt.append('')
         fn=os.path.join(out,'Import','Check-up_%s_%s_Kopiertext.txt'%(tag,T)); open(fn,'w',encoding='utf8').write('Check-up %s: %s\n\n'%(tag,L.AO)+'\n'.join(txt)); res.append(fn)
+        if not EX('kahoot'): continue
         # Kahoot
         from openpyxl import Workbook
         from openpyxl.styles import Font, PatternFill, Alignment
@@ -207,7 +208,7 @@ def checkups(data,out):
             for j,x in enumerate(o): ws.cell(9+i,2+j,x[:75])
             ws.cell(9+i,6,30 if mode=='mc' else 20); ws.cell(9+i,7,','.join(str(k+1) for k in ([ok] if mode=='sc' else ok)))
         fn=os.path.join(out,'Kahoot_%s_%s.xlsx'%(tag,T)); wb.save(fn); res.append(fn)
-    if SC:
+    if SC and EX('plickers'):
         fn=os.path.join(out,'Plickers_%s.csv'%T)
         with open(fn,'w',encoding='utf-8-sig',newline='') as f:
             w=csv.writer(f,delimiter=';'); w.writerow(['Frage','A','B','C','D','Richtige Antwort'])
@@ -226,7 +227,7 @@ def checkups(data,out):
         fn=os.path.join(out,'Plickers_%s.docx'%T); d.save(fn); res.append(fn)
     from docx import Document as D0
     for mode,qs in (('sc',SC),('mc',MC)):
-        if not qs: continue
+        if not qs or not EX('forms'): continue
         d=D0(); d.styles['Normal'].font.name='Calibri'; d.add_paragraph('Quiz: %s (%s)'%(data.get('titel',''),'Single Choice' if mode=='sc' else 'Multiple Choice'))
         for i,(q,o,ok) in enumerate(qs[:20],1):
             d.add_paragraph('%d. %s'%(i,q))

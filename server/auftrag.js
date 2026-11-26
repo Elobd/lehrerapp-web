@@ -29,13 +29,24 @@ export function createAuftrag(ctx) {
     if (r.code !== 0) throw new Error('Bibliotheken konnten nicht installiert werden: ' + (r.e || r.o).slice(-300));
   }
 
+  // ---------- Kosten (Anthropic-Listenpreise in US-Dollar pro 1 Mio. Tokens; Web-Suche pro Suchanfrage) ----------
+  const PREIS = { 'claude-sonnet-5-5': [2, 10], 'claude-sonnet-5': [2, 10], 'claude-opus-5-5': [4, 20], 'claude-opus-5': [5, 25], 'claude-haiku-5-5': [0.1, 0.5], 'claude-sonnet-4-6': [3, 15], 'claude-opus-4-8': [5, 25] };
+  const SUCHE_USD = +process.env.AI_SEARCH_USD || 0.01; // 10 $ pro 1000 Suchen
+  const preis = () => PREIS[String(AI_MODEL).replace(/\[.*$/, '')] || [2, 10];
+  let acc = null; // Kostenzähler des laufenden Auftrags (es läuft immer nur einer)
+  const neuerZaehler = () => ({ usd: 0, ein: 0, aus: 0, suchen: 0, aufrufe: 0, teile: {} });
+  function zaehle(section, u) {
+    if (!acc || !u) return; const [pi, po] = preis(), ein = (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) * 1.25 + (u.cache_read_input_tokens || 0) * 0.1, aus = u.output_tokens || 0, su = (u.server_tool_use && u.server_tool_use.web_search_requests) || 0;
+    const usd = (ein * pi + aus * po) / 1e6 + su * SUCHE_USD; acc.usd += usd; acc.ein += Math.round(ein); acc.aus += aus; acc.suchen += su; acc.aufrufe++; acc.teile[section] = (acc.teile[section] || 0) + usd;
+  }
+  const rund = (k) => k && Object.assign({}, k, { usd: Math.round(k.usd * 10000) / 10000, teile: Object.fromEntries(Object.entries(k.teile || {}).map(([a, b]) => [a, Math.round(b * 10000) / 10000])) });
   // ---------- KI ----------
   async function aiJson(section, prompt, maxTok, mockArg, web) {
-    if (process.env.AI_MOCK) return mock(section, mockArg);
+    if (process.env.AI_MOCK) { zaehle(section, { input_tokens: web ? 30000 : 4000, output_tokens: 4000, server_tool_use: { web_search_requests: web ? 3 : 0 } }); return mock(section, mockArg); }
     if (!aiKey()) throw new Error('KI nicht eingerichtet (ANTHROPIC_API_KEY fehlt).');
     for (let i = 0; i < 2; i++) {
       const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'x-api-key': aiKey(), 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify({ model: AI_MODEL, max_tokens: maxTok || 8000, ...(web ? { tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 6 }] } : {}), messages: [{ role: 'user', content: prompt + '\n\nAntworte ausschließlich mit gültigem JSON (kein Text davor oder danach).' }] }), signal: AbortSignal.timeout(300000) });
-      const out = await r.json(); if (!r.ok) throw new Error(out?.error?.message || 'KI-Fehler ' + r.status);
+      const out = await r.json(); if (r.ok) zaehle(section, out.usage); if (!r.ok) throw new Error(out?.error?.message || 'KI-Fehler ' + r.status);
       const tb = (out.content || []).filter((c) => c.type === 'text' && c.text), txt = web ? ((tb.filter((c) => c.text.includes('{')).pop() || {}).text || '') : tb.map((c) => c.text).join(''), a = txt.indexOf('{'), b = txt.lastIndexOf('}');
       try { return JSON.parse(txt.slice(a, b + 1)); } catch { /* zweiter Versuch */ }
     }
@@ -56,7 +67,10 @@ export function createAuftrag(ctx) {
     return pick(section);
   }
   const SYS = 'Du bist erfahrene Lehrkraft für Geschichte und Politische Bildung an einer österreichischen AHS (Sekundarstufe 2). Du erstellst anspruchsvolles, sachlich korrektes Unterrichtsmaterial in sehr gutem Deutsch (österreichische Rechtschreibung mit ss/ß wie üblich). Erfinde keine Quellenzitate: Zitate nur wörtlich aus den gelieferten Quellen oder als „sinngemäß“ gekennzeichnet. Nenne keine Schülerdaten.';
-  const src = (p) => (p.quellen || []).map((q, i) => `QUELLE ${i + 1} (${q.ref || 'ohne Titel'}):\n${String(q.text || '').slice(0, 9000)}`).join('\n\n').slice(0, 45000) || (p.quellenmodus === 'web' ? '(keine Quellen vorgegeben: recherchiere selbst im Internet mit der Web-Suche, bevorzuge seriöse Quellen wie Fachlexika, Museen, Archive, Bildungsserver, öffentlich-rechtliche Medien und Universitäten; fasse in eigenen Worten zusammen und nenne die genutzten Quellen im Feld quellenliste)' : '(keine Quellen angegeben: nutze gesichertes Fachwissen und kennzeichne Unsicheres)');
+  const WEBTXT = 'recherchiere selbst im Internet mit der Web-Suche, bevorzuge seriöse Quellen wie Fachlexika, Museen, Archive, Bildungsserver, öffentlich-rechtliche Medien und Universitäten; fasse in eigenen Worten zusammen und nenne die genutzten Quellen im Feld quellenliste';
+  const src = (p) => { const own = (p.quellen || []).map((q, i) => `QUELLE ${i + 1} (${q.ref || 'ohne Titel'}):\n${String(q.text || '').slice(0, 9000)}`).join('\n\n').slice(0, 45000);
+    if (own) return own + (p.quellenmodus === 'web' ? `\n\n(Zusätzlich zu diesen Quellen: ${WEBTXT}. Die gelieferten Quellen haben Vorrang.)` : '');
+    return p.quellenmodus === 'web' ? `(keine Quellen vorgegeben: ${WEBTXT})` : '(keine Quellen angegeben: nutze gesichertes Fachwissen und kennzeichne Unsicheres)'; };
   const head = (p) => `${SYS}\nThema: „${p.titel}“. Klassenstufe: ${p.klasse}. Klasse (AHS Oberstufe; Niveau entsprechend). Epoche: ${p.epoche}${p.zeitraum ? ' (' + p.zeitraum + ')' : ''}.${p.notizen ? '\nWünsche der Lehrkraft: ' + p.notizen : ''}\n\nQUELLENMATERIAL:\n${src(p)}\n\n`;
 
   // Bausteine nach dem Textblatt: in dieser Reihenfolge bei „Material erstellen“; einzeln über „Baustein ergänzen“.
@@ -82,7 +96,8 @@ export function createAuftrag(ctx) {
   async function erstelle(job, p) {
     const say = (m, step) => { job.msg = m; if (step) job.step = step; }; job.total = 9;
     const dir = path.join(AUF, `${p.klasse}. Klasse`, '_neu_' + job.id); fs.mkdirSync(dir, { recursive: true }); job.dir = dir;
-    const data = { titel: p.titel, klasse: p.klasse, epoche: p.epoche, zeitraum: p.zeitraum || '', jahr: p.jahr || '', id: job.id, erstellt: Date.now(), optionen: { seiten: p.seiten, folien: p.folien, notizen: p.notizen || '', quellenmodus: p.quellenmodus } };
+    acc = neuerZaehler(); job.kosten = acc;
+    const data = { exporte: p.exporte, titel: p.titel, klasse: p.klasse, epoche: p.epoche, zeitraum: p.zeitraum || '', jahr: p.jahr || '', id: job.id, erstellt: Date.now(), optionen: { seiten: p.seiten, folien: p.folien, notizen: p.notizen || '', quellenmodus: p.quellenmodus } };
     const save = () => fs.writeFileSync(path.join(dir, 'auftrag.json'), JSON.stringify(data, null, 1));
     const kap = p.seiten >= 18 ? 12 : p.seiten >= 14 ? 10 : 8;
     say('Bibliotheken prüfen …', 0); await ensureLibs((m) => say(m)); save();
@@ -96,8 +111,9 @@ export function createAuftrag(ctx) {
       const r = await aiJson('textblatt', head(p) + `Gesamtgliederung des Textblatts: ${JSON.stringify(titles)}.\nSchreibe NUR die Kapitel ${JSON.stringify(part)} ausführlich als JSON: {"kapitel":[{"titel":"unverändert","absaetze":["3–4 Absätze, je 100–140 Wörter, Fließtext für Schüler/innen, präzise, mit Fachbegriffen"],"boxen":[{"typ":"merke|begriff|quelle|zahl|nachdenken","titel":"nur bei quelle: Autor, Werk, Jahr","text":"..."}] (2–3 Boxen, darunter mindestens eine 'merke'),"personen":[{"name":"","lebensdaten":"","rolle":"","text":"2–3 Sätze Bedeutung"}] (nur wenn wichtige Personen vorkommen; insgesamt im Textblatt mindestens 5 verschiedene)}]}. Insgesamt soll das Textblatt etwa ${p.seiten} Seiten füllen.`, 8000, part, p.quellenmodus === 'web');
       (r.kapitel || []).forEach((k) => data.textblatt.kapitel.push(k)); save();
     }
-    for (const B of BAUSTEINE) await B.run(data, p, say, save);
-    say('9/9 Dokumente werden erzeugt …', 9); await generiere(job, dir); const fin = path.join(path.dirname(dir), 'zz ' + slug(p.titel) + ' ' + job.id); fs.renameSync(dir, fin); job.dir = fin; renumber(); job.state = 'fertig'; say('Fertig.');
+    for (const B of BAUSTEINE) if (!p.bausteine || p.bausteine.includes(B.k)) await B.run(data, p, say, save);
+    data.kosten = rund(acc); data.thema = p.thema || ''; save(); acc = null;
+    say('9/9 Dokumente werden erzeugt …', 9); await generiere(job, dir, null, !!(p.bausteine && !p.bausteine.includes('praesentation'))); const fin = path.join(path.dirname(dir), 'zz ' + slug(p.titel) + ' ' + job.id); fs.renameSync(dir, fin); job.dir = fin; renumber(); job.state = 'fertig'; say('Fertig.');
   }
   // Baustein nachträglich: nur dieser KI-Schritt, Grundlage ist das vorhandene Textblatt; nur seine Dateien werden neu gebaut
   async function ergaenze(job, x, B, hint) {
@@ -107,15 +123,16 @@ export function createAuftrag(ctx) {
     if (!p.quellen.length) p.quellenmodus = 'wissen';
     const save = () => fs.writeFileSync(path.join(x.dir, 'auftrag.json'), JSON.stringify(data, null, 1));
     say('Bibliotheken prüfen …'); await ensureLibs(say);
-    await B.run(data, p, (m) => say(m.replace(/^\d\/9 /, '')), save);
+    acc = neuerZaehler(); job.kosten = acc;
+    try { await B.run(data, p, (m) => say(m.replace(/^\d\/9 /, '')), save); } finally { const k = rund(acc); acc = null; data.kosten_ergaenzt = (data.kosten_ergaenzt || []).concat([{ k: B.k, usd: k.usd, am: Date.now() }]); save(); }
     say('Dokumente werden erzeugt …'); await generiere(job, x.dir, B.gen); job.state = 'fertig'; say('Fertig: ' + B.n + ' ergänzt.');
   }
-  async function generiere(job, dir, nur) {
+  async function generiere(job, dir, nur, ohnePraes) {
     const cc = path.join(dir, 'cover_custom.png'); void cc;
     const args = ['gen.py', path.join(dir, 'auftrag.json'), dir]; if (fs.existsSync(VORLAGE)) args.push(VORLAGE);
     const r = await py(args, nur ? { env: { ...pyEnv(), NUR: nur.join(',') } } : {}); if (r.code !== 0) throw new Error('Dokumente konnten nicht erzeugt werden: ' + (r.e || r.o).slice(-400));
     if (r.e && /FEHLER/.test(r.e) && job) job.warn = r.e.slice(-400);
-    if (!fs.existsSync(VORLAGE) && job && (!nur || nur.includes('praesentation'))) job.warn = (job.warn ? job.warn + ' ' : '') + 'Hinweis: Keine Präsentationsvorlage hochgeladen (Material/Vorlage/praesentation.pptx), daher ohne Präsentation.';
+    if (!fs.existsSync(VORLAGE) && job && !ohnePraes && (!nur || nur.includes('praesentation'))) job.warn = (job.warn ? job.warn + ' ' : '') + 'Hinweis: Keine Präsentationsvorlage hochgeladen (Material/Vorlage/praesentation.pptx), daher ohne Präsentation.';
   }
   function scan() {
     const out = []; if (!fs.existsSync(AUF)) return out;
@@ -136,7 +153,7 @@ export function createAuftrag(ctx) {
     return scan().map((x) => { const nr = /^(\d+)\s/.exec(path.basename(x.dir)); const rel = path.relative(FILES_DIR, x.dir).split(path.sep).join('/');
       const files = []; const walk = (d, pre) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { if (e.name.startsWith('_') || e.name === 'auftrag.json' || e.name.startsWith('cover_custom')) continue; if (e.isDirectory()) walk(path.join(d, e.name), pre + e.name + '/'); else files.push(pre + e.name); } }; walk(x.dir, '');
       files.sort((a, b) => (/^\d/.test(a) === /^\d/.test(b) ? a.localeCompare(b, 'de') : /^\d/.test(a) ? -1 : 1));
-      return { bs: BAUSTEINE.map((B) => ({ k: B.k, n: B.n, has: B.has(x.m) })), id: x.m.id, titel: x.m.titel, klasse: x.m.klasse, epoche: x.m.epoche, jahr: x.m.jahr, nr: nr ? nr[1] : '', dir: rel, files, cover: files.find((f) => /^Cover_.*\.jpg$/.test(f)) || '' };
+      return { bs: BAUSTEINE.map((B) => ({ k: B.k, n: B.n, has: B.has(x.m) })), usd: x.m.kosten ? x.m.kosten.usd + (x.m.kosten_ergaenzt || []).reduce((a, b) => a + (b.usd || 0), 0) : null, thema: x.m.thema || '', id: x.m.id, titel: x.m.titel, klasse: x.m.klasse, epoche: x.m.epoche, jahr: x.m.jahr, nr: nr ? nr[1] : '', dir: rel, files, cover: files.find((f) => /^Cover_.*\.jpg$/.test(f)) || '' };
     }).sort((a, b) => String(a.klasse).localeCompare(String(b.klasse)) || String(a.nr).localeCompare(String(b.nr)));
   }
   const findById = (id) => scan().find((x) => String(x.m.id) === String(id));
@@ -149,8 +166,8 @@ export function createAuftrag(ctx) {
       if (!aiKey() && !process.env.AI_MOCK) return json(res, 501, { error: 'KI nicht eingerichtet (ANTHROPIC_API_KEY fehlt).' }), true;
       if ([...jobs.values()].some((j) => j.state === 'laeuft')) return json(res, 409, { error: 'Es läuft bereits eine Erstellung. Bitte warten.' }), true;
       const id = Date.now().toString(36), job = { id, state: 'laeuft', msg: 'Start …', step: 0, total: 9, titel: q.titel }; jobs.set(id, job);
-      const prm = { titel: String(q.titel).slice(0, 120), klasse: [5, 6, 7, 8].includes(+q.klasse) ? +q.klasse : 6, epoche: q.epoche, zeitraum: String(q.zeitraum || '').slice(0, 60), jahr: String(q.jahr || '').slice(0, 10), quellenmodus: ['web', 'wissen'].includes(q.quellenmodus) ? q.quellenmodus : (Array.isArray(q.quellen) && q.quellen.length ? 'eigen' : 'web'), seiten: +q.seiten || 10, folien: q.folien || 'mittel', notizen: String(q.notizen || '').slice(0, 1500), quellen: Array.isArray(q.quellen) ? q.quellen.slice(0, 20) : [] };
-      erstelle(job, prm).catch((e) => { job.state = 'fehler'; job.msg = String(e && e.message || e); try { if (job.dir) fs.rmSync(job.dir, { recursive: true, force: true }); } catch { /* */ } });
+      const prm = { titel: String(q.titel).slice(0, 120), klasse: [5, 6, 7, 8].includes(+q.klasse) ? +q.klasse : 6, epoche: q.epoche, zeitraum: String(q.zeitraum || '').slice(0, 60), jahr: String(q.jahr || '').slice(0, 10), quellenmodus: ['web', 'wissen', 'eigen'].includes(q.quellenmodus) ? q.quellenmodus : 'web', bausteine: Array.isArray(q.bausteine) ? q.bausteine.filter((k) => BAUSTEINE.some((b) => b.k === k)) : null, exporte: q.exporte && typeof q.exporte === 'object' ? { kahoot: q.exporte.kahoot !== false, plickers: q.exporte.plickers !== false, forms: q.exporte.forms !== false } : undefined, thema: String(q.thema || '').slice(0, 80), seiten: +q.seiten || 10, folien: q.folien || 'mittel', notizen: String(q.notizen || '').slice(0, 1500), quellen: Array.isArray(q.quellen) ? q.quellen.slice(0, 20) : [] };
+      erstelle(job, prm).catch((e) => { acc = null; job.state = 'fehler'; job.msg = String(e && e.message || e); try { if (job.dir) fs.rmSync(job.dir, { recursive: true, force: true }); } catch { /* */ } });
       return json(res, 200, { id }), true;
     }
     if (p === '/api/stunden/plan' && req.method === 'POST') {
@@ -164,19 +181,28 @@ export function createAuftrag(ctx) {
         return json(res, 200, { einheiten: E }), true;
       } catch (e) { return json(res, 502, { error: String(e && e.message || e) }), true; }
     }
-    if (p === '/api/auftrag/status' && req.method === 'GET') { const j = jobs.get(url.searchParams.get('id')); return json(res, j ? 200 : 404, j ? { state: j.state, msg: j.msg, step: j.step, total: j.total, warn: j.warn || '' } : { error: 'unbekannt' }), true; }
+    if (p === '/api/auftrag/status' && req.method === 'GET') { const j = jobs.get(url.searchParams.get('id')); return json(res, j ? 200 : 404, j ? { state: j.state, msg: j.msg, step: j.step, total: j.total, warn: j.warn || '', usd: j.kosten ? Math.round(j.kosten.usd * 10000) / 10000 : null } : { error: 'unbekannt' }), true; }
     if (p === '/api/auftrag/cover' && req.method === 'POST') {
       const x = findById(url.searchParams.get('id')); if (!x) return json(res, 404, { error: 'Arbeitsauftrag nicht gefunden' }), true;
       const buf = await bodyBuf(req, 25 * 1024 * 1024); fs.writeFileSync(path.join(x.dir, 'cover_custom.png'), buf);
       try { await generiere(null, x.dir); } catch (e) { return json(res, 500, { error: String(e.message || e) }), true; }
       return json(res, 200, { ok: true }), true;
     }
+    if (p === '/api/auftrag/schaetzung' && req.method === 'GET') {
+      // Durchschnitt aus bisherigen Aufträgen je Teil; sonst grobe Annahme aus typischen Token-Mengen
+      const bs = (url.searchParams.get('bs') || '').split(',').filter(Boolean), web = url.searchParams.get('web') === '1', eigen = +url.searchParams.get('eigen') || 0, seiten = +url.searchParams.get('seiten') || 10, folien = url.searchParams.get('folien') || 'mittel';
+      const hist = scan().map((x) => x.m.kosten).filter((k) => k && k.teile), [pi, po] = preis(), kap = seiten >= 18 ? 12 : seiten >= 14 ? 10 : 8, extraIn = Math.min(12000, eigen * 2500);
+      const T = { plan: [3000, 3000, 1, true], textblatt: [4000, 6000, Math.ceil(kap / 3), true], arbeitsblatt: [3000, 5000, 1], luecken: [3000, 5000, 1], single: [3000, 3500, 1], multiple: [3000, 3500, 1], wdh: [3000, 4000, 2], praesentation: [3000, folien === 'kurz' ? 4000 : folien === 'ausfuehrlich' ? 9000 : 6000, 1] };
+      const teile = ['plan', 'textblatt', ...bs.map((k) => (k === 'wdh' ? 'wdh' : k))]; let usd = 0, ausVerlauf = 0;
+      teile.forEach((t) => { const h = hist.map((k) => k.teile[t]).filter((v) => v > 0); if (h.length) { usd += h.reduce((a, b) => a + b, 0) / h.length; ausVerlauf++; return; } const d = T[t]; if (!d) return; const ein = (d[0] + extraIn + (web && d[3] ? 30000 : 0)) * d[2], aus = d[1] * d[2] * 1.6; usd += (ein * pi + aus * po) / 1e6 + (web && d[3] ? 3 * d[2] * SUCHE_USD : 0); });
+      return json(res, 200, { usd: Math.round(usd * 100) / 100, basis: ausVerlauf === teile.length ? 'verlauf' : ausVerlauf ? 'gemischt' : 'annahme', modell: AI_MODEL, n: hist.length }), true;
+    }
     if (p === '/api/auftrag/baustein' && req.method === 'POST') {
       const x = findById(url.searchParams.get('id')), B = BAUSTEINE.find((b) => b.k === url.searchParams.get('k')); if (!x || !B) return json(res, 404, { error: 'Arbeitsauftrag oder Baustein nicht gefunden' }), true;
       if (!aiKey() && !process.env.AI_MOCK) return json(res, 501, { error: 'KI nicht eingerichtet (ANTHROPIC_API_KEY fehlt).' }), true;
       if ([...jobs.values()].some((j) => j.state === 'laeuft')) return json(res, 409, { error: 'Es läuft bereits eine Erstellung. Bitte warten.' }), true;
       const q = JSON.parse((await body(req)) || '{}'), id = Date.now().toString(36), job = { id, state: 'laeuft', msg: 'Start …', step: 0, total: 0, titel: x.m.titel + ' – ' + B.n }; jobs.set(id, job);
-      ergaenze(job, x, B, String(q.hinweis || '').slice(0, 600)).catch((e) => { job.state = 'fehler'; job.msg = String(e && e.message || e); });
+      ergaenze(job, x, B, String(q.hinweis || '').slice(0, 600)).catch((e) => { acc = null; job.state = 'fehler'; job.msg = String(e && e.message || e); });
       return json(res, 200, { id }), true;
     }
     if (p === '/api/auftrag/nummern' && req.method === 'POST') { renumber(); return json(res, 200, { ok: true }), true; }

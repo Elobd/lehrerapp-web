@@ -49,5 +49,6 @@ Neuen Chat so starten: „Thema <Name> aus docs/OFFENE-THEMEN.md. Antworten: …
 ---
 
 ## Erledigt
+- **S46:** Lehrmaterial-Seite neu (Klasse → Thema aus Jahresplan oder frei, Quellen „Internet + meine Quellen“ als Standard, Bausteine und Kahoot/Plickers/Forms anhakbar, Kostenschätzung und tatsächliche Kosten, „schon vorhanden“ mit ✓/+ je Baustein); KI-Schlüssel unter Einstellungen → „KI-Schlüssel (Lehrmaterial)“ mit Erklärung; Jahresplan: Titel „Jahresplan · n. Klasse“, Abschnitte hervorgehoben, Arbeitsauftrag-Dateien automatisch/von Hand/per Ziehen auf die Stunden des Themas verteilen, in der Stunde aufrufbar. Server-Update nötig.
 - **S45 (a6f1e72):** „Baustein ergänzen ▾“ bei fertigen Arbeitsaufträgen: fehlenden Baustein ergänzen oder einzelnen neu erstellen (optional mit Wunsch an die KI); Grundlage ist das vorhandene Textblatt, nur die Dateien dieses Bausteins werden neu gebaut. Bausteine zentral in `BAUSTEINE` (server/auftrag.js). Server-Update nötig.
 - **S44 (1baf744):** UE-Überblick beginnt ab Schulbeginn (Sommerferien 2026 im Kalender – Ursache der Phantom-Termine 21.07.–01.09.), Ferien/Feiertage als graue Zeilen, „⋯“-Menü: Entfallen (Krankheit/Exkursion/Konferenz/…) oder Termin löschen; Foto-Zwischenspeicher und Fehlerhinweis.
