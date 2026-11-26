@@ -279,7 +279,7 @@ body.podon #main{padding-bottom:72px}
   const ask = (m, o) => (window.askUI ? window.askUI(m, o) : Promise.resolve(o ? window.prompt(m, '') : window.confirm(m)));
   async function addBs(id, k, has, nm) {
     if (has && !(await ask('„' + nm + '“ neu erstellen? Die bisherigen Dateien dieses Bausteins werden überschrieben, alles andere bleibt unverändert.'))) return;
-    const hint = await ask('Wunsch an die KI für „' + nm + '“ (optional, z. B. „leichter“, „Schwerpunkt Alltag“):', { input: true, def: '' }); if (hint == null) return;
+    const hint = await ask('„' + nm + '“: Alles leer lassen = die KI nutzt den GANZEN Text des Arbeitsauftrags (Textblatt) und fragt quer durchs Thema.\n\nNur wenn du etwas Bestimmtes willst, hier einen Wunsch eintragen (z. B. „leichter“ oder „Schwerpunkt Alltag“):', { input: true, def: '' }); if (hint == null) return;
     const r = await fetch('/api/auftrag/baustein?id=' + encodeURIComponent(id) + '&k=' + encodeURIComponent(k), { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ hinweis: hint }) }); const j = await r.json().catch(() => ({}));
     if (!r.ok) { toast(j.error || 'Fehler'); return; } const s = E(); s.job = { id: j.id, state: 'laeuft', msg: 'Start …', titel: nm }; toast('„' + nm + '“ wird erstellt – Fortschritt bei „Erstellen“'); poll(j.id); render();
   }
