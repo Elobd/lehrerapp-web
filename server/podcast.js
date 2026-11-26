@@ -20,10 +20,12 @@ export function createPodcast({ FILES_DIR, DATA_DIR, json, body }) {
   const xml = (t) => String(t == null ? '' : t).replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[c]));
   const STIMMEN = {
     azure: [['de-AT-IngridNeural', 'Ingrid (österreichisch, weiblich)'], ['de-AT-JonasNeural', 'Jonas (österreichisch, männlich)'], ['de-DE-SeraphinaMultilingualNeural', 'Seraphina (deutsch, weiblich)'], ['de-DE-FlorianMultilingualNeural', 'Florian (deutsch, männlich)'], ['de-DE-KatjaNeural', 'Katja (deutsch, weiblich)'], ['de-DE-ConradNeural', 'Conrad (deutsch, männlich)']],
+    elevenlabs: [['onwK4e9ZLuTAKqWW03F9', 'Daniel (ruhig, männlich)'], ['JBFqnCBsd6RMkjVDRZzb', 'George (warm, männlich)'], ['pNInz6obpgDQGcFmaJgB', 'Adam (tief, männlich)'], ['EXAVITQu4vr4xnSDxMaL', 'Sarah (weiblich)'], ['21m00Tcm4TlvDq8ikWAM', 'Rachel (weiblich)']],
     openai: [['onyx', 'Onyx (tief, männlich)'], ['nova', 'Nova (weiblich)'], ['alloy', 'Alloy (neutral)'], ['echo', 'Echo (männlich)'], ['shimmer', 'Shimmer (weiblich)']],
   };
   // ungefähre Listenpreise in US-Dollar (bitte beim Anbieter prüfen): Azure Neural ca. 16 $ / 1 Mio. Zeichen (500.000 Zeichen/Monat gratis im Gratis-Tarif); OpenAI ca. 0,015 $ / Minute
-  const kostenUsd = (an, zeichen) => (an === 'azure' ? (zeichen / 1e6) * 16 : (zeichen / 900) * 0.015);
+  // ElevenLabs: Gratis-Tarif ca. 10.000 Zeichen/Monat, danach ca. 0,17–0,30 $ pro 1000 Zeichen (je nach Tarif)
+  const kostenUsd = (an, zeichen) => (an === 'azure' ? (zeichen / 1e6) * 16 : an === 'elevenlabs' ? (zeichen / 1000) * 0.2 : (zeichen / 900) * 0.015);
 
   // Text in Stücke an Satzgrenzen teilen (Dienste begrenzen die Länge pro Anfrage)
   function stuecke(text, max) {
@@ -46,12 +48,18 @@ export function createPodcast({ FILES_DIR, DATA_DIR, json, body }) {
       if (!r.ok) throw new Error('Sprachdienst OpenAI: Fehler ' + r.status + ' ' + (await r.text()).slice(0, 200));
       return Buffer.from(await r.arrayBuffer());
     }
+    if (c.anbieter === 'elevenlabs') {
+      const v = String(c.stimme || 'onwK4e9ZLuTAKqWW03F9').replace(/[^A-Za-z0-9]/g, '');
+      const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${v}?output_format=mp3_44100_128`, { method: 'POST', headers: { 'xi-api-key': c.key, 'content-type': 'application/json', accept: 'audio/mpeg' }, body: JSON.stringify({ text: teil, model_id: 'eleven_multilingual_v2', language_code: 'de' }), signal: AbortSignal.timeout(180000) });
+      if (!r.ok) throw new Error('Sprachdienst ElevenLabs: Fehler ' + r.status + ' ' + (await r.text()).slice(0, 200));
+      return Buffer.from(await r.arrayBuffer());
+    }
     throw new Error('Kein Sprachdienst eingerichtet (Einstellungen → Podcast & Sprachausgabe).');
   }
   // Text → MP3-Datei; liefert { bytes, zeichen, usd }
   async function tts(text, ziel, say) {
     const c = cfg(); if (!c.key) throw new Error('Kein Sprachdienst eingerichtet (Einstellungen → Podcast & Sprachausgabe).');
-    const teile = stuecke(text, c.anbieter === 'openai' ? 3800 : 3000), tmp = ziel + '.teile'; fs.mkdirSync(tmp, { recursive: true });
+    const teile = stuecke(text, c.anbieter === 'openai' ? 3800 : c.anbieter === 'elevenlabs' ? 2500 : 3000), tmp = ziel + '.teile'; fs.mkdirSync(tmp, { recursive: true });
     try {
       const files = [];
       for (let i = 0; i < teile.length; i++) { if (say) say(`Podcast: Sprachaufnahme ${i + 1} von ${teile.length} …`); const f = path.join(tmp, String(i).padStart(3, '0') + '.mp3'); fs.writeFileSync(f, await sprich(c, teile[i])); files.push(f); }
@@ -99,12 +107,12 @@ export function createPodcast({ FILES_DIR, DATA_DIR, json, body }) {
     const p = url.pathname;
     if (p === '/api/podcast' && req.method === 'GET') { const c = cfg(); return json(res, 200, { anbieter: c.anbieter || '', region: c.region || '', stimme: c.stimme || '', gesetzt: !!c.key, stimmen: STIMMEN, feed: '/podcast/' + token() + '/feed.xml', basis: '/podcast/' + token() + '/', folgen: folgen().map((x) => Object.assign({}, x, { nrTitel: nrTitel(x), cover: !!coverOf(x.id) })).sort((a, b) => sortKey(a) - sortKey(b) || a.datum - b.datum) }), true; }
     if (p === '/api/podcast' && req.method === 'POST') {
-      const q = JSON.parse((await body(req)) || '{}'), c = cfg(); if (!['azure', 'openai'].includes(q.anbieter)) return json(res, 400, { error: 'Bitte einen Anbieter wählen.' }), true;
+      const q = JSON.parse((await body(req)) || '{}'), c = cfg(); if (!['azure', 'openai', 'elevenlabs'].includes(q.anbieter)) return json(res, 400, { error: 'Bitte einen Anbieter wählen.' }), true;
       const n = { anbieter: q.anbieter, region: String(q.region || c.region || 'westeurope').trim().toLowerCase().replace(/[^a-z0-9]/g, ''), stimme: String(q.stimme || '').slice(0, 60), key: String(q.key || '').trim() || (c.anbieter === q.anbieter ? c.key : '') };
       fs.writeFileSync(CFG, JSON.stringify(n)); return json(res, 200, { ok: true, gesetzt: !!n.key }), true;
     }
     if (p === '/api/podcast' && req.method === 'DELETE') { try { fs.unlinkSync(CFG); } catch { /* */ } return json(res, 200, { ok: true }), true; }
-    if (p === '/api/podcast/test' && req.method === 'POST') { try { const ziel = path.join(DATA_DIR, 'tts-test.mp3'); await tts('Hallo! Das ist ein kurzer Test der Sprachausgabe deiner Lehrer-App.', ziel); const b = fs.readFileSync(ziel); fs.unlinkSync(ziel); res.writeHead(200, { 'content-type': 'audio/mpeg', 'content-length': b.length }); res.end(b); } catch (e) { json(res, 502, { error: String(e.message || e) }); } return true; }
+    if (p === '/api/podcast/test' && req.method === 'POST') { try { const ziel = path.join(DATA_DIR, 'tts-test.mp3'); await tts('Hallo! Das ist ein kurzer Test der Sprachausgabe deiner Lehrer-App.', ziel); const b = fs.readFileSync(ziel); fs.unlinkSync(ziel); res.writeHead(200, { 'content-type': 'audio/mpeg', 'content-length': b.length }); res.end(b); } catch (e) { const m = String(e.message || e); json(res, 502, { error: /fetch failed|ENOTFOUND|ECONN|timeout/i.test(m) ? 'Sprachdienst nicht erreichbar – hat die NAS Internet? (' + m + ')' : m }); } return true; }
     if (p === '/api/podcast/neuerlink' && req.method === 'POST') { try { fs.unlinkSync(TOK); } catch { /* */ } return json(res, 200, { feed: '/podcast/' + token() + '/feed.xml' }), true; }
     if (p === '/api/podcast/folge' && req.method === 'DELETE') { const d = url.searchParams.get('datei') || ''; const l = folgen(); const x = l.find((y) => y.datei === d); if (x) { try { fs.unlinkSync(path.join(DIR, path.basename(x.datei))); } catch { /* */ } fs.writeFileSync(META, JSON.stringify(l.filter((y) => y !== x), null, 1)); } return json(res, 200, { ok: true }), true; }
     return false;
