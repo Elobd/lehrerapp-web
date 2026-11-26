@@ -49,13 +49,25 @@ export function createAuftrag(ctx) {
     if (process.env.AI_DEBUG) console.error('--- KI ' + section + ' ---\n' + prompt.slice(0, 6000));
     if (process.env.AI_MOCK) { zaehle(section, { input_tokens: web ? 30000 : 4000, output_tokens: 4000, server_tool_use: { web_search_requests: web ? 3 : 0 } }); return mock(section, mockArg); }
     if (!aiKey()) throw new Error('KI nicht eingerichtet (ANTHROPIC_API_KEY fehlt).');
-    for (let i = 0; i < 2; i++) {
-      const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'x-api-key': aiKey(), 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify({ model: AI_MODEL, max_tokens: maxTok || 8000, ...(web ? { tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 6 }] } : {}), messages: [{ role: 'user', content: prompt + '\n\nAntworte ausschließlich mit gültigem JSON (kein Text davor oder danach).' }] }), signal: AbortSignal.timeout(300000) });
-      const out = await r.json(); if (r.ok) zaehle(section, out.usage); if (!r.ok) throw new Error(out?.error?.message || 'KI-Fehler ' + r.status);
-      const tb = (out.content || []).filter((c) => c.type === 'text' && c.text), txt = web ? ((tb.filter((c) => c.text.includes('{')).pop() || {}).text || '') : tb.map((c) => c.text).join(''), a = txt.indexOf('{'), b = txt.lastIndexOf('}');
-      try { return JSON.parse(txt.slice(a, b + 1)); } catch { /* zweiter Versuch */ }
+    // JSON aus der Antwort lesen: Codeblöcke entfernen, von { bis }, notfalls überzählige Kommas entfernen
+    const lies = (txt) => { const t = String(txt || '').replace(/```(?:json)?/gi, ''), a = t.indexOf('{'), b = t.lastIndexOf('}'); if (a < 0 || b <= a) return null; const roh = t.slice(a, b + 1); try { return JSON.parse(roh); } catch { /* reparieren */ } try { return JSON.parse(roh.replace(/,\s*([}\]])/g, '$1')); } catch { return null; } };
+    let tok = maxTok || 8000, letzte = '', stop = '';
+    for (let i = 0; i < 3; i++) {
+      const user = { role: 'user', content: prompt + '\n\nAntworte ausschließlich mit gültigem JSON (kein Text davor oder danach).' }; let inhalt = [], out = null;
+      for (let k = 0; k < 4; k++) { // Web-Suche kann mit „pause_turn“ unterbrechen → fortsetzen
+        const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'x-api-key': aiKey(), 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify({ model: AI_MODEL, max_tokens: tok, ...(web ? { tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 6 }] } : {}), messages: inhalt.length ? [user, { role: 'assistant', content: inhalt }] : [user] }), signal: AbortSignal.timeout(600000) });
+        out = await r.json(); if (!r.ok) throw new Error(out?.error?.message || 'KI-Fehler ' + r.status); zaehle(section, out.usage);
+        inhalt = inhalt.concat(out.content || []); if (out.stop_reason !== 'pause_turn') break;
+      }
+      stop = out.stop_reason || '';
+      // bei Web-Suche: nur der Text nach dem letzten Suchergebnis (die Antwort ist dort oft auf mehrere Textblöcke mit Quellenangaben verteilt)
+      let ab = 0; inhalt.forEach((c, n) => { if (/tool_result|tool_use/.test(c.type)) ab = n + 1; });
+      const txt = inhalt.slice(ab).filter((c) => c.type === 'text' && c.text).map((c) => c.text).join('') || inhalt.filter((c) => c.type === 'text').map((c) => c.text).join('');
+      const j = lies(txt); if (j) return j; letzte = txt;
+      if (stop === 'max_tokens') tok = Math.min(20000, Math.round(tok * 1.8)); // abgeschnitten → mehr Platz
     }
-    throw new Error('KI-Antwort nicht lesbar (' + section + ')');
+    try { fs.writeFileSync(path.join(DATA_DIR, 'ki-fehler-' + section + '.txt'), 'stop_reason: ' + stop + '\n\n' + letzte); } catch { /* */ }
+    throw new Error('KI-Antwort nicht lesbar (' + section + ')' + (stop === 'max_tokens' ? ' – Antwort war zu lang und wurde abgeschnitten' : '') + '. Details: Datei ki-fehler-' + section + '.txt im Datenordner.');
   }
   function mock(section, arg) {
     const m = JSON.parse(fs.readFileSync(process.env.AI_MOCK, 'utf8'));
@@ -161,13 +173,13 @@ export function createAuftrag(ctx) {
     const kap = Math.max(4, Math.min(20, Math.round(p.seiten * 0.6 + 2)));
     say('Bibliotheken prüfen …', 0); await ensureLibs((m) => say(m)); save();
     say('1/9 Gliederung, Zeitstrahl und Epochenübersicht …', 1);
-    const plan = await aiJson('plan', head(p) + `Erstelle einen Plan als JSON: {"untertitel":"kurzer Untertitel","zeitraum":"z. B. 1450–1517","jahr":"Jahreszahl als Zahl (Beginn)","kurz":["4–6 Stichpunkte 'Das Wichtigste in Kürze'"],"kapitel":["genau ${kap} Kapitelüberschriften in sinnvoller Reihenfolge"],"zeitstrahl":[{"jahr":1450,"text":"max. 5 Wörter"}] (6 Einträge),"prozess":[{"titel":"max. 3 Wörter","text":"max. 6 Wörter"}] (4–5 Schritte oder Phasen),"prozess_titel":"Überschrift der Grafik","epochen":[{"epoche":"Vor- und Frühgeschichte|Antike|Mittelalter|Neuzeit|Zeitgeschichte","ereignisse":[{"text":"max. 4 Wörter","jahr":"Jahr/Zeitraum","seite":1 oder -1,"hervorheben":true nur beim Thema selbst}]}] (für ALLE fünf Epochen je 2–3 abwechslungsreiche Ereignisse oder Persönlichkeiten, in der Epoche des Themas auch das Thema selbst),"glossar":[{"begriff":"","text":"kurz"}] (8 Einträge),"quellenliste":["3–5 seriöse Literatur-/Quellenangaben; bei gelieferten Quellen deren Titel"]}`, 5000, undefined, p.quellenmodus === 'web');
+    const plan = await aiJson('plan', head(p) + `Erstelle einen Plan als JSON: {"untertitel":"kurzer Untertitel","zeitraum":"z. B. 1450–1517","jahr":"Jahreszahl als Zahl (Beginn)","kurz":["4–6 Stichpunkte 'Das Wichtigste in Kürze'"],"kapitel":["genau ${kap} Kapitelüberschriften in sinnvoller Reihenfolge"],"zeitstrahl":[{"jahr":1450,"text":"max. 5 Wörter"}] (6 Einträge),"prozess":[{"titel":"max. 3 Wörter","text":"max. 6 Wörter"}] (4–5 Schritte oder Phasen),"prozess_titel":"Überschrift der Grafik","epochen":[{"epoche":"Vor- und Frühgeschichte|Antike|Mittelalter|Neuzeit|Zeitgeschichte","ereignisse":[{"text":"max. 4 Wörter","jahr":"Jahr/Zeitraum","seite":1 oder -1,"hervorheben":true nur beim Thema selbst}]}] (für ALLE fünf Epochen je 2–3 abwechslungsreiche Ereignisse oder Persönlichkeiten, in der Epoche des Themas auch das Thema selbst),"glossar":[{"begriff":"","text":"kurz"}] (8 Einträge),"quellenliste":["3–5 seriöse Literatur-/Quellenangaben; bei gelieferten Quellen deren Titel"]}`, 8000, undefined, p.quellenmodus === 'web');
     Object.assign(data, { untertitel: plan.untertitel || '', zeitraum: p.zeitraum || plan.zeitraum || '', jahr: p.jahr || plan.jahr || '', zeitstrahl: plan.zeitstrahl, prozess: plan.prozess, prozess_titel: plan.prozess_titel, epochen: plan.epochen, quellenliste: [...(plan.quellenliste || []), ...(p.quellen || []).map((q) => q.ref).filter(Boolean)] });
     data.textblatt = { kurz: plan.kurz || [], kapitel: [], glossar: plan.glossar || [] }; save();
     const titles = plan.kapitel || []; let n = 0;
     for (let i = 0; i < titles.length; i += 3) {
       const part = titles.slice(i, i + 3); say(`2/9 Textblatt: Kapitel ${i + 1}–${Math.min(i + 3, titles.length)} von ${titles.length} …`, 2);
-      const r = await aiJson('textblatt', head(p) + `Gesamtgliederung des Textblatts: ${JSON.stringify(titles)}.\nSchreibe NUR die Kapitel ${JSON.stringify(part)} ausführlich als JSON: {"kapitel":[{"titel":"unverändert","absaetze":["3–4 Absätze, je 100–140 Wörter, Fließtext für Schüler/innen, präzise, mit Fachbegriffen"],"boxen":[{"typ":"merke|begriff|quelle|zahl|nachdenken","titel":"nur bei quelle: Autor, Werk, Jahr","text":"..."}] (2–3 Boxen, darunter mindestens eine 'merke'),"personen":[{"name":"","lebensdaten":"","rolle":"","text":"2–3 Sätze Bedeutung"}] (nur wenn wichtige Personen vorkommen; insgesamt im Textblatt mindestens 5 verschiedene)}]}. Insgesamt soll das Textblatt etwa ${p.seiten} Seiten füllen.`, 8000, part, p.quellenmodus === 'web');
+      const r = await aiJson('textblatt', head(p) + `Gesamtgliederung des Textblatts: ${JSON.stringify(titles)}.\nSchreibe NUR die Kapitel ${JSON.stringify(part)} ausführlich als JSON: {"kapitel":[{"titel":"unverändert","absaetze":["3–4 Absätze, je 100–140 Wörter, Fließtext für Schüler/innen, präzise, mit Fachbegriffen"],"boxen":[{"typ":"merke|begriff|quelle|zahl|nachdenken","titel":"nur bei quelle: Autor, Werk, Jahr","text":"..."}] (2–3 Boxen, darunter mindestens eine 'merke'),"personen":[{"name":"","lebensdaten":"","rolle":"","text":"2–3 Sätze Bedeutung"}] (nur wenn wichtige Personen vorkommen; insgesamt im Textblatt mindestens 5 verschiedene)}]}. Insgesamt soll das Textblatt etwa ${p.seiten} Seiten füllen.`, 12000, part, p.quellenmodus === 'web');
       (r.kapitel || []).forEach((k) => data.textblatt.kapitel.push(k)); save();
     }
     Object.defineProperty(data, '_dir', { value: dir, enumerable: false, writable: true });
