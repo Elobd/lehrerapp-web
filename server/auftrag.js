@@ -325,6 +325,22 @@ export function createAuftrag(ctx) {
       if (![...jobs.values()].some((j) => j.state === 'laeuft')) { const job = { id: 'pdf' + Date.now().toString(36), state: 'laeuft', msg: 'PDFs werden aktualisiert …', titel: x.m.titel }; jobs.set(job.id, job); pdfsErstellen(x.dir, (m) => { job.msg = m; }).then(() => { job.state = 'fertig'; job.msg = 'PDFs aktualisiert'; }).catch((e) => { job.state = 'fehler'; job.msg = String(e.message || e); }); }
       return json(res, 200, { ok: true }), true;
     }
+    // Bilder in der PowerPoint-Präsentation: auflisten und einzelne Bildrahmen ersetzen
+    if (p === '/api/auftrag/pptbilder' && req.method === 'GET') {
+      const x = findById(url.searchParams.get('id')), datei = path.basename(url.searchParams.get('datei') || ''); if (!x || !/\.pptx$/i.test(datei) || !fs.existsSync(path.join(x.dir, datei))) return json(res, 404, { error: 'Präsentation nicht gefunden' }), true;
+      const vd = path.join(x.dir, '_pptvorschau'); fs.rmSync(vd, { recursive: true, force: true }); await ensureLibs(() => {});
+      const r = await py(['pptbilder.py', 'list', path.join(x.dir, datei), vd]); if (r.code !== 0) return json(res, 500, { error: 'Bilder konnten nicht gelesen werden: ' + (r.e || r.o).slice(-200) }), true;
+      const rel = path.relative(FILES_DIR, vd).split(path.sep).join('/'); return json(res, 200, { bilder: JSON.parse(r.o).map((b) => Object.assign(b, { vorschau: rel + '/' + b.vorschau })) }), true;
+    }
+    if (p === '/api/auftrag/pptbild' && req.method === 'POST') {
+      const x = findById(url.searchParams.get('id')), datei = path.basename(url.searchParams.get('datei') || ''), folie = +url.searchParams.get('folie'), shape = +url.searchParams.get('shape');
+      if (!x || !/\.pptx$/i.test(datei) || !folie || !shape) return json(res, 400, { error: 'Angaben fehlen' }), true;
+      const tmp = path.join(x.dir, '_neues-bild.jpg'); fs.writeFileSync(tmp, await bodyBuf(req, 25 * 1024 * 1024));
+      const r = await py(['pptbilder.py', 'set', path.join(x.dir, datei), String(folie), String(shape), tmp]); fs.rmSync(tmp, { force: true });
+      if (r.code !== 0) return json(res, 500, { error: 'Bild konnte nicht eingesetzt werden: ' + (r.e || r.o).slice(-200) }), true;
+      if (![...jobs.values()].some((j) => j.state === 'laeuft')) { const job = { id: 'pdf' + Date.now().toString(36), state: 'laeuft', msg: 'PDF wird aktualisiert …', titel: x.m.titel }; jobs.set(job.id, job); pdfsErstellen(x.dir, (m) => { job.msg = m; }).then(() => { job.state = 'fertig'; job.msg = 'PDF aktualisiert'; }).catch((e) => { job.state = 'fehler'; job.msg = String(e.message || e); }); }
+      return json(res, 200, { ok: true }), true;
+    }
     if (p === '/api/auftrag/pdf' && req.method === 'POST') {
       const x = findById(url.searchParams.get('id')); if (!x) return json(res, 404, { error: 'Arbeitsauftrag nicht gefunden' }), true;
       if ([...jobs.values()].some((j) => j.state === 'laeuft')) return json(res, 409, { error: 'Es läuft gerade eine Erstellung. Bitte warten.' }), true;

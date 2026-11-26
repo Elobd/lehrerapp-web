@@ -1396,3 +1396,6 @@ svg.ck{display:inline-block;vertical-align:-2px;flex:none}
   const st = document.createElement('style'); st.id = 'ui64'; st.textContent = `.usbtop{color:#94a3b8}.usbtop.on{color:#22c55e}.usbbtn{border:1px solid #d6dde6;background:#fff;border-radius:8px;width:32px;height:30px;display:inline-grid;place-items:center;color:#94a3b8;cursor:pointer;padding:0}.usbbtn.on{color:#16a34a;border-color:#86c79a;background:#edf7ee}`;
   document.head.appendChild(st);
 })();
+
+/* S67: Anwesenheit – Knopf über die ganze Breite, darunter (unter der Trennlinie) „anwesend: 13 / 15“ */
+(() => { const st = document.createElement('style'); st.id = 'ui67'; st.textContent = `.attt{flex-wrap:wrap!important}.attt .attfull{flex:1 1 100%;width:100%;justify-content:center;min-height:38px}.attcnt2{text-align:right;font:600 13px var(--font-body);color:#475569;padding:6px 4px 2px}.attcnt2 b{color:#1E293B;font-size:16px}`; document.head.appendChild(st); })();

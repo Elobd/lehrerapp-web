@@ -251,8 +251,16 @@ body.podon #main{padding-bottom:72px}
       ${u.fehlt ? '<div class="rw"><b>Noch nicht aktiv.</b><span class="v" style="white-space:normal">Dafür einmalig das Server-Update S59 einspielen (Anleitung im Chat). Danach geht alles automatisch.</span></div>' : `<div class="rw"><small>Status</small><b>${esc(u.meldung || '–')}</b></div>
       <div class="rw"><small>Zuletzt geprüft</small><span class="v">${esc(zeit)}${u.commit ? ' · Stand ' + esc(u.commit) : ''}</span></div>
       ${(u.geladen || []).length ? `<div class="rw"><small>Zuletzt geladene Dateien</small><span class="v" style="white-space:normal">${esc(u.geladen.join(', '))}</span></div>` : ''}
-      <div class="rw"><div class="row" style="gap:6px"><button class="btn good" data-act="updnow">Jetzt prüfen und aktualisieren</button></div></div>`}</section></div>`;
+      <div class="rw"><div class="row" style="gap:6px"><button class="btn good" data-act="updnow">Jetzt prüfen und aktualisieren</button></div></div>`}</section>
+      <section class="dd" style="margin-top:12px"><div class="ddh" style="background:#1E293B;color:#fff"><b>NAS-Ordner öffnen (File Station)</b></div>
+      <div class="rw"><small>Wofür?</small><span class="v" style="white-space:normal">Das Ordner-Symbol bei den Arbeitsaufträgen öffnet die File Station direkt im Ordner des Auftrags.</span></div>
+      <div class="rw"><small>Adresse der NAS-Oberfläche (DSM)</small><input class="kminp" data-ch="nasset" data-k="dsm" value="${esc((S.settings.nas || {}).dsm || '')}" placeholder="z. B. http://192.168.1.10:5000" style="width:100%"></div>
+      <div class="rw"><small>Datenordner der Lehrer-App (wie in der File Station)</small><input class="kminp" data-ch="nasset" data-k="pfad" value="${esc((S.settings.nas || {}).pfad || '')}" placeholder="z. B. /docker/lehrerapp/data" style="width:100%"><span class="muted sm" style="display:block;margin-top:4px;white-space:normal">So findest du ihn: File Station → zum Ordner „data“ der Lehrer-App gehen (darin liegt der Ordner „files“) → Rechtsklick → „Eigenschaften“ → Feld „Ort“ kopieren, z. B. „/volume1/docker/lehrerapp/data“ → hier <b>ohne „/volume1“</b> eintragen: „/docker/lehrerapp/data“.</span></div>
+      <div class="rw"><div class="row" style="gap:6px"><button class="btn" data-act="nastest">Testen: Datenordner öffnen</button></div></div></section></div>`;
   };
+  Object.assign(C, { nasset: (e) => { const n = Object.assign({ id: 'nas' }, S.settings.nas || {}); let v = e.value.trim(); if (e.dataset.k === 'dsm') v = v.replace(/\/+$/, ''); else v = v ? '/' + v.replace(/^\/+|\/+$/g, '').replace(/^volume\d+\//, '') : ''; n[e.dataset.k] = v; put('settings', n); toast('Gespeichert'); } });
+  window.nasLink = (rel) => { const n = S.settings.nas || {}; if (!n.dsm || !n.pfad) return ''; return n.dsm + '/index.cgi?launchApp=SYNO.SDS.App.FileStation3.Instance&launchParam=' + encodeURIComponent('openfile=' + encodeURIComponent(n.pfad + (rel ? '/' + rel : ''))); };
+  Object.assign(A, { nastest: () => { const u = window.nasLink('files'); if (!u) return toast('Bitte zuerst Adresse und Datenordner eintragen'); window.open(u, '_blank', 'noopener'); } });
   Object.assign(A, { updnow: async () => { toast('Prüfe auf neue Version …'); const r = await fetch('/api/system/aktualisierung', { method: 'POST', credentials: 'same-origin' }); const j = await r.json().catch(() => ({})); E().upd = r.ok ? j : { fehlt: true }; toast(j.meldung || 'Fertig'); render(); } });
   /* Einstellungen → KI-Schlüssel */
   window.kiPage = function () {
