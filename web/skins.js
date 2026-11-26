@@ -1339,3 +1339,19 @@ h4.gbe{margin:16px 2px 8px;font:800 12px var(--font-body);color:#64748b;text-tra
   const st2 = document.createElement('style'); st2.id = 'ui60'; st2.textContent = `.setbar .ttchipw{-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}.setbar.sbdrg{overflow-x:hidden!important}.setbar .ttchipw.sbdrag{opacity:.55;transform:scale(1.06);transition:transform .1s}.setbar .ttchipw.sbdrag .ttchip{background:#fdf6e9;border-radius:8px}
 .dd.pghd{margin:0 0 12px!important}.dd.pghd .ddh{cursor:default}`; document.head.appendChild(st2);
 })();
+
+/* S61: In den Unterseiten (z. B. Material) nach links/rechts wischen = nächste/vorige Seite der Reiterleiste.
+   Seiten mit eigenen Reitern (z. B. Jahresplan Geschichte/Sport) wechseln erst am Rand dieser Reiter. */
+(() => { let g = null;
+  const NO = 'input,textarea,select,button.btn,.setbar,.tscats,.ttmenu,.erbtbs,.afk,.kmtable,#podbar,.lspop,#selpick,#sppick,[contenteditable],.lsboard,[draggable="true"]';
+  document.addEventListener('touchstart', (e) => { g = null; if (e.touches.length !== 1) return; const bar = document.querySelector('#main .setbar'); if (!bar) return; const t = e.target; if (t.closest && t.closest(NO + ',.hero,#nav')) return;
+    const car = document.querySelector('#main .car'); let rand = null; if (car && car.dataset.tabs) { const ks = car.dataset.tabs.split(','), i = ks.indexOf(car.dataset.cur); rand = { erst: i <= 0, letzt: i >= ks.length - 1 }; }
+    g = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), bar, rand }; }, { passive: true });
+  document.addEventListener('touchend', (e) => { if (!g) return; const s = g; g = null; const c = e.changedTouches[0], dx = c.clientX - s.x, dy = c.clientY - s.y, dt = Date.now() - s.t;
+    if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.8 || dt > 700) return;
+    if (s.rand && !((dx > 0 && s.rand.erst) || (dx < 0 && s.rand.letzt))) return; // erst die inneren Reiter durchwischen
+    const ks = [...s.bar.querySelectorAll('.ttchip[data-v]')].map((b) => b.dataset.v), cur = ks.indexOf((s.bar.querySelector('.ttchip.on') || {}).dataset && s.bar.querySelector('.ttchip.on').dataset.v), n = cur + (dx < 0 ? 1 : -1);
+    if (cur < 0 || n < 0 || n >= ks.length) return;
+    if (A.setnav) A.setnav({ dataset: { v: ks[n] } }); else setView(ks[n]);
+    try { const m = document.getElementById('main'); m && m.animate && m.animate([{ transform: `translateX(${dx < 0 ? 60 : -60}px)`, opacity: 0.2 }, { transform: 'translateX(0)', opacity: 1 }], { duration: 240, easing: 'cubic-bezier(.22,.8,.3,1)' }); } catch (x) { /* */ } }, { passive: true });
+})();

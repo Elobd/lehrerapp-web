@@ -154,6 +154,68 @@ body.podon #main{padding-bottom:72px}
 #podbar .podbt{flex:1;min-width:0;display:flex;flex-direction:column}#podbar .podbt b{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#podbar .podbt small{font-size:11px;opacity:.75}#podbar input[type=range]{width:100%;height:14px;accent-color:#d99a26;margin:0}
 #podbar button{flex:none;border:0;background:rgba(255,255,255,.12);color:#fff;border-radius:6px;height:32px;min-width:32px;padding:0 6px;font-weight:700;font-size:12px;cursor:pointer}
 `; document.head.appendChild(st); }
+  /* Jahresplan-Thema: KI-Material der Arbeitsaufträge – Popup zum Auswählen (Kachel/Liste, Haken) und zugeordnete Dateien je Auftrag */
+  const afmSave = (slug, fn) => { const d = S.settings.jahresplan || { id: 'jahresplan' }, sub = Object.assign({}, d.sub || {}), it = Object.assign({}, sub[slug] || {}), m = JSON.parse(JSON.stringify(it.afm || {})); fn(m); it.afm = m; sub[slug] = it; put('settings', Object.assign({}, d, { id: 'jahresplan', sub })); };
+  const afItems = (slug) => { const sub = ((S.settings.jahresplan || {}).sub || {})[slug] || {}, ids = new Set((sub.auftraege || []).map((a) => a.id)); return (window.erbItems ? window.erbItems() : []).filter((it) => ids.has(it.id) || it.thema === slug); };
+  const afName = (f) => (window.afLabel ? window.afLabel(f) : f);
+  const afUrl = (it, f) => '/api/file?path=' + encodeURIComponent(it.dir + '/' + f) + '&inline=1';
+  const afTyp = (f) => { const e = (/\.(\w+)$/.exec(f) || [])[1] || ''; return ({ docx: ['W', '#2b579a'], pptx: ['P', '#c43e1c'], xlsx: ['X', '#1d6f42'], csv: ['CSV', '#1d6f42'], mp3: ['♪', '#7c3aed'], txt: ['TXT', '#64748b'], pdf: ['PDF', '#b91c1c'] })[e.toLowerCase()] || [e.toUpperCase() || '?', '#64748b']; };
+  const afThumb = (it, f) => /\.(jpe?g|png)$/i.test(f) ? `<img src="${esc(afUrl(it, f))}" alt="" loading="lazy">` : (() => { const [t, c] = afTyp(f); return `<span class="afic" style="background:${c}">${t}</span>`; })();
+  const afV = () => LS2('afView') || 'k';
+  const afFilesHtml = (it, files, mode, extra) => mode === 'l'
+    ? `<div class="afl">${files.map((f) => `<div class="afrow">${extra ? extra(f, 'pre') : ''}<a class="afopen" href="${esc(afUrl(it, f))}" target="_blank" rel="noopener"><span class="afth">${afThumb(it, f)}</span><span class="afn">${esc(afName(f))}</span></a>${extra ? extra(f, 'post') : ''}</div>`).join('')}</div>`
+    : `<div class="afk">${files.map((f) => `<div class="aftile">${extra ? extra(f, 'pre') : ''}<a class="afopen" href="${esc(afUrl(it, f))}" target="_blank" rel="noopener" title="${esc(afName(f))}"><span class="afth">${afThumb(it, f)}</span><span class="afn">${esc(afName(f))}</span></a>${extra ? extra(f, 'post') : ''}</div>`).join('')}</div>`;
+  const vSeg = (act, v, attrs) => `<span class="lsseg" role="group" aria-label="Darstellung"><button class="btn sm${v === 'k' ? ' good' : ''}" data-act="${act}" data-v="k" ${attrs || ''}>Kacheln</button><button class="btn sm${v === 'l' ? ' good' : ''}" data-act="${act}" data-v="l" ${attrs || ''}>Liste</button></span>`;
+  window.jpAuftragHtml = (slug) => {
+    const its = afItems(slug); if (!its.length) return '';
+    const m = (((S.settings.jahresplan || {}).sub || {})[slug] || {}).afm || {}, v = afV(), open = U.afOpen || {};
+    return `<div class="jpkim"><div class="jpkimh"><b>KI-Material aus Arbeitsaufträgen</b><span style="flex:1"></span>${vSeg('afview', v)}</div>${its.map((it) => { const sel = (m[it.id] || []).filter((f) => it.files.includes(f));
+      return `<details class="jpkid" data-afo="${esc(it.id)}"${open[it.id] ? ' open' : ''}><summary><span class="jpkit">${it.nr ? `<span class="erbjpn">${esc(it.nr)}</span>` : ''}${esc(it.titel)}</span><small>${sel.length} von ${it.files.length} Dateien zugeordnet</small></summary><div class="jpkib">${sel.length ? afFilesHtml(it, sel, v, (f, w) => (w === 'post' ? `<button class="afx" data-act="afrm" data-k="${esc(slug)}" data-id="${esc(it.id)}" data-f="${esc(f)}" title="Aus dem Thema nehmen" aria-label="Aus dem Thema nehmen">×</button>` : '')) : '<p class="muted sm" style="margin:4px 0">Noch keine Dateien zugeordnet.</p>'}
+        <div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn sm good" data-act="afpop" data-k="${esc(slug)}" data-id="${esc(it.id)}">${sel.length < it.files.length ? '＋ Dateien auswählen' : 'Alle Dateien ansehen'}</button></div></div></details>`; }).join('')}</div>`;
+  };
+  // Popup: alle Dateien eines Arbeitsauftrags, ankreuzen und „Angehakte hinzufügen“
+  function afPopup(slug, id) {
+    const it = afItems(slug).find((x) => x.id === id); if (!it) return; const old = document.getElementById('afpop'); if (old) old.remove();
+    const st = { v: afV(), sel: new Set() }, schon = () => new Set(((((S.settings.jahresplan || {}).sub || {})[slug] || {}).afm || {})[id] || []);
+    const el = document.createElement('div'); el.id = 'afpop'; el.className = 'lspop'; document.body.appendChild(el);
+    const draw = () => { const sch = schon(), frei = it.files.filter((f) => !sch.has(f));
+      el.innerHTML = `<div class="lspopb" role="dialog" aria-label="KI-Material auswählen"><div class="lspoph"><h2 style="font-size:16px">${esc(it.titel)}<span class="kmsep kmh1">I</span><span class="muted" style="font-weight:500">${it.files.length} Dateien</span></h2><button class="btn sm" data-x="1">Schließen</button></div>
+        <div class="lspopc"><div class="row" style="gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px">${vSeg('', st.v, 'data-pv="1"')}<span style="flex:1"></span><button class="btn sm" data-alle="1">Alle freien anhaken</button><button class="btn sm" data-keine="1">Keine</button></div>
+        ${afFilesHtml(it, it.files, st.v, (f, w) => w === 'pre' ? (sch.has(f) ? '<span class="afok" title="Schon zugeordnet">✓</span>' : `<input type="checkbox" class="afcb" data-f="${esc(f)}"${st.sel.has(f) ? ' checked' : ''} aria-label="Anhaken">`) : '')}
+        </div><div class="afpf"><span class="muted sm">${frei.length ? st.sel.size + ' angehakt' : 'Alle Dateien sind schon zugeordnet.'}</span><button class="btn good" data-add="1"${st.sel.size ? '' : ' disabled'}>Angehakte hinzufügen (${st.sel.size})</button></div></div>`; };
+    el.addEventListener('click', (ev) => { const t = ev.target;
+      if (t === el || t.closest('[data-x]')) { el.remove(); return; }
+      const pv = t.closest('[data-pv]'); if (pv) { st.v = pv.dataset.v; LS2('afView', st.v); draw(); return; }
+      if (t.closest('[data-alle]')) { const sch = schon(); it.files.forEach((f) => { if (!sch.has(f)) st.sel.add(f); }); draw(); return; }
+      if (t.closest('[data-keine]')) { st.sel.clear(); draw(); return; }
+      if (t.closest('[data-add]')) { const add = [...st.sel]; afmSave(slug, (m) => { const l = m[id] || []; add.forEach((f) => { if (!l.includes(f)) l.push(f); }); m[id] = l.sort((a, b) => it.files.indexOf(a) - it.files.indexOf(b)); }); U.afOpen = Object.assign({}, U.afOpen, { [id]: true }); toast(add.length + ' Datei(en) dem Thema hinzugefügt'); el.remove(); render(); return; }
+      const cb = t.closest('.afcb'); if (cb) { if (cb.checked) st.sel.add(cb.dataset.f); else st.sel.delete(cb.dataset.f); const b = el.querySelector('[data-add]'); b.disabled = !st.sel.size; b.textContent = 'Angehakte hinzufügen (' + st.sel.size + ')'; el.querySelector('.afpf .muted').textContent = st.sel.size + ' angehakt'; return; }
+      // Antippen der Kachel (nicht des Links) = anhaken
+      const tile = t.closest('.aftile,.afrow'); if (tile && !t.closest('a')) { const c = tile.querySelector('.afcb'); if (c) c.click(); } });
+    draw();
+  }
+  document.addEventListener('toggle', (e) => { const d = e.target; if (d && d.matches && d.matches('details.jpkid')) U.afOpen = Object.assign({}, U.afOpen, { [d.dataset.afo]: d.open }); }, true);
+  Object.assign(A, {
+    afview: (e) => { LS2('afView', e.dataset.v); render(); },
+    afpop: (e) => afPopup(e.dataset.k, e.dataset.id),
+    afrm: (e) => { afmSave(e.dataset.k, (m) => { m[e.dataset.id] = (m[e.dataset.id] || []).filter((f) => f !== e.dataset.f); }); render(); },
+  });
+  { const st = document.createElement('style'); st.id = 'af61'; st.textContent = `
+.jpkim{margin:0 0 12px;border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;background:#fbfcfd}.jpkimh{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.jpkid{border-top:1px solid #e2e8f0;padding:6px 0}.jpkid>summary{cursor:pointer;display:flex;flex-wrap:wrap;gap:2px 8px;align-items:baseline;list-style:revert}.jpkit{font-weight:700;color:#1E293B}.jpkid>summary small{color:#64748b;font-size:12px}
+.jpkib{padding:6px 0 2px}
+.afk{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}
+.aftile{position:relative;border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:6px;display:flex;flex-direction:column;align-items:stretch}
+.aftile .afopen{display:flex;flex-direction:column;gap:4px;text-decoration:none;color:#1E293B}.aftile .afth{height:58px;display:grid;place-items:center;border-radius:6px;overflow:hidden;background:#f1f5f9}.aftile .afth img{width:100%;height:100%;object-fit:cover}
+.aftile .afn{font-size:11.5px;line-height:1.25;word-break:break-word}
+.aftile .afcb,.aftile .afok{position:absolute;top:4px;left:4px;z-index:1}.aftile .afx{position:absolute;top:2px;right:2px}
+.afic{display:inline-grid;place-items:center;min-width:34px;height:34px;padding:0 4px;border-radius:6px;color:#fff;font:800 12px system-ui}
+.afl{display:flex;flex-direction:column}.afrow{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #eef1f5}.afrow .afopen{display:flex;align-items:center;gap:8px;flex:1;min-width:0;text-decoration:none;color:#1E293B}.afrow .afth{flex:none;width:40px;height:30px;display:grid;place-items:center;overflow:hidden;border-radius:4px}.afrow .afth img{width:100%;height:100%;object-fit:cover}.afrow .afn{font-size:13px}
+.afx{border:0;background:#fff;color:#94a3b8;font-size:17px;line-height:1;width:24px;height:24px;border-radius:6px;cursor:pointer}.afx:hover{color:#b3261e}
+.afok{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:4px;background:#edf7ee;color:#1f7a3a;font-size:12px;font-weight:800}
+.afcb{width:18px;height:18px;accent-color:#d99a26;flex:none}
+#afpop .lspopb{display:flex;flex-direction:column;max-height:88vh}#afpop .lspopc{overflow:auto;flex:1}.afpf{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;border-top:1px solid #e2e8f0;background:#fff}
+`; document.head.appendChild(st); }
   /* Einstellungen → App-Aktualisierung (Server holt neue Dateien selbst von GitHub) */
   window.updPage = function () {
     const s = E(); if (!s.upd && !s.updL) { s.updL = true; fetch('/api/system/aktualisierung', { credentials: 'same-origin' }).then((r) => (r.ok ? r.json() : { fehlt: true })).then((j) => { s.upd = j; s.updL = false; render(); }).catch(() => { s.upd = { fehlt: true }; s.updL = false; }); }
@@ -310,6 +372,7 @@ label.erbbx{flex-direction:row;gap:8px;cursor:pointer}label.erbbx>span{display:f
 
   /* Arbeitsauftrag-Dateien eines Themas auf seine Stunden verteilen (automatischer Vorschlag oder von Hand/Ziehen) */
   const afLabel = (f) => { const segs = f.replace(/\.[^.]+$/, '').split('_'), lo = segs[segs.length - 1] === 'LOESUNG'; if (lo) segs.pop(); if (segs.length > 1) segs.pop(); return segs.filter((x) => !/^\d+$/.test(x)).join(' ').replace(/-/g, ' ').replace('Lueckentext', 'Lückentext').replace('Kreuzwortraetsel', 'Kreuzworträtsel').replace('Wiederholung muendlich', 'Wiederholung mündlich').replace('Check up', 'Check-up').replace('SingleChoice', 'Single Choice').replace('MultipleChoice', 'Multiple Choice') + (lo ? ' (Lösung)' : '') + (/\.pptx$/i.test(f) ? ' (PowerPoint)' : /\.xlsx$/i.test(f) ? ' (Excel)' : /\.csv$/i.test(f) ? ' (CSV)' : ''); };
+  window.afLabel = afLabel;
   const afTopic = (slug) => { for (const k of [5, 6, 7, 8]) { const t = topics(k).find((x) => x.slug === slug); if (t) return { k, t }; } return null; };
   const afFiles = (slug) => { const sub = (jp().sub || {})[slug] || {}, ids = new Set((sub.auftraege || []).map((a) => a.id)), its = (window.erbItems ? window.erbItems() : []).filter((it) => ids.has(it.id) || it.thema === slug);
     return { its, files: its.flatMap((it) => it.files.filter((f) => /\.(docx|pptx|xlsx|csv|mp3)$/i.test(f) && !/^Import\//.test(f)).map((f) => ({ a: it.id, f, n: afLabel(f) + (its.length > 1 ? ' · ' + it.titel : '') }))) }; };
