@@ -2,6 +2,9 @@
   "TCP": {
     "443": {
       "HTTPS": true
+    },
+    "8443": {
+      "HTTPS": true
     }
   },
   "Web": {
@@ -11,6 +14,16 @@
           "Proxy": "http://lehrerapp-app:8080"
         }
       }
+    },
+    "${TS_CERT_DOMAIN}:8443": {
+      "Handlers": {
+        "/podcast/": {
+          "Proxy": "http://lehrerapp-app:8080/podcast/"
+        }
+      }
     }
+  },
+  "AllowFunnel": {
+    "${TS_CERT_DOMAIN}:8443": true
   }
 }
