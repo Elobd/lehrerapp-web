@@ -114,6 +114,15 @@ export function createPodcast({ FILES_DIR, DATA_DIR, json, body }) {
     }
     if (p === '/api/podcast' && req.method === 'DELETE') { try { fs.unlinkSync(CFG); } catch { /* */ } return json(res, 200, { ok: true }), true; }
     if (p === '/api/podcast/test' && req.method === 'POST') { try { const ziel = path.join(DATA_DIR, 'tts-test.mp3'); await tts('Hallo! Das ist ein kurzer Test der Sprachausgabe deiner Lehrer-App.', ziel); const b = fs.readFileSync(ziel); fs.unlinkSync(ziel); res.writeHead(200, { 'content-type': 'audio/mpeg', 'content-length': b.length }); res.end(b); } catch (e) { const m = String(e.message || e); json(res, 502, { error: /fetch failed|ENOTFOUND|ECONN|timeout/i.test(m) ? 'Sprachdienst nicht erreichbar – hat die NAS Internet? (' + m + ')' : m }); } return true; }
+    if (p === '/api/podcast/testfolge' && req.method === 'POST') { // kurze Testfolge, damit der Feed nicht leer ist (manche Podcast-Apps lehnen leere Feeds ab)
+      const ziel = path.join(DATA_DIR, 'testfolge.mp3'); let gesprochen = false;
+      try {
+        if (cfg().key) { try { await tts('Hallo! Das ist eine Testfolge deines Lehrer-App-Podcasts. Wenn du das hörst, funktioniert alles. Du kannst diese Folge in der App wieder entfernen.', ziel); gesprochen = true; } catch { /* dann Ton */ } }
+        if (!gesprochen) { const r = spawnSync('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=5', '-b:a', '64k', ziel]); if (r.status !== 0) throw new Error('Testton konnte nicht erzeugt werden (ffmpeg fehlt?)'); }
+        aufnehmen(ziel, { id: 'testfolge', dateiname: '0.00 Testfolge', titel: 'Testfolge', text: 'Test – kann wieder entfernt werden', klasse: 0, nr: 0, epoche: '', dauer: gesprochen ? 10 : 5 }); fs.unlinkSync(ziel);
+        return json(res, 200, { ok: true, gesprochen }), true;
+      } catch (e) { return json(res, 500, { error: String(e.message || e) }), true; }
+    }
     if (p === '/api/podcast/neuerlink' && req.method === 'POST') { try { fs.unlinkSync(TOK); } catch { /* */ } return json(res, 200, { feed: '/podcast/' + token() + '/feed.xml' }), true; }
     if (p === '/api/podcast/folge' && req.method === 'DELETE') { const d = url.searchParams.get('datei') || ''; const l = folgen(); const x = l.find((y) => y.datei === d); if (x) { try { fs.unlinkSync(path.join(DIR, path.basename(x.datei))); } catch { /* */ } fs.writeFileSync(META, JSON.stringify(l.filter((y) => y !== x), null, 1)); } return json(res, 200, { ok: true }), true; }
     return false;
