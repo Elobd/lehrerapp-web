@@ -344,6 +344,8 @@ label.erbbx{flex-direction:row;gap:8px;cursor:pointer}label.erbbx>span{display:f
 #selpick.erbjpk .erbjpi .erbjpt{flex:1;display:flex;flex-direction:column}#selpick.erbjpk .erbjpi em{font-style:normal;font-size:11.5px;color:#1f7a3a;font-weight:600;margin-top:2px}#selpick.erbjpk .erbjpi.done .erbjpn{background:#edf7ee;color:#1f7a3a}#selpick.erbjpk .erbjpi small{color:#94a3b8;font-size:12px;flex:none}
 #selpick.erbjpk .erbjpi.now{background:#fdf6e9;font-weight:700}#selpick.erbjpk .spph{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #e2e8f0}
 /* S62/S63: kompakter – kleinere Schrift, kleinere Kästchen */
+.erbwrap .erbbxl input{width:17px!important;height:17px!important;margin-top:0!important}.erbwrap .erbbxs{margin-left:22px!important}.erbwrap .erbtbs{margin-left:22px!important}.erbwrap .erbbxl{align-items:center}
+html:root body .erbwrap .card.erbc>.hd:first-child{margin:0 0 8px!important;border-radius:8px!important;padding:8px 10px!important;box-shadow:none!important;background:#f1f5f9!important}
 .erbwrap .erbbxl b{font-size:11px!important}.erbwrap .erbbxs{font-size:9.5px!important}.erbwrap .erbtbs .erbsb{font-size:11px}
 .erbchip{font-size:10.5px!important;padding:2px 6px!important;border-width:1px!important;display:inline-flex;align-items:center;gap:3px}.erbchips{gap:4px!important}
 .erbwrap .erbh{margin-bottom:6px}.erbwrap .erbh h2{font-size:14.5px}.erbwrap .erbn{width:24px;height:24px;font-size:12.5px}

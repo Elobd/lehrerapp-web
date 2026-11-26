@@ -339,7 +339,7 @@ body[data-fach=gpb] .kmh,body[data-fach=bspk] .kmh{border-bottom-color:rgba(0,0,
   <nav class="nav" id="nav"></nav>
   <main id="main" class="wrap" style="padding:0"></main>
 </div>
-<div id="appver" class="muted sm" style="text-align:center;padding:4px 0 18px;opacity:.7">Version 27.11.2026 · Neue Oberfläche S65</div>
+<div id="appver" class="muted sm" style="text-align:center;padding:4px 0 18px;opacity:.7">Version 27.11.2026 · Neue Oberfläche S66</div>
 <div id="drw" class="drw" aria-hidden="true"><div class="drwbg" data-act="drwx"></div><aside class="drwp" role="dialog" aria-label="Einstellungen"><div class="drwh"><b>Einstellungen</b><button class="drwc" data-act="drwx" aria-label="Schließen">×</button></div><div id="drwl" class="drwl"></div><p class="muted sm" style="margin:12px 4px 0">Am Symbol ⠿ ziehen, um die Reihenfolge zu ändern.</p></aside></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
@@ -1066,7 +1066,7 @@ function jahresPane(kd){
 function jahresView(){
   const kd=U.jpk==='s'?'bspk':'gpb',k=[5,6,7,8].includes(U.jps)?U.jps:5,JT=[['g','Geschichte'],['s','Bewegung und Sport']];
   const head=`<section class="dd ${kd==='bspk'?'fs':'fg'} pghd"><div class="ddh"><span class="ddic">${typeof KM!=='undefined'?(kd==='bspk'?KM.SVG_RUN:KM.SVG_HELM):''}</span><span class="ddt"><b>${kd==='bspk'?'Bewegung und Sport':'Geschichte'}</b><small>Jahresplan · ${k}. Klasse</small></span></div></section>`;
-  return `${setBar('jahresplan')}<div class="km2 sp">${head}<div class="homewrap">${window.UI?UI.tabs(JT,U.jpk==='s'?'s':'g','jpkp')+UI.carousel(JT,U.jpk==='s'?'s':'g','jpkp',{g:jahresPane('gpb'),s:jahresPane('bspk')}):jahresPane(kd)}</div></div>`;
+  return `${setBar('jahresplan')}${head}<div class="km2 sp"><div class="homewrap">${window.UI?UI.tabs(JT,U.jpk==='s'?'s':'g','jpkp')+UI.carousel(JT,U.jpk==='s'?'s':'g','jpkp',{g:jahresPane('gpb'),s:jahresPane('bspk')}):jahresPane(kd)}</div></div>`;
 }
 function schuelerCard(G){
   const all=Array.isArray(cinfo(G.slug).students)?cinfo(G.slug).students:[],multi=G.classes.length>1,act=stAct(all).length;
