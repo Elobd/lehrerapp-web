@@ -3,3 +3,4 @@ data/
 node_modules/
 *.sqlite*
 docker-compose.yml
+__pycache__/
