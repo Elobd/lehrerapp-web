@@ -7,6 +7,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 import { createAuftrag } from './auftrag.js';
+import { createPodcast } from './podcast.js';
 
 const __dir = path.dirname(fileURLToPath(import.meta.url));
 const PORT = +process.env.PORT || 8080;
@@ -183,13 +184,15 @@ async function handleAi(req, res) {
   try { return json(res, 200, { result: JSON.parse(m ? m[0] : txt) }); } catch { return json(res, 502, { error: 'KI-Antwort nicht lesbar' }); }
 }
 
-const auftragHandler = createAuftrag({ FILES_DIR, DATA_DIR, aiKey, AI_MODEL, json, body, bodyBuf });
+const podcast = createPodcast({ FILES_DIR, DATA_DIR, json, body });
+const auftragHandler = createAuftrag({ FILES_DIR, DATA_DIR, aiKey, AI_MODEL, json, body, bodyBuf, podcast });
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://x');
     const p = url.pathname;
     const ip = req.socket.remoteAddress;
 
+    if (p.startsWith('/podcast/') && podcast.oeffentlich(req, res, url)) return; // geheimer Feed-Link für Podcast-Apps (ohne Anmeldung)
     if (p === '/api/login' && req.method === 'POST') {
       if (throttled(ip)) return json(res, 429, { error: 'Zu viele Versuche. Bitte später erneut.' });
       const { password } = JSON.parse((await body(req)) || '{}');
@@ -243,6 +246,7 @@ const server = http.createServer(async (req, res) => {
         try { const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'x-api-key': k, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify({ model: AI_MODEL, max_tokens: 5, messages: [{ role: 'user', content: 'Sag nur: ok' }] }), signal: AbortSignal.timeout(30000) }); const o = await r.json().catch(() => ({})); if (!r.ok) return json(res, 502, { error: (o && o.error && o.error.message) || ('Fehler ' + r.status) }); return json(res, 200, { ok: true }); } catch (e) { return json(res, 502, { error: 'Keine Verbindung zur KI: ' + (e && e.message || e) }); }
       }
       if ((p.startsWith('/api/auftr') || p.startsWith('/api/stunden/')) && (await auftragHandler(req, res, url))) return;
+      if (p.startsWith('/api/podcast') && (await podcast.api(req, res, url))) return;
       if (p === '/api/events') {
         res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive', 'x-accel-buffering': 'no' });
         res.write('retry: 3000\n\n');

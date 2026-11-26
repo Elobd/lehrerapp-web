@@ -205,6 +205,7 @@ def _cross(words,size=21):
 def checkups(data,out):
     F=FONT_S; ck=data.get('checkup') or {}; SC=[(q['frage'],q['antworten'][:4],int(q['richtig'])) for q in ck.get('single') or [] if len(q.get('antworten',[]))>=4]; MC=[(q['frage'],q['antworten'][:4],[int(i) for i in q['richtig']]) for q in ck.get('multiple') or [] if len(q.get('antworten',[]))>=4 and q.get('richtig')]
     res=[]; T=SAFE(data.get('titel')); EXP=data.get('exporte') or {}; EX=lambda k: EXP.get(k,True)  # Exporte abwählbar (fehlt = alle)
+    AZ=data.get('anzahl') or {}; NDOC={'sc':int(AZ.get('single') or 15),'mc':int(AZ.get('multiple') or 15)}; NQ={'sc':max(20,NDOC['sc']),'mc':max(20,NDOC['mc'])}  # gewählte Anzahl (alt: 15 im Blatt, 20 im Quiz)
     def doc(qs,mode,loes,num):
         d=new_doc(font=F,size=11); build_header_footer(d,'Check-up (%s)'%('Single Choice' if mode=='sc' else 'Multiple Choice'),data.get('titel',''),loesung=loes,font=F)
         title(d,'Check-up: '+data.get('titel',''),'%d Fragen | '%len(qs)+('genau eine Antwort ist richtig' if mode=='sc' else 'mehrere Antworten können richtig sein – kreuze alle richtigen an')+' (A–D)',font=F)
@@ -221,9 +222,9 @@ def checkups(data,out):
     os.makedirs(os.path.join(out,'Import'),exist_ok=True)
     for mode,qs,num in (('sc',SC,6),('mc',MC,7)):
         if not qs: continue
-        doc(qs[:15],mode,False,num); doc(qs[:15],mode,True,num); tag='SingleChoice' if mode=='sc' else 'MultipleChoice'
+        doc(qs[:NDOC[mode]],mode,False,num); doc(qs[:NDOC[mode]],mode,True,num); tag='SingleChoice' if mode=='sc' else 'MultipleChoice'
         txt=[]
-        for i,(q,o,ok) in enumerate(qs[:15],1):
+        for i,(q,o,ok) in enumerate(qs[:NDOC[mode]],1):
             txt.append('%d. %s'%(i,q)); txt+=['%s) %s'%('ABCD'[j],x) for j,x in enumerate(o)]; txt.append('Richtig: '+', '.join('ABCD'[k] for k in ([ok] if mode=='sc' else ok))); txt.append('')
         fn=os.path.join(out,'Import','Check-up_%s_%s_Kopiertext.txt'%(tag,T)); open(fn,'w',encoding='utf8').write('Check-up %s: %s\n\n'%(tag,L.AO)+'\n'.join(txt)); res.append(fn)
         if not EX('kahoot'): continue
@@ -234,7 +235,7 @@ def checkups(data,out):
         for i,t in enumerate(['Kahoot! Quiz-Vorlage zum Hochladen (Quiz erstellen → Aus Tabelle importieren)','Arbeitsauftrag: '+L.AO,'Fragen: max. 120 Zeichen | Antworten: max. 75 Zeichen','Richtige Antwort(en): Nummern 1–4, mehrere durch Komma getrennt','Nicht verwendete Antwortfelder leer lassen','',''],1): ws.cell(i,1,t)
         for j,h in enumerate(['Question - max 120 characters','Answer 1 - max 75 characters','Answer 2 - max 75 characters','Answer 3 - max 75 characters','Answer 4 - max 75 characters','Time limit (sec) - 5, 10, 20, 30, 60, 90, 120, or 240 secs','Correct answer(s) - choose at least one'],1):
             c=ws.cell(8,j,h); c.font=Font(bold=True,color='FFFFFF'); c.fill=PatternFill('solid',fgColor='46178F'); c.alignment=Alignment(wrap_text=True)
-        for i,(q,o,ok) in enumerate(qs[:20]):
+        for i,(q,o,ok) in enumerate(qs[:NQ[mode]]):
             ws.cell(9+i,1,q[:120])
             for j,x in enumerate(o): ws.cell(9+i,2+j,x[:75])
             ws.cell(9+i,6,30 if mode=='mc' else 20); ws.cell(9+i,7,','.join(str(k+1) for k in ([ok] if mode=='sc' else ok)))
@@ -243,13 +244,13 @@ def checkups(data,out):
         fn=os.path.join(out,'Plickers_%s.csv'%T)
         with open(fn,'w',encoding='utf-8-sig',newline='') as f:
             w=csv.writer(f,delimiter=';'); w.writerow(['Frage','A','B','C','D','Richtige Antwort'])
-            for q,o,ok in SC[:20]: w.writerow([q]+o+['ABCD'[ok]])
+            for q,o,ok in SC[:NQ['sc']]: w.writerow([q]+o+['ABCD'[ok]])
         res.append(fn)
         d=new_doc(landscape=True,font=F,size=10.5,margins=(1.2,1.6,1.2,1.6)); build_header_footer(d,'Plickers-Eingabeblatt',data.get('titel',''),font=F)
-        title(d,'Plickers: %d Fragen zum Übertragen'%len(SC[:20]),'Plickers → Neue Frage → Frage und Antworten A–D eintippen oder kopieren → richtige Antwort markieren.',font=F)
-        t=d.add_table(len(SC[:20])+1,6); t.style='Table Grid'; t.alignment=WD_TABLE_ALIGNMENT.CENTER; t.autofit=False; ws_=[Cm(0.9),Cm(8.4),Cm(4.6),Cm(4.6),Cm(4.6),Cm(3.2)]
+        title(d,'Plickers: %d Fragen zum Übertragen'%len(SC[:NQ['sc']]),'Plickers → Neue Frage → Frage und Antworten A–D eintippen oder kopieren → richtige Antwort markieren.',font=F)
+        t=d.add_table(len(SC[:NQ['sc']])+1,6); t.style='Table Grid'; t.alignment=WD_TABLE_ALIGNMENT.CENTER; t.autofit=False; ws_=[Cm(0.9),Cm(8.4),Cm(4.6),Cm(4.6),Cm(4.6),Cm(3.2)]
         for j,h in enumerate(['Nr.','Frage','A','B','C','D']): c=t.rows[0].cells[j]; shade_cell(c,L.COL); p=c.paragraphs[0]; no_space(p); r=p.add_run(h); setfont(r,F,9.5,True,color='FFFFFF')
-        for i,(q,o,ok) in enumerate(SC[:20],1):
+        for i,(q,o,ok) in enumerate(SC[:NQ['sc']],1):
             for j,v in enumerate([str(i),q]+o):
                 p=t.rows[i].cells[j].paragraphs[0]; no_space(p,1,1); r=p.add_run(v); good=(j>=2 and j-2==ok); setfont(r,F,8.8,bold=good or j<2,color=L.RED if good else None)
                 if good: shade_cell(t.rows[i].cells[j],'FFF4CC')
@@ -260,13 +261,13 @@ def checkups(data,out):
     for mode,qs in (('sc',SC),('mc',MC)):
         if not qs or not EX('forms'): continue
         d=D0(); d.styles['Normal'].font.name='Calibri'; d.add_paragraph('Quiz: %s (%s)'%(data.get('titel',''),'Single Choice' if mode=='sc' else 'Multiple Choice'))
-        for i,(q,o,ok) in enumerate(qs[:20],1):
+        for i,(q,o,ok) in enumerate(qs[:NQ[mode]],1):
             d.add_paragraph('%d. %s'%(i,q))
             for j,x in enumerate(o): d.add_paragraph('%s) %s'%('ABCD'[j],x))
             if mode=='sc': d.add_paragraph('ANS: '+'ABCD'[ok]); d.add_paragraph('POINT: 1')
         if mode=='mc':
             d.add_page_break(); d.add_paragraph('Lösungen zum Nachmarkieren in Microsoft Forms:')
-            for i,(q,o,ok) in enumerate(qs[:20],1): d.add_paragraph('%d: %s'%(i,', '.join('ABCD'[k] for k in ok)))
+            for i,(q,o,ok) in enumerate(qs[:NQ[mode]],1): d.add_paragraph('%d: %s'%(i,', '.join('ABCD'[k] for k in ok)))
         fn=os.path.join(out,'MS-Forms_%s_%s.docx'%('SingleChoice' if mode=='sc' else 'MultipleChoice',T)); d.save(fn); res.append(fn)
     return res
 def wiederholung(data,out):

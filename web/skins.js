@@ -1299,3 +1299,21 @@ h4.gbe{margin:16px 2px 8px;font:800 12px var(--font-body);color:#64748b;text-tra
       .catch(() => toast('Fotos nicht geladen: Server nicht erreichbar – Tailscale/Internet am Handy prüfen. Bereits gesehene Fotos kommen aus dem Speicher.'));
   }, true);
 })();
+
+/* S48: Auswahlfenster (#selpick, #sppick) erscheinen mittig an der Stelle, an der getippt/geklickt wurde, kompakter und mit kleinerer Schrift */
+(() => { let pt = null;
+  document.addEventListener('pointerdown', (e) => { pt = { x: e.clientX, y: e.clientY, t: Date.now() }; }, true);
+  const place = (el) => { const c = el.querySelector('.sppc'); if (!c) return; el.classList.add('atpt');
+    requestAnimationFrame(() => { const W = innerWidth, H = innerHeight, w = c.offsetWidth, h = c.offsetHeight, ok = pt && Date.now() - pt.t < 4000, x = ok ? pt.x : W / 2, y = ok ? pt.y : H / 2;
+      c.style.left = Math.max(8, Math.min(W - w - 8, x - w / 2)) + 'px'; c.style.top = Math.max(8, Math.min(H - h - 8, y - h / 2)) + 'px'; }); };
+  new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach((n) => { if (n.nodeType === 1 && (n.id === 'selpick' || n.id === 'sppick')) place(n); }))).observe(document.body, { childList: true });
+  const st = document.createElement('style'); st.id = 'ui48'; st.textContent = `
+#selpick.atpt,#sppick.atpt{display:block!important}
+.atpt .sppb{background:rgba(15,23,42,.25)!important}
+.atpt .sppc{position:absolute!important;width:min(400px,calc(100vw - 16px))!important;height:auto!important;max-height:min(62vh,540px)!important;border-radius:12px!important;box-shadow:0 12px 40px rgba(0,0,0,.28)!important;display:flex!important;flex-direction:column!important;overflow:hidden}
+.atpt .spph{padding:8px 12px!important;flex:none}.atpt .spph b{font-size:14px!important}
+.atpt .spps{overflow:auto!important;flex:1;min-height:0;padding-bottom:6px!important}
+.atpt .spai{font-size:13.5px!important;padding:8px 12px!important;min-height:0!important}.atpt .spai b{font-weight:500!important;font-size:13.5px!important}
+.atpt .spah{font-size:13px!important;padding:8px 12px!important}
+`; document.head.appendChild(st);
+})();

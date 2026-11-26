@@ -44,6 +44,8 @@ Offene Themen und Entscheidungen: **docs/OFFENE-THEMEN.md** (zu Beginn lesen, na
 - Bausteine: Lehrer-Handout (optional, ca. 30 S.), Textblatt, Arbeitsblatt (+Lösung), Lückentext (+Lösung), Kreuzworträtsel (+Lösung), Check-ups Single/Multiple Choice, mündliche Wiederholungen, Präsentation, Cover.
 - Kosten: auftrag.js zählt usage je KI-Aufruf (Preistabelle `PREIS`, Web-Suche `AI_SEARCH_USD`), speichert `kosten` in auftrag.json; `/api/auftrag/schaetzung` schätzt aus dem Verlauf. Auswahl `bausteine`/`exporte` kommt aus der App.
 - Arbeitsauftrag-Dateien je Thema auf Stunden: `jahresplan.sub[slug].af = {Stundenindex: [{a, f, n}]}`, in Stunden als `log[].af` (lehrmaterial.js `jpAfHtml`/`afRow`).
+- Anzahlen je Baustein: `p.anzahl` / `data.anzahl` (Helfer `anz(p,k,standard)`); frühere Ausarbeitungen gehen als `p.vorher` in jeden Prompt (`vorherText`). Prompts testen: `AI_DEBUG=1` schreibt sie ins Server-Log.
+- Podcast: server/podcast.js (Sprachdienst Azure/OpenAI, Konfig in DATA_DIR/sprachausgabe.json, Folgen in files/Podcast + folgen.json, öffentlicher Feed nur über geheimen Token-Link `/podcast/<token>/feed.xml`).
 - Präsentationsvorlage liegt nur am NAS (Material/Vorlage/praesentation.pptx), nie committen.
 - Bausteine stehen zentral in der Liste `BAUSTEINE` (server/auftrag.js); „Baustein ergänzen“ in der App zeigt sie automatisch an und baut über die Umgebungsvariable `NUR` nur deren Dateien neu (gen.py).
 - Neuer Baustein = Eintrag in `BAUSTEINE` (KI-Schritt) in auftrag.js + Mock + neue Funktion in gen.py im Stil der bestehenden (lib.py nutzen) + Eintrag in `jobs`. Bestehende Funktionen/Design dabei nicht verändern. Test lokal mit `AI_MOCK=1` und server/gen/beispiel.json.

@@ -48,13 +48,11 @@ Neuen Chat so starten: „Thema <Name> aus docs/OFFENE-THEMEN.md. Antworten: …
 
 ---
 
-## 9. Audio/Video zum Lehrer-Handout (Entscheidung offen)
-- **Wunsch:** Handout als Audiodatei (Podcast fürs Autofahren), evtl. Video mit schematischen Darstellungen; nummeriert wie die Jahresplanung.
-- **Optionen Sprachausgabe:** lokal auf der NAS (kostenlos, Qualität mäßig bis gut, Docker-Image-Umbau) oder externer Sprachdienst (sehr gute Stimmen, eigener Schlüssel, ca. 1 € pro Handout). Inhalte sind keine persönlichen Daten.
-- **Optionen aufs Handy:** privater Podcast-Feed der App (Podcast-App, die direkt vom Handy lädt, Tailscale an) oder Synology Audio Station/DS audio (Offline-Download).
-- **Video:** vertonte Folien aus Präsentation/Grafiken mit ffmpeg (später).
+## 9. Video zum Thema (offen)
+- Vertonte Folien aus Präsentation/Grafiken mit ffmpeg – nach den ersten Erfahrungen mit dem Podcast.
 
 ## Erledigt
+- **S48:** Auswahlfenster erscheinen an der Tippstelle, kleinere Schrift; Themenfenster zeigt „✓ n× ausgearbeitet“ mit Bausteinen; Anzahl je Baustein mit −/+; Textblatt-Seiten frei (3–40); Lückentext und Kreuzworträtsel getrennt; KI bekommt frühere Ausarbeitungen (Thema + Epoche) und soll Überschneidungen vermeiden; Baustein „Podcast zum Anhören“ (Skript + Sprachausgabe Azure/OpenAI) mit privatem Feed (/podcast/<token>/feed.xml, Einstellungen → Podcast & Sprachausgabe). Server-Update nötig (neu: server/podcast.js).
 - **S47:** Themenauswahl als eigenes Fenster mit Nummern und abgehobenen Abschnitten; Baustein „Lehrer-Handout“ (ca. 30 Seiten, 01_Lehrer-Handout_….docx); Kategorie „Grundlagen & Methoden“ (Farbe 4A5A8C, nicht in der Epochenübersicht); Kosten in Euro (EZB-Kurs); Ordnernummern = Themennummern der Jahresplanung. Server-Update nötig.
 - **S46:** Lehrmaterial-Seite neu (Klasse → Thema aus Jahresplan oder frei, Quellen „Internet + meine Quellen“ als Standard, Bausteine und Kahoot/Plickers/Forms anhakbar, Kostenschätzung und tatsächliche Kosten, „schon vorhanden“ mit ✓/+ je Baustein); KI-Schlüssel unter Einstellungen → „KI-Schlüssel (Lehrmaterial)“ mit Erklärung; Jahresplan: Titel „Jahresplan · n. Klasse“, Abschnitte hervorgehoben, Arbeitsauftrag-Dateien automatisch/von Hand/per Ziehen auf die Stunden des Themas verteilen, in der Stunde aufrufbar. Server-Update nötig.
 - **S45 (a6f1e72):** „Baustein ergänzen ▾“ bei fertigen Arbeitsaufträgen: fehlenden Baustein ergänzen oder einzelnen neu erstellen (optional mit Wunsch an die KI); Grundlage ist das vorhandene Textblatt, nur die Dateien dieses Bausteins werden neu gebaut. Bausteine zentral in `BAUSTEINE` (server/auftrag.js). Server-Update nötig.
