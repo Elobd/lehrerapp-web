@@ -22,6 +22,37 @@ export function createAuftrag(ctx) {
     const p = spawn('python3', args, { env: pyEnv(), cwd: GEN, ...opt }); let o = '', e = '';
     p.stdout.on('data', (c) => (o += c)); p.stderr.on('data', (c) => (e += c)); p.on('error', (x) => ok({ code: -1, o, e: String(x) })); p.on('close', (code) => ok({ code, o, e }));
   });
+  // ---------- PDF: LibreOffice wird beim ersten Bedarf im Container nachinstalliert (kein Eingriff am NAS nötig) ----------
+  const sh = (cmd, args, opt = {}) => new Promise((ok) => { const p = spawn(cmd, args, { env: { ...process.env, HOME: '/tmp' }, ...opt }); let o = '', e = ''; p.stdout && p.stdout.on('data', (c) => (o += c)); p.stderr && p.stderr.on('data', (c) => (e += c)); const t = opt.timeout ? setTimeout(() => { try { p.kill('SIGKILL'); } catch { /* */ } }, opt.timeout) : null; p.on('error', (x) => { clearTimeout(t); ok({ code: -1, o, e: String(x) }); }); p.on('close', (code) => { clearTimeout(t); ok({ code, o, e }); }); });
+  const office = () => ['soffice', 'libreoffice'].find((c) => spawnSync('sh', ['-c', 'command -v ' + c]).status === 0) || '';
+  async function ensureOffice(say) {
+    if (office()) return office();
+    say('Einmalige Einrichtung: PDF-Umwandler (LibreOffice) wird installiert – dauert einige Minuten …');
+    const r = await sh('apk', ['add', '--no-cache', 'libreoffice-writer', 'libreoffice-impress'], { timeout: 900000 });
+    for (const f of ['font-carlito', 'font-crosextra-carlito', 'ttf-dejavu', 'font-noto']) await sh('apk', ['add', '--no-cache', f], { timeout: 300000 }); // Schriften (fehlende Pakete egal)
+    if (!office()) throw new Error('PDF-Umwandler konnte nicht installiert werden: ' + (r.e || r.o).slice(-200));
+    return office();
+  }
+  async function ensurePypdf(say) { const t = await py(['-c', 'import pypdf']); if (t.code === 0) return; say('PDF-Werkzeug wird eingerichtet …'); fs.mkdirSync(PYLIBS, { recursive: true }); await py(['-m', 'pip', 'install', '--break-system-packages', '--no-cache-dir', '--disable-pip-version-check', '--target', PYLIBS, 'pypdf']); }
+  // Word/PowerPoint → PDF (nur neue/geänderte), danach ein Gesamt-PDF „00_Gesamt_….pdf“ zum Ausdrucken der ganzen Ablage
+  async function pdfsErstellen(dir, say) {
+    const bin = await ensureOffice(say), quellen = fs.readdirSync(dir).filter((f) => /\.(docx|pptx)$/i.test(f) && !f.startsWith('~') && !/^(MS-Forms|Plickers)_/.test(f)); // Import-Hilfen nicht drucken
+    let n = 0;
+    for (const f of quellen) {
+      const src = path.join(dir, f), pdf = src.replace(/\.(docx|pptx)$/i, '.pdf');
+      if (fs.existsSync(pdf) && fs.statSync(pdf).mtimeMs >= fs.statSync(src).mtimeMs) continue;
+      say(`PDF ${++n}: ${f}`); const r = await sh(bin, ['--headless', '--norestore', '--convert-to', 'pdf', '--outdir', dir, src], { timeout: 240000 });
+      if (!fs.existsSync(pdf)) console.log('PDF fehlgeschlagen', f, (r.e || r.o).slice(-200));
+    }
+    const pdfs = fs.readdirSync(dir).filter((f) => /\.pdf$/i.test(f) && !/^00_Gesamt_/.test(f) && !/^(MS-Forms|Plickers)_/.test(f)).sort((a, b) => { const k = (x) => (/^\d\d_/.test(x) ? x : 'zz' + x); return k(a).localeCompare(k(b), 'de'); });
+    if (pdfs.length) {
+      await ensurePypdf(say); say('Gesamt-PDF wird zusammengestellt …');
+      const T = (fs.readdirSync(dir).find((f) => /^02_Textblatt_/.test(f)) || '').replace(/^02_Textblatt_|\.\w+$/g, '') || 'Arbeitsauftrag';
+      fs.readdirSync(dir).filter((f) => /^00_Gesamt_/.test(f)).forEach((f) => fs.rmSync(path.join(dir, f), { force: true }));
+      await py(['-c', 'import sys,pypdf\nw=pypdf.PdfWriter()\nfor f in sys.argv[2:]:\n  try: w.append(f)\n  except Exception as e: print("übersprungen",f,e)\nw.write(sys.argv[1])', path.join(dir, `00_Gesamt_${T}.pdf`), ...pdfs.map((f) => path.join(dir, f))]);
+    }
+    return pdfs.length;
+  }
   async function ensureLibs(say) {
     const t = await py(['-c', 'import docx,pptx,openpyxl,PIL,lxml']); if (t.code === 0) return;
     say('Einmalige Einrichtung: Bibliotheken werden installiert (dauert 1–3 Minuten) …'); fs.mkdirSync(PYLIBS, { recursive: true });
@@ -195,7 +226,8 @@ export function createAuftrag(ctx) {
     for (const B of BAUSTEINE) if ((!p.bausteine || p.bausteine.includes(B.k)) && !(alt && B.has(data))) { try { await B.run(data, p, say, save); } catch (e) { if (!e.weich) throw e; job.warn = (job.warn ? job.warn + ' ' : '') + e.message; } }
     data.textblatt.kapitel.sort((a, b) => titles.indexOf(a.titel) - titles.indexOf(b.titel)); delete data.kosten_bisher; delete data.abbruch; try { fs.unlinkSync(path.join(dir, '_param.json')); } catch { /* */ }
     data.kosten = rund(acc); data.thema = p.thema || ''; if (p.themaNr) data.themaNr = p.themaNr; save(); acc = null;
-    say('9/9 Dokumente werden erzeugt …', 9); await generiere(job, dir, null, !!(p.bausteine && !p.bausteine.includes('praesentation'))); const fin = path.join(path.dirname(dir), 'zz ' + slug(p.titel) + ' ' + job.id); fs.renameSync(dir, fin); job.dir = fin; renumber(); job.state = 'fertig'; say('Fertig.');
+    say('9/9 Dokumente werden erzeugt …', 9); await generiere(job, dir, null, !!(p.bausteine && !p.bausteine.includes('praesentation')));
+    try { await pdfsErstellen(dir, (m) => say(m, 9)); } catch (e) { job.warn = (job.warn ? job.warn + ' ' : '') + 'PDFs: ' + String(e.message || e); } const fin = path.join(path.dirname(dir), 'zz ' + slug(p.titel) + ' ' + job.id); fs.renameSync(dir, fin); job.dir = fin; renumber(); job.state = 'fertig'; say('Fertig.');
   }
   // Baustein nachträglich: nur dieser KI-Schritt, Grundlage ist das vorhandene Textblatt; nur seine Dateien werden neu gebaut
   async function ergaenze(job, x, B, hint) {
@@ -208,7 +240,7 @@ export function createAuftrag(ctx) {
     acc = neuerZaehler(); job.kosten = acc;
     Object.defineProperty(data, '_dir', { value: x.dir, enumerable: false, writable: true });
     try { await B.run(data, p, (m) => say(m.replace(/^\d\/9 /, '')), save); } catch (e) { if (!e.weich) throw e; job.warn = e.message; } finally { const k = rund(acc); acc = null; data.kosten_ergaenzt = (data.kosten_ergaenzt || []).concat([{ k: B.k, usd: k.usd, am: Date.now() }]); save(); }
-    say('Dokumente werden erzeugt …'); await generiere(job, x.dir, B.gen); job.state = 'fertig'; say('Fertig: ' + B.n + ' ergänzt.');
+    say('Dokumente werden erzeugt …'); await generiere(job, x.dir, B.gen); try { await pdfsErstellen(x.dir, say); } catch (e) { job.warn = 'PDFs: ' + String(e.message || e); } job.state = 'fertig'; say('Fertig: ' + B.n + ' ergänzt.');
   }
   async function generiere(job, dir, nur, ohnePraes) {
     if (nur && !nur.length) return; // Baustein ohne Word-Dateien (z. B. Podcast)
@@ -290,7 +322,15 @@ export function createAuftrag(ctx) {
       const x = findById(url.searchParams.get('id')); if (!x) return json(res, 404, { error: 'Arbeitsauftrag nicht gefunden' }), true;
       const buf = await bodyBuf(req, 25 * 1024 * 1024); fs.writeFileSync(path.join(x.dir, 'cover_custom.png'), buf);
       try { await generiere(null, x.dir); } catch (e) { return json(res, 500, { error: String(e.message || e) }), true; }
+      if (![...jobs.values()].some((j) => j.state === 'laeuft')) { const job = { id: 'pdf' + Date.now().toString(36), state: 'laeuft', msg: 'PDFs werden aktualisiert …', titel: x.m.titel }; jobs.set(job.id, job); pdfsErstellen(x.dir, (m) => { job.msg = m; }).then(() => { job.state = 'fertig'; job.msg = 'PDFs aktualisiert'; }).catch((e) => { job.state = 'fehler'; job.msg = String(e.message || e); }); }
       return json(res, 200, { ok: true }), true;
+    }
+    if (p === '/api/auftrag/pdf' && req.method === 'POST') {
+      const x = findById(url.searchParams.get('id')); if (!x) return json(res, 404, { error: 'Arbeitsauftrag nicht gefunden' }), true;
+      if ([...jobs.values()].some((j) => j.state === 'laeuft')) return json(res, 409, { error: 'Es läuft gerade eine Erstellung. Bitte warten.' }), true;
+      const job = { id: 'pdf' + Date.now().toString(36), state: 'laeuft', msg: 'PDFs werden erstellt …', step: 0, total: 0, titel: x.m.titel + ' – PDFs' }; jobs.set(job.id, job);
+      pdfsErstellen(x.dir, (m) => { job.msg = m; }).then((n) => { job.state = 'fertig'; job.msg = n ? 'PDFs fertig (inkl. Gesamt-PDF)' : 'Keine Word-/PowerPoint-Dateien gefunden'; }).catch((e) => { job.state = 'fehler'; job.msg = String(e.message || e); });
+      return json(res, 200, { id: job.id }), true;
     }
     if (p === '/api/auftrag/fortsetzen' && req.method === 'POST') {
       const ad = findAbgebrochen(url.searchParams.get('id')); if (!ad) return json(res, 404, { error: 'Abgebrochener Auftrag nicht gefunden' }), true;

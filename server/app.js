@@ -227,6 +227,11 @@ const server = http.createServer(async (req, res) => {
           return json(res, 200, { text: String(j.text || '').trim() });
         } catch (e) { return json(res, 502, { error: 'Spracherkennung nicht erreichbar: ' + (e && e.message || e) }); }
       }
+      // Bild aus dem Internet über den Server holen (für das Ziehen eines Bildes aus einer Webseite auf das Cover-Feld)
+      if (p === '/api/bildholen' && req.method === 'GET') {
+        const u = String(url.searchParams.get('url') || ''); if (!/^https?:\/\//i.test(u)) return json(res, 400, { error: 'Ungültige Adresse' });
+        try { const r = await fetch(u, { headers: { 'user-agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(20000) }); const ct = r.headers.get('content-type') || ''; if (!r.ok || !/^image\//.test(ct)) return json(res, 415, { error: 'Unter dieser Adresse liegt kein Bild' }); const b = Buffer.from(await r.arrayBuffer()); if (b.length > 20 * 1024 * 1024) return json(res, 413, { error: 'Bild zu groß' }); res.writeHead(200, { 'content-type': ct, 'content-length': b.length, 'cache-control': 'no-store' }); return res.end(b); } catch (e) { return json(res, 502, { error: 'Bild konnte nicht geladen werden' }); }
+      }
       // USB-Stick: Status für die App (grünes/graues Symbol)
       if (p === '/api/usb/status') return json(res, 200, { usb: usbOk(), ordner: 'Druckaufträge' });
       // Kopieren in „Druckaufträge/JJJJ-MM-TT“ – auf den USB-Stick, sonst (kein Stick eingebunden) in den gleichnamigen NAS-Ordner

@@ -17,6 +17,7 @@
   // Seitenkopf wie bei den Klassenmappen (Fachfarbe, Helm, Titel „Geschichte“, kleiner Zusatz)
   const matHead = (zusatz, n) => `<section class="dd fg pghd"><div class="ddh"><span class="ddic">${typeof KM !== 'undefined' && KM.SVG_HELM ? KM.SVG_HELM : ''}</span><span class="ddt"><b>Geschichte</b><small>${esc(zusatz)}</small></span>${n != null ? `<span class="ddn">${n}</span>` : ''}</div></section>`;
   window.erbReload = () => { E().items = null; render(); };
+  window.erbPoll = (id, titel) => { const s = E(); s.job = { id, state: 'laeuft', msg: 'Start …', titel: titel || '' }; poll(id); };
   window.erbItems = () => { const s = E(); if (s.items === null) load(); return s.items || []; };
   window.erbPrefill = (f, slug) => { const s = E(); Object.assign(s.f, f); s.f.klasse = String(f.klasse || s.f.klasse); s.f.thema = slug || ''; s.fromSlug = slug || ''; };
   const estimate = () => { const s = E(), f = s.f, bs = BS.filter((b) => f.bs[b[0]]).map((b) => b[0]), key = [bs.join(','), f.quellenmodus === 'web' ? 1 : 0, s.sel.size, f.seiten, JSON.stringify(f.anz)].join('|');
