@@ -2001,8 +2001,8 @@ const dlIc = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke
     if (!window.UI || !UI.carousel) return sportPage(G, c, ci);
     const keep = { a: st0.sparea, o: st0.spov, w: [st0.swslug, st0.swcat, st0.swname] }, panes = {}; let nav = '';
     keys.forEach((k) => { if (k !== cur) { st0.spov = Object.assign({}, keep.o, { [G.slug]: k === 'ov' }); if (k !== 'ov') st0.sparea = Object.assign({}, keep.a, { [G.slug]: k }); else st0.sparea = keep.a; } else { st0.spov = keep.o; st0.sparea = keep.a; }
-      let h = sportPage(G, c, ci); const m = /<nav class="tscats spareas"[\s\S]*?<\/nav>/.exec(h); if (m) { if (k === cur) nav = m[0]; h = h.replace(m[0], ''); } panes[k] = h; if (k !== cur) { st0.spov = keep.o; st0.sparea = keep.a; } });
-    st0.spov = keep.o; st0.sparea = keep.a; [st0.swslug, st0.swcat, st0.swname] = keep.w;
+      let h = sportPage(G, c, ci); const m = /<nav class="tscats spareas"[\s\S]*?<\/nav>/.exec(h); if (m) { if (k === cur) nav = m[0]; h = h.replace(m[0], ''); } if (k === cur) keep.w = [st0.swslug, st0.swcat, st0.swname]; panes[k] = h; if (k !== cur) { st0.spov = keep.o; st0.sparea = keep.a; } });
+    st0.spov = keep.o; st0.sparea = keep.a; [st0.swslug, st0.swcat, st0.swname] = keep.w; if (!st0.swslug) st0.swslug = G.slug;
     return `<div class="spmbox">${nav}</div>${UI.carousel(keys.map((k) => [k]), cur, 'spnav', panes)}`;
   }
   function sportPage(G, c, ci) {
