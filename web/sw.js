@@ -15,7 +15,7 @@ self.addEventListener('fetch', (e) => {
     return;
   }
   if (e.request.method !== 'GET' || u.pathname.startsWith('/api/')) return;
-  if (u.hostname.endsWith('spotify.com')) return;
+  if (u.hostname.endsWith('spotify.com') || /open-meteo\.com$|bigdatacloud\.net$/.test(u.hostname)) return;
   if (u.origin !== location.origin) { // CDN-Bibliotheken (PDF) cachen
     e.respondWith(caches.open(CACHE).then(async (c) => { const hit = await c.match(e.request); if (hit) return hit; const r = await fetch(e.request); if (r.ok) c.put(e.request, r.clone()); return r; }));
     return;

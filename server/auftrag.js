@@ -343,6 +343,24 @@ export function createAuftrag(ctx) {
       if (![...jobs.values()].some((j) => j.state === 'laeuft')) { const job = { id: 'pdf' + Date.now().toString(36), state: 'laeuft', msg: 'PDF wird aktualisiert …', titel: x.m.titel }; jobs.set(job.id, job); pdfsErstellen(x.dir, (m) => { job.msg = m; }).then(() => { job.state = 'fertig'; job.msg = 'PDF aktualisiert'; }).catch((e) => { job.state = 'fehler'; job.msg = String(e.message || e); }); }
       return json(res, 200, { ok: true }), true;
     }
+    // Datei ersetzen (hochgeladene Bearbeitung) – die alte Fassung bleibt in _versionen/ erhalten; Wiederherstellen möglich
+    if (p === '/api/auftrag/versionen' && req.method === 'GET') {
+      const x = findById(url.searchParams.get('id')), datei = path.basename(url.searchParams.get('datei') || ''); if (!x || !datei) return json(res, 404, { error: 'Nicht gefunden' }), true;
+      const vd = path.join(x.dir, '_versionen'), ext = path.extname(datei), base = path.basename(datei, ext), rel = path.relative(FILES_DIR, vd).split(path.sep).join('/');
+      const l = fs.existsSync(vd) ? fs.readdirSync(vd).filter((f) => f.startsWith(base + '__') && f.endsWith(ext)).map((f) => { const st = fs.statSync(path.join(vd, f)); return { datei: f, pfad: rel + '/' + f, t: st.mtimeMs, groesse: st.size }; }).sort((a, b) => b.t - a.t) : [];
+      return json(res, 200, { versionen: l }), true;
+    }
+    if (p === '/api/auftrag/ersetzen' && req.method === 'POST') {
+      const x = findById(url.searchParams.get('id')), datei = path.basename(url.searchParams.get('datei') || ''), version = path.basename(url.searchParams.get('version') || '');
+      if (!x || !/\.(pptx|docx|xlsx|csv|pdf)$/i.test(datei) || !fs.existsSync(path.join(x.dir, datei))) return json(res, 404, { error: 'Datei nicht gefunden' }), true;
+      const vd = path.join(x.dir, '_versionen'), ext = path.extname(datei), base = path.basename(datei, ext); fs.mkdirSync(vd, { recursive: true });
+      const stamp = new Date().toLocaleString('sv-SE', { timeZone: 'Europe/Vienna' }).replace(/[: ]/g, (c) => (c === ' ' ? '_' : '-'));
+      let neu; if (version) { const vf = path.join(vd, version); if (!version.startsWith(base + '__') || !fs.existsSync(vf)) return json(res, 404, { error: 'Version nicht gefunden' }), true; neu = fs.readFileSync(vf); } else { neu = await bodyBuf(req, 200 * 1024 * 1024); if (!neu || neu.length < 100) return json(res, 400, { error: 'Leere Datei' }), true; if ((ext === '.pptx' || ext === '.docx' || ext === '.xlsx') && !(neu[0] === 0x50 && neu[1] === 0x4b)) return json(res, 400, { error: 'Das ist keine gültige ' + ext.slice(1).toUpperCase() + '-Datei' }), true; }
+      fs.copyFileSync(path.join(x.dir, datei), path.join(vd, base + '__' + stamp + ext));
+      const tmp = path.join(x.dir, datei + '.neu'); fs.writeFileSync(tmp, neu); fs.renameSync(tmp, path.join(x.dir, datei));
+      if (/\.(pptx|docx)$/i.test(datei) && ![...jobs.values()].some((j) => j.state === 'laeuft')) { const job = { id: 'pdf' + Date.now().toString(36), state: 'laeuft', msg: 'PDF wird aktualisiert …', titel: x.m.titel }; jobs.set(job.id, job); pdfsErstellen(x.dir, (m) => { job.msg = m; }).then(() => { job.state = 'fertig'; job.msg = 'PDF aktualisiert'; }).catch((e) => { job.state = 'fehler'; job.msg = String(e.message || e); }); }
+      return json(res, 200, { ok: true }), true;
+    }
     if (p === '/api/auftrag/pdf' && req.method === 'POST') {
       const x = findById(url.searchParams.get('id')); if (!x) return json(res, 404, { error: 'Arbeitsauftrag nicht gefunden' }), true;
       if ([...jobs.values()].some((j) => j.state === 'laeuft')) return json(res, 409, { error: 'Es läuft gerade eine Erstellung. Bitte warten.' }), true;
