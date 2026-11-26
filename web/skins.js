@@ -728,7 +728,7 @@ html:root body .pastbox .attb,html:root body .ccard .ics .attb.open{background:#
 
   UI._SPI = SPI;
   /* ---------- Einschub-Animation beim Öffnen von Seiten ---------- */
-  const depth = (v) => (/^(klassen|uebersicht|mappe|leistungen|material|daten|jahresplan|erarbeiten|druck)$/.test(v) ? 0 : /^(schueler-|stunde-)/.test(v) ? 2 : 1);
+  const depth = (v) => (/^(klassen|uebersicht|mappe|leistungen|material|daten|jahresplan|erarbeiten|druck|podcasts)$/.test(v) ? 0 : /^(schueler-|stunde-)/.test(v) ? 2 : 1);
   let prevView = null; const oldAfter2 = window.uiAfterRender;
   window.uiAfterRender = function () { oldAfter2 && oldAfter2(); const v = U.view || 'klassen';
     if (prevView !== null && prevView !== v) { const d0 = depth(prevView), d1 = depth(v); if (d0 !== d1) { const m = document.querySelector('body > .wrap') || document.getElementById('main'); if (m && m.animate) { try { m.animate([{ transform: `translateX(${d1 > d0 ? 70 : -70}px)`, opacity: 0.1 }, { transform: 'translateX(0)', opacity: 1 }], { duration: 280, easing: 'cubic-bezier(.22,.8,.3,1)' }); } catch (x) { /* */ } } } }
@@ -1321,4 +1321,21 @@ h4.gbe{margin:16px 2px 8px;font:800 12px var(--font-body);color:#64748b;text-tra
 .atpt .spai{font-size:13.5px!important;padding:8px 12px!important;min-height:0!important}.atpt .spai b{font-weight:500!important;font-size:13.5px!important}
 .atpt .spah{font-size:13px!important;padding:8px 12px!important}
 `; document.head.appendChild(st);
+})();
+
+/* S60: Reiter der Unterleiste (z. B. Material) lange drücken und ziehen → Reihenfolge ändern (ohne Griff-Punkte) */
+(() => { let st = null, tm = null;
+  const chipOf = (e) => e.target.closest && e.target.closest('.setbar .ttchipw');
+  document.addEventListener('pointerdown', (e) => { const w = chipOf(e); if (!w) return; const bar = w.parentElement; clearTimeout(tm); st = { w, bar, x: e.clientX, y: e.clientY, drag: false, id: e.pointerId };
+    tm = setTimeout(() => { if (!st) return; st.drag = true; w.classList.add('sbdrag'); bar.classList.add('sbdrg'); try { navigator.vibrate && navigator.vibrate(15); } catch (x) { /* */ } }, 380); });
+  const move = (x) => { const { w, bar } = st, its = [...bar.querySelectorAll('.ttchipw')].filter((c) => c !== w); let before = null; for (const c of its) { const r = c.getBoundingClientRect(); if (x < r.left + r.width / 2) { before = c; break; } } bar.insertBefore(w, before);
+    const r = bar.getBoundingClientRect(); if (x < r.left + 30) bar.scrollLeft -= 12; else if (x > r.right - 30) bar.scrollLeft += 12; };
+  document.addEventListener('pointermove', (e) => { if (!st) return; if (!st.drag) { if (Math.abs(e.clientX - st.x) > 8 || Math.abs(e.clientY - st.y) > 8) { clearTimeout(tm); st = null; } return; } move(e.clientX); });
+  document.addEventListener('touchmove', (e) => { if (st && st.drag) { e.preventDefault(); move(e.touches[0].clientX); } }, { passive: false });
+  const end = () => { clearTimeout(tm); if (!st) return; const s0 = st; st = null; if (!s0.drag) return; s0.w.classList.remove('sbdrag'); s0.bar.classList.remove('sbdrg'); window.__noClick = Date.now();
+    const order = [...s0.bar.querySelectorAll('.ttchip[data-v]')].map((b) => b.dataset.v), gk = s0.bar.dataset.grp; if (!gk) return; put('settings', Object.assign({}, S.settings.setbar || {}, { id: 'setbar', [gk]: order })); toast('Reihenfolge gespeichert'); };
+  document.addEventListener('pointerup', end); document.addEventListener('pointercancel', end);
+  document.addEventListener('contextmenu', (e) => { if (chipOf(e)) e.preventDefault(); });
+  const st2 = document.createElement('style'); st2.id = 'ui60'; st2.textContent = `.setbar .ttchipw{-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}.setbar.sbdrg{overflow-x:hidden!important}.setbar .ttchipw.sbdrag{opacity:.55;transform:scale(1.06);transition:transform .1s}.setbar .ttchipw.sbdrag .ttchip{background:#fdf6e9;border-radius:8px}
+.dd.pghd{margin:0 0 12px!important}.dd.pghd .ddh{cursor:default}`; document.head.appendChild(st2);
 })();
