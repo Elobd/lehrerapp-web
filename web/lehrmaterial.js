@@ -16,6 +16,7 @@
   // Seitenkopf wie bei Jahresplanung (Fachfarbe Geschichte, Helm-Symbol)
   // Seitenkopf wie bei den Klassenmappen (Fachfarbe, Helm, Titel „Geschichte“, kleiner Zusatz)
   const matHead = (zusatz, n) => `<section class="dd fg pghd"><div class="ddh"><span class="ddic">${typeof KM !== 'undefined' && KM.SVG_HELM ? KM.SVG_HELM : ''}</span><span class="ddt"><b>Geschichte</b><small>${esc(zusatz)}</small></span>${n != null ? `<span class="ddn">${n}</span>` : ''}</div></section>`;
+  window.matHead = matHead;
   window.erbReload = () => { E().items = null; render(); };
   window.erbPoll = (id, titel) => { const s = E(); s.job = { id, state: 'laeuft', msg: 'Start …', titel: titel || '' }; poll(id); };
   window.erbItems = () => { const s = E(); if (s.items === null) load(); return s.items || []; };
