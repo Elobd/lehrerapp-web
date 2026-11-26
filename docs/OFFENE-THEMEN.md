@@ -61,6 +61,7 @@ Neuen Chat so starten: „Thema <Name> aus docs/OFFENE-THEMEN.md. Antworten: …
 - USB-Erkennung braucht die Einbindung des Sticks in den Container (USB_PATH); bis dahin NAS-Ordner files/Druckaufträge/<Datum> (Synology „USB Copy“ kann ihn beim Anstecken exportieren).
 
 ## Erledigt
+- **S78:** „verspätet“: Uhrzeit wird beim Antippen immer automatisch auf die aktuelle Uhrzeit gesetzt; Zeit antippen → Fenster mit zwei Scroll-Rädern (Stunden/Minuten, Übernehmen/Abbrechen). WebUntis-Upload der Verspätungen weiter offen (wartet auf Mitschnitt/Screenshot).
 - **S77:** Knopf „Anwesenheit kontrolliert“ wieder über die ganze Breite (mit „anwesend: x / y“ darin).
 - **S76:** Anwesenheit (Home → Anwesenheit): neuer Status „verspätet“ mit Uhrzeit (Reihenfolge der Knopf-Taps: anwesend → abwesend → verspätet → passiv → anwesend; Zeit = Uhrzeit des Tippens bei heutiger Stunde, sonst „Zeit?“; Zeit antippen = ändern; gespeichert in log[].late = {schülerId: 'HH:MM'}, zählt als anwesend). **WebUntis-Upload der Verspätungen noch offen** (wu-sync kennt nur Fehlzeiten; es fehlt ein Mitschnitt, wie WebUntis Verspätungen einträgt). „Baustein ergänzen“: Hinweistext klarer (leer = ganzer Text).
 - **S75:** Bibliothek mit gelbem Seitenkopf („Geschichte · Bibliothek“ + Anzahl); Seitenposition bleibt beim Wechsel Bibliothek/Lehrmaterial/Jahresplanung/Podcasts/Druckablage und Geschichte ↔ Sport im Jahresplan; Anwesenheit: „anwesend: x / y“ steht im Knopf „Anwesenheit kontrolliert“, Knopf rechtsbündig.

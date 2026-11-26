@@ -339,7 +339,7 @@ body[data-fach=gpb] .kmh,body[data-fach=bspk] .kmh{border-bottom-color:rgba(0,0,
   <nav class="nav" id="nav"></nav>
   <main id="main" class="wrap" style="padding:0"></main>
 </div>
-<div id="appver" class="muted sm" style="text-align:center;padding:4px 0 18px;opacity:.7">Version 27.11.2026 · Neue Oberfläche S77</div>
+<div id="appver" class="muted sm" style="text-align:center;padding:4px 0 18px;opacity:.7">Version 27.11.2026 · Neue Oberfläche S78</div>
 <div id="drw" class="drw" aria-hidden="true"><div class="drwbg" data-act="drwx"></div><aside class="drwp" role="dialog" aria-label="Einstellungen"><div class="drwh"><b>Einstellungen</b><button class="drwc" data-act="drwx" aria-label="Schließen">×</button></div><div id="drwl" class="drwl"></div><p class="muted sm" style="margin:12px 4px 0">Am Symbol ⠿ ziehen, um die Reihenfolge zu ändern.</p></aside></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
@@ -1499,7 +1499,7 @@ const A={
     const ci=cinfo(slug);if(!(ci.log||[]).some(x=>x.date===d))saveLog(slug,log=>log.push({id:uid('l'),date:d,text:''}));U.inhOpen=null;U.attOpen=slug+'|'+d;render()},
   stcyc:e=>{saveLog(e.dataset.slug,log=>{const x=log.find(y=>y.id===e.dataset.id);if(!x)return;const sid=e.dataset.sid,ab=new Set(Array.isArray(x.abs)?x.abs:[]),pa=new Set(Array.isArray(x.pas)?x.pas:[]);
       const late=Object.assign({},x.late||{});/* Reihenfolge: anwesend → abwesend → verspätet (mit Uhrzeit) → passiv → anwesend */
-      if(ab.has(sid)){ab.delete(sid);late[sid]=x.date===TODAY?(()=>{const n=new Date();return String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')})():''}else if(Object.prototype.hasOwnProperty.call(late,sid)){delete late[sid];pa.add(sid)}else if(pa.has(sid)){pa.delete(sid)}else{ab.add(sid)}
+      if(ab.has(sid)){ab.delete(sid);late[sid]=(()=>{const n=new Date();return String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')})()}else if(Object.prototype.hasOwnProperty.call(late,sid)){delete late[sid];pa.add(sid)}else if(pa.has(sid)){pa.delete(sid)}else{ab.add(sid)}
       x.abs=[...ab];x.pas=[...pa];if(Object.keys(late).length)x.late=late;else delete x.late;x.chk=true});render()},
   stlate:async e=>{const sl=e.dataset.slug,id=e.dataset.id,sid=e.dataset.sid;const cur=((((cinfoV(sl).log||[]).find(y=>y.id===id)||{}).late)||{})[sid]||'';const v=await (window.askUI?window.askUI('Uhrzeit des Eintreffens (z. B. 08:07):',{input:true,def:cur}):Promise.resolve(window.prompt('Uhrzeit (HH:MM):',cur)));if(v==null)return;const m=/^\s*(\d{1,2})[:.,h]?(\d{2})?\s*$/.exec(String(v));if(!m){toast('Bitte Uhrzeit wie 08:07 eingeben');return}const hh=+m[1],mm=+(m[2]||0);if(hh>23||mm>59){toast('Ungültige Uhrzeit');return}const t=String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');saveLog(sl,log=>{const x=log.find(y=>y.id===id);if(!x)return;x.late=Object.assign({},x.late||{},{[sid]:t})});render()},
   stabs:e=>{saveLog(e.dataset.slug,log=>{const x=log.find(y=>y.id===e.dataset.id);if(!x)return;const l=new Set(Array.isArray(x.abs)?x.abs:[]);l.has(e.dataset.sid)?l.delete(e.dataset.sid):l.add(e.dataset.sid);x.abs=[...l];x.chk=true});render()},
