@@ -52,6 +52,7 @@ Neuen Chat so starten: „Thema <Name> aus docs/OFFENE-THEMEN.md. Antworten: …
 - Vertonte Folien aus Präsentation/Grafiken mit ffmpeg – nach den ersten Erfahrungen mit dem Podcast.
 
 ## Erledigt
+- **S56:** Laufende Material-Erstellung wird beim Wiederöffnen angezeigt (Seite darf geschlossen werden); Podcasts: Sortierung „Nach Epochen“, Suche (Titel, Personen, Begriffe, Kapitel), Kurzinhalt je Folge; Shownotes im Feed (content:encoded); Kanalbild hochladen; Folgenbild wahlweise Cover oder Vorlage mit Nummer/Titel (server/gen/podbild.py).
 - **S52:** Pocket Casts über Tailscale Funnel: nur /podcast/ auf Port 8443 öffentlich (tailscale/serve.json mit AllowFunnel), Feed-Parameter `basis` für öffentliche Adressen, Logo über /podcast/<token>/logo.png; in der App „Öffentlichen Link kopieren“/„Funnel testen“. Am NAS noch nicht erprobt.
 - **S50/S51:** Podcast-Seite verständlicher (ein Kanal, „In AntennaPod abonnieren“, Teil-Kanäle optional); Sprachdienst ElevenLabs (Gratis-Tarif ohne Kreditkarte, eigene Voice-ID möglich) zusätzlich zu OpenAI und Azure.
 - **S49:** Bausteinkästchen kompakt (−/+ rechts oben, Anzahl darunter, Seiten im Textblatt-Kästchen); Podcast: Cover des Arbeitsauftrags je Folge, Titel „Klasse.Nummer …“ (sortierbar), Datum in der Beschreibung, eigene Feeds je Epoche/Klasse (?epoche= / ?klasse=); Seite Material → Podcasts mit Filter und Player (spielt beim Seitenwechsel weiter, merkt Position, Tempo).

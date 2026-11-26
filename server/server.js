@@ -184,7 +184,7 @@ async function handleAi(req, res) {
   try { return json(res, 200, { result: JSON.parse(m ? m[0] : txt) }); } catch { return json(res, 502, { error: 'KI-Antwort nicht lesbar' }); }
 }
 
-const podcast = createPodcast({ FILES_DIR, DATA_DIR, json, body });
+const podcast = createPodcast({ FILES_DIR, DATA_DIR, json, body, bodyBuf });
 const auftragHandler = createAuftrag({ FILES_DIR, DATA_DIR, aiKey, AI_MODEL, json, body, bodyBuf, podcast });
 const server = http.createServer(async (req, res) => {
   try {

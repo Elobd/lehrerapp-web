@@ -6,7 +6,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 
-export function createPodcast({ FILES_DIR, DATA_DIR, json, body }) {
+export function createPodcast({ FILES_DIR, DATA_DIR, json, body, bodyBuf }) {
   const DIR = path.join(FILES_DIR, 'Podcast');
   const META = path.join(DIR, 'folgen.json');
   const CFG = path.join(DATA_DIR, 'sprachausgabe.json'); // { anbieter, key, region, stimme } – Schlüssel wird nie zurückgegeben
@@ -15,7 +15,25 @@ export function createPodcast({ FILES_DIR, DATA_DIR, json, body }) {
   const cfg = () => rd(CFG, {});
   const token = () => { try { const t = fs.readFileSync(TOK, 'utf8').trim(); if (t) return t; } catch { /* neu */ } const t = crypto.randomBytes(18).toString('hex'); fs.writeFileSync(TOK, t); return t; };
   const folgen = () => rd(META, []);
-  let coverOf = () => null; // wird von auftrag.js gesetzt: Auftrags-ID → Pfad des Coverbilds
+  let infoOf = () => null; // wird von auftrag.js gesetzt: Auftrags-ID → { cover, untertitel, kurz, kapitel, personen, begriffe }
+  const coverOf = (id) => (infoOf(id) || {}).cover || null;
+  const OPT = path.join(DATA_DIR, 'podcast-optionen.json'), opt = () => rd(OPT, {}); // { bild: 'cover' | 'vorlage' }
+  const KANAL = path.join(DIR, '_kanalbild.jpg'), VORL = path.join(DIR, '_vorlage.jpg'), BILDER = path.join(DIR, '_bilder');
+  const EPF = { 'Grundlagen & Methoden': '4A5A8C', 'Vor- und Frühgeschichte': '783F04', Antike: 'F1C232', Mittelalter: '38761D', Neuzeit: '134F5C', Zeitgeschichte: 'B41617' };
+  // Folgenbild aus Vorlage + Titel (Python/PIL wie beim Lehrmaterial); wird zwischengespeichert
+  function vorlagenBild(x) {
+    const ziel = path.join(BILDER, String(x.id).replace(/[^\w-]/g, '') + '.jpg'); if (fs.existsSync(ziel)) return ziel;
+    fs.mkdirSync(BILDER, { recursive: true });
+    const PY = path.join(DATA_DIR, 'pylibs'), env = { ...process.env, PYTHONPATH: PY + (process.env.PYTHONPATH ? path.delimiter + process.env.PYTHONPATH : ''), PYTHONDONTWRITEBYTECODE: '1' };
+    const r = spawnSync('python3', [path.join(path.dirname(new URL(import.meta.url).pathname), 'gen', 'podbild.py'), ziel, fs.existsSync(VORL) ? VORL : '', (x.klasse ? x.klasse + '.' + String(x.nr || 0).padStart(2, '0') : ''), String(x.titel || '').replace(/^\d+\. Klasse · (\d+ )?/, ''), x.epoche || '', EPF[x.epoche] || 'd99a26'], { env, timeout: 60000 });
+    return r.status === 0 && fs.existsSync(ziel) ? ziel : null;
+  }
+  const folgenBild = (x) => (opt().bild === 'vorlage' ? vorlagenBild(x) || coverOf(x.id) : coverOf(x.id) || (fs.existsSync(VORL) ? vorlagenBild(x) : null));
+  const stichworte = (id) => { const i = infoOf(id) || {}; return [...(i.personen || []), ...(i.begriffe || []), ...(i.kapitel || [])]; };
+  // Shownotes (in Pocket Casts unter „Details“): Zusammenfassung, Kapitel, Personen, Begriffe
+  const notizen = (x) => { const i = infoOf(x.id) || {}, li = (a) => a.map((y) => '<li>' + xml(y) + '</li>').join('');
+    return `<p><b>${xml([x.klasse ? x.klasse + '. Klasse' : '', x.epoche].filter(Boolean).join(' · '))}</b> · erstellt am ${new Date(x.datum).toLocaleDateString('de-AT')}</p>${i.untertitel ? '<p>' + xml(i.untertitel) + '</p>' : ''}${(i.kurz || []).length ? '<h3>Das Wichtigste in Kürze</h3><ul>' + li(i.kurz) + '</ul>' : ''}${(i.kapitel || []).length ? '<h3>Inhalt</h3><ol>' + li(i.kapitel) + '</ol>' : ''}${(i.personen || []).length ? '<h3>Personen</h3><p>' + xml(i.personen.join(', ')) + '</p>' : ''}${(i.begriffe || []).length ? '<h3>Begriffe</h3><p>' + xml(i.begriffe.join(', ')) + '</p>' : ''}`; };
+  const klartext = (x) => { const i = infoOf(x.id) || {}; return [[x.klasse ? x.klasse + '. Klasse' : '', x.epoche, 'erstellt am ' + new Date(x.datum).toLocaleDateString('de-AT')].filter(Boolean).join(' · '), i.untertitel, (i.kurz || []).map((k) => '• ' + k).join('\n'), (i.kapitel || []).length ? 'Inhalt: ' + i.kapitel.join(' · ') : '', (i.personen || []).length ? 'Personen: ' + i.personen.join(', ') : ''].filter(Boolean).join('\n\n'); };
   const sortKey = (x) => (x.klasse || 9) * 1000 + (x.nr || 999);
   const xml = (t) => String(t == null ? '' : t).replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[c]));
   const STIMMEN = {
@@ -84,9 +102,9 @@ export function createPodcast({ FILES_DIR, DATA_DIR, json, body }) {
   function feed(base, filt) {
     const t = token(), l = folgen().filter((x) => fs.existsSync(path.join(DIR, x.datei)) && (!filt.epoche || x.epoche === filt.epoche) && (!filt.klasse || +x.klasse === +filt.klasse)).sort((a, b) => sortKey(a) - sortKey(b) || a.datum - b.datum);
     const name = filt.epoche ? ' – ' + filt.epoche : filt.klasse ? ' – ' + filt.klasse + '. Klasse' : '';
-    const items = l.map((x) => { const cov = coverOf(x.id) ? `${base}/podcast/${t}/bild/${encodeURIComponent(x.id)}.jpg` : '';
-      return `<item><title>${xml(nrTitel(x))}</title><description>${xml([x.klasse ? x.klasse + '. Klasse' : '', x.epoche, x.text, 'erstellt am ' + new Date(x.datum).toLocaleDateString('de-AT')].filter(Boolean).join(' · '))}</description><guid isPermaLink="false">${xml(x.id + '-' + x.datum)}</guid><pubDate>${new Date(x.datum).toUTCString()}</pubDate><enclosure url="${xml(base + '/podcast/' + t + '/' + encodeURIComponent(x.datei))}" length="${x.bytes}" type="audio/mpeg"/>${x.dauer ? `<itunes:duration>${Math.round(x.dauer)}</itunes:duration>` : ''}${x.nr ? `<itunes:episode>${x.nr}</itunes:episode>` : ''}${x.klasse ? `<itunes:season>${x.klasse}</itunes:season>` : ''}${cov ? `<itunes:image href="${xml(cov)}"/>` : ''}</item>`; }).join('');
-    return `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"><channel><title>Lehrer-App: Geschichte${xml(name)}</title><link>${xml(base)}</link><language>de-at</language><description>Private Podcast-Folgen zu den Themen der Jahresplanung (nur für dich). Titel beginnen mit Klasse.Nummer – nach Titel sortiert ergibt sich die Reihenfolge der Jahresplanung.</description><itunes:block>Yes</itunes:block><itunes:image href="${xml(base + '/podcast/' + t + '/logo.png')}"/><image><url>${xml(base + '/podcast/' + t + '/logo.png')}</url><title>Lehrer-App</title><link>${xml(base)}</link></image>${items}</channel></rss>`;
+    const items = l.map((x) => { const cov = folgenBild(x) ? `${base}/podcast/${t}/bild/${encodeURIComponent(x.id)}.jpg?v=${opt().bild || 'c'}${fs.existsSync(VORL) ? fs.statSync(VORL).mtimeMs | 0 : 0}` : '';
+      return `<item><title>${xml(nrTitel(x))}</title><description>${xml(klartext(x))}</description><content:encoded><![CDATA[${notizen(x).replace(/]]>/g, ']] >')}]]></content:encoded><itunes:summary>${xml(klartext(x).slice(0, 3900))}</itunes:summary><guid isPermaLink="false">${xml(x.id + '-' + x.datum)}</guid><pubDate>${new Date(x.datum).toUTCString()}</pubDate><enclosure url="${xml(base + '/podcast/' + t + '/' + encodeURIComponent(x.datei))}" length="${x.bytes}" type="audio/mpeg"/>${x.dauer ? `<itunes:duration>${Math.round(x.dauer)}</itunes:duration>` : ''}${x.nr ? `<itunes:episode>${x.nr}</itunes:episode>` : ''}${x.klasse ? `<itunes:season>${x.klasse}</itunes:season>` : ''}${cov ? `<itunes:image href="${xml(cov)}"/>` : ''}</item>`; }).join('');
+    return `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Lehrer-App: Geschichte${xml(name)}</title><link>${xml(base)}</link><language>de-at</language><description>Private Podcast-Folgen zu den Themen der Jahresplanung (nur für dich). Titel beginnen mit Klasse.Nummer – nach Titel sortiert ergibt sich die Reihenfolge der Jahresplanung.</description><itunes:block>Yes</itunes:block><itunes:image href="${xml(base + '/podcast/' + t + '/logo.png?v=' + (fs.existsSync(KANAL) ? fs.statSync(KANAL).mtimeMs | 0 : 0))}"/><image><url>${xml(base + '/podcast/' + t + '/logo.png?v=' + (fs.existsSync(KANAL) ? fs.statSync(KANAL).mtimeMs | 0 : 0))}</url><title>Lehrer-App</title><link>${xml(base)}</link></image>${items}</channel></rss>`;
   }
   const baseOf = (req) => { const h = String(req.headers['x-forwarded-host'] || req.headers.host || ''); return (req.headers['x-forwarded-proto'] || (/\.ts\.net$/i.test(h.replace(/:\d+$/, '')) ? 'https' : 'http')) + '://' + h; }; // Tailscale Serve: immer https
 
@@ -96,8 +114,8 @@ export function createPodcast({ FILES_DIR, DATA_DIR, json, body }) {
     if (m[1] !== token()) { res.writeHead(404); res.end(); return true; }
     const f = decodeURIComponent(m[2]);
     if (f === 'feed.xml') { res.writeHead(200, { 'content-type': 'application/rss+xml; charset=utf-8', 'cache-control': 'no-cache' }); const pub = url.searchParams.get('basis') || ''; res.end(feed(/^https:\/\/[a-z0-9.-]+\.ts\.net(:\d{2,5})?$/i.test(pub) ? pub : baseOf(req), { epoche: url.searchParams.get('epoche') || '', klasse: url.searchParams.get('klasse') || '' })); return true; }
-    if (f === 'logo.png') { const lg = path.join(process.env.WEB_DIR || path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'web'), 'icon-512.png'); if (!fs.existsSync(lg)) { res.writeHead(404); res.end(); return true; } res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'max-age=86400' }); fs.createReadStream(lg).pipe(res); return true; }
-    const bm = /^bild\/([\w-]+)\.jpg$/.exec(f); if (bm) { const c = coverOf(bm[1]); if (!c || !fs.existsSync(c)) { res.writeHead(404); res.end(); return true; } res.writeHead(200, { 'content-type': 'image/jpeg', 'cache-control': 'max-age=86400' }); fs.createReadStream(c).pipe(res); return true; }
+    if (f === 'logo.png') { const lg = fs.existsSync(KANAL) ? KANAL : path.join(process.env.WEB_DIR || path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'web'), 'icon-512.png'); if (!fs.existsSync(lg)) { res.writeHead(404); res.end(); return true; } res.writeHead(200, { 'content-type': lg.endsWith('.jpg') ? 'image/jpeg' : 'image/png', 'cache-control': 'max-age=3600' }); fs.createReadStream(lg).pipe(res); return true; }
+    const bm = /^bild\/([\w-]+)\.jpg$/.exec(f); if (bm) { const x = folgen().find((y) => y.id === bm[1]) || { id: bm[1] }, c = folgenBild(x); if (!c || !fs.existsSync(c)) { res.writeHead(404); res.end(); return true; } res.writeHead(200, { 'content-type': 'image/jpeg', 'cache-control': 'max-age=3600' }); fs.createReadStream(c).pipe(res); return true; }
     const abs = path.join(DIR, path.basename(f)); if (!/\.mp3$/i.test(abs) || !fs.existsSync(abs)) { res.writeHead(404); res.end(); return true; }
     const size = fs.statSync(abs).size, rg = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
     if (rg && (rg[1] || rg[2])) { const a = rg[1] ? +rg[1] : Math.max(0, size - +rg[2]), b = rg[1] && rg[2] ? Math.min(+rg[2], size - 1) : size - 1; if (a > b || a >= size) { res.writeHead(416, { 'content-range': 'bytes */' + size }); res.end(); return true; } res.writeHead(206, { 'content-type': 'audio/mpeg', 'accept-ranges': 'bytes', 'content-range': `bytes ${a}-${b}/${size}`, 'content-length': b - a + 1 }); fs.createReadStream(abs, { start: a, end: b }).pipe(res); return true; }
@@ -106,7 +124,7 @@ export function createPodcast({ FILES_DIR, DATA_DIR, json, body }) {
   // angemeldeter Teil: Einstellungen und Folgenliste
   async function api(req, res, url) {
     const p = url.pathname;
-    if (p === '/api/podcast' && req.method === 'GET') { const c = cfg(); return json(res, 200, { anbieter: c.anbieter || '', region: c.region || '', stimme: c.stimme || '', gesetzt: !!c.key, stimmen: STIMMEN, feed: '/podcast/' + token() + '/feed.xml', basis: '/podcast/' + token() + '/', folgen: folgen().map((x) => Object.assign({}, x, { nrTitel: nrTitel(x), cover: !!coverOf(x.id) })).sort((a, b) => sortKey(a) - sortKey(b) || a.datum - b.datum) }), true; }
+    if (p === '/api/podcast' && req.method === 'GET') { const c = cfg(); return json(res, 200, { anbieter: c.anbieter || '', region: c.region || '', stimme: c.stimme || '', gesetzt: !!c.key, stimmen: STIMMEN, feed: '/podcast/' + token() + '/feed.xml', basis: '/podcast/' + token() + '/', bild: opt().bild || 'cover', kanalbild: fs.existsSync(KANAL), vorlage: fs.existsSync(VORL), folgen: folgen().map((x) => Object.assign({}, x, { nrTitel: nrTitel(x), cover: !!(coverOf(x.id) || (opt().bild === 'vorlage' || fs.existsSync(VORL))), such: [x.titel, x.epoche, x.text, ...stichworte(x.id)].join(' '), kurz: (infoOf(x.id) || {}).kurz || [] })).sort((a, b) => sortKey(a) - sortKey(b) || a.datum - b.datum) }), true; }
     if (p === '/api/podcast' && req.method === 'POST') {
       const q = JSON.parse((await body(req)) || '{}'), c = cfg(); if (!['azure', 'openai', 'elevenlabs'].includes(q.anbieter)) return json(res, 400, { error: 'Bitte einen Anbieter wählen.' }), true;
       const n = { anbieter: q.anbieter, region: String(q.region || c.region || 'westeurope').trim().toLowerCase().replace(/[^a-z0-9]/g, ''), stimme: String(q.stimme || '').slice(0, 60), key: String(q.key || '').trim() || (c.anbieter === q.anbieter ? c.key : '') };
@@ -114,6 +132,12 @@ export function createPodcast({ FILES_DIR, DATA_DIR, json, body }) {
     }
     if (p === '/api/podcast' && req.method === 'DELETE') { try { fs.unlinkSync(CFG); } catch { /* */ } return json(res, 200, { ok: true }), true; }
     if (p === '/api/podcast/test' && req.method === 'POST') { try { const ziel = path.join(DATA_DIR, 'tts-test.mp3'); await tts('Hallo! Das ist ein kurzer Test der Sprachausgabe deiner Lehrer-App.', ziel); const b = fs.readFileSync(ziel); fs.unlinkSync(ziel); res.writeHead(200, { 'content-type': 'audio/mpeg', 'content-length': b.length }); res.end(b); } catch (e) { const m = String(e.message || e); json(res, 502, { error: /fetch failed|ENOTFOUND|ECONN|timeout/i.test(m) ? 'Sprachdienst nicht erreichbar – hat die NAS Internet? (' + m + ')' : m }); } return true; }
+    if (p === '/api/podcast/bild' && (req.method === 'POST' || req.method === 'DELETE')) { // Kanalbild oder Vorlage für Folgenbilder
+      const art = url.searchParams.get('art'), ziel = art === 'kanal' ? KANAL : art === 'vorlage' ? VORL : ''; if (!ziel) return json(res, 400, { error: 'art fehlt' }), true;
+      fs.mkdirSync(DIR, { recursive: true }); if (req.method === 'DELETE') { fs.rmSync(ziel, { force: true }); } else { const buf = await bodyBuf(req, 20 * 1024 * 1024); fs.writeFileSync(ziel, buf); }
+      fs.rmSync(BILDER, { recursive: true, force: true }); return json(res, 200, { ok: true }), true;
+    }
+    if (p === '/api/podcast/optionen' && req.method === 'POST') { const q = JSON.parse((await body(req)) || '{}'), o = opt(); if (q.bild) o.bild = q.bild === 'vorlage' ? 'vorlage' : 'cover'; fs.writeFileSync(OPT, JSON.stringify(o)); fs.rmSync(BILDER, { recursive: true, force: true }); return json(res, 200, { ok: true }), true; }
     if (p === '/api/podcast/testfolge' && req.method === 'POST') { // kurze Testfolge, damit der Feed nicht leer ist (manche Podcast-Apps lehnen leere Feeds ab)
       const ziel = path.join(DATA_DIR, 'testfolge.mp3'); let gesprochen = false;
       try {
@@ -127,5 +151,5 @@ export function createPodcast({ FILES_DIR, DATA_DIR, json, body }) {
     if (p === '/api/podcast/folge' && req.method === 'DELETE') { const d = url.searchParams.get('datei') || ''; const l = folgen(); const x = l.find((y) => y.datei === d); if (x) { try { fs.unlinkSync(path.join(DIR, path.basename(x.datei))); } catch { /* */ } fs.writeFileSync(META, JSON.stringify(l.filter((y) => y !== x), null, 1)); } return json(res, 200, { ok: true }), true; }
     return false;
   }
-  return { setCover: (fn) => { coverOf = (id) => { try { return fn(id); } catch { return null; } }; }, tts, aufnehmen, oeffentlich, api, eingerichtet: () => !!cfg().key, anbieter: () => cfg().anbieter || '' };
+  return { setInfo: (fn) => { infoOf = (id) => { try { return fn(id); } catch { return null; } }; }, tts, aufnehmen, oeffentlich, api, eingerichtet: () => !!cfg().key, anbieter: () => cfg().anbieter || '' };
 }

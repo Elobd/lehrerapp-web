@@ -233,11 +233,14 @@ export function createAuftrag(ctx) {
     }).sort((a, b) => String(a.klasse).localeCompare(String(b.klasse)) || String(a.nr).localeCompare(String(b.nr)));
   }
   const findById = (id) => scan().find((x) => String(x.m.id) === String(id));
-  if (podcast) podcast.setCover((id) => { const x = findById(id); if (!x) return null; const c = fs.readdirSync(x.dir).find((f) => /^Cover_.*\.jpg$/.test(f)); return c ? path.join(x.dir, c) : null; }); // Podcast-Folge bekommt das Cover des Arbeitsauftrags
+  // Infos zur Podcast-Folge aus dem Arbeitsauftrag: Cover, Zusammenfassung, Kapitel, Personen, Begriffe (für Shownotes und Suche)
+  if (podcast) podcast.setInfo((id) => { const x = findById(id); if (!x) return null; const m = x.m, c = fs.readdirSync(x.dir).find((f) => /^Cover_.*\.jpg$/.test(f)), tb = m.textblatt || {}, ho = m.handout || {};
+    const kap = (tb.kapitel || []).concat(ho.kapitel || []);
+    return { cover: c ? path.join(x.dir, c) : null, untertitel: m.untertitel || '', kurz: tb.kurz || ho.ueberblick || [], kapitel: (tb.kapitel || []).map((k) => k.titel).filter(Boolean), personen: [...new Set(kap.flatMap((k) => (k.personen || []).map((p) => p.name)).filter(Boolean))], begriffe: (tb.glossar || []).map((g) => g.begriff).filter(Boolean) }; });
 
   return async function handle(req, res, url) {
     const p = url.pathname;
-    if (p === '/api/auftraege' && req.method === 'GET') return json(res, 200, { eurProUsd: await eurKurs(), kursQuelle: kurs.quelle, items: listing(), vorlage: fs.existsSync(VORLAGE), ai: !!aiKey() || !!process.env.AI_MOCK }), true;
+    if (p === '/api/auftraege' && req.method === 'GET') return json(res, 200, { laeuft: (() => { const j = [...jobs.entries()].find(([, v]) => v.state === 'laeuft'); return j ? { id: j[0], state: 'laeuft', msg: j[1].msg, step: j[1].step, total: j[1].total, titel: j[1].titel } : null; })(), eurProUsd: await eurKurs(), kursQuelle: kurs.quelle, items: listing(), vorlage: fs.existsSync(VORLAGE), ai: !!aiKey() || !!process.env.AI_MOCK }), true;
     if (p === '/api/auftrag/erstellen' && req.method === 'POST') {
       const q = JSON.parse((await body(req)) || '{}'); if (!q.titel || !EPOCHEN.includes(q.epoche)) return json(res, 400, { error: 'Bitte Thema und Epoche angeben.' }), true;
       if (!aiKey() && !process.env.AI_MOCK) return json(res, 501, { error: 'KI nicht eingerichtet (ANTHROPIC_API_KEY fehlt).' }), true;
