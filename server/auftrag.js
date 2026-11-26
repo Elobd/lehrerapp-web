@@ -262,7 +262,7 @@ export function createAuftrag(ctx) {
     const kap = (tb.kapitel || []).concat(ho.kapitel || []);
     return { cover: c ? path.join(x.dir, c) : null, untertitel: m.untertitel || '', kurz: tb.kurz || ho.ueberblick || [], kapitel: (tb.kapitel || []).map((k) => k.titel).filter(Boolean), personen: [...new Set(kap.flatMap((k) => (k.personen || []).map((p) => p.name)).filter(Boolean))], begriffe: (tb.glossar || []).map((g) => g.begriff).filter(Boolean) }; });
 
-  return async function handle(req, res, url) {
+  const handle = async function (req, res, url) {
     const p = url.pathname;
     if (p === '/api/auftraege' && req.method === 'GET') return json(res, 200, { abgebrochen: abgebrochen(), laeuft: (() => { const j = [...jobs.entries()].find(([, v]) => v.state === 'laeuft'); return j ? { id: j[0], state: 'laeuft', msg: j[1].msg, step: j[1].step, total: j[1].total, titel: j[1].titel } : null; })(), eurProUsd: await eurKurs(), kursQuelle: kurs.quelle, items: listing(), vorlage: fs.existsSync(VORLAGE), ai: !!aiKey() || !!process.env.AI_MOCK }), true;
     if (p === '/api/auftrag/erstellen' && req.method === 'POST') {
@@ -324,4 +324,6 @@ export function createAuftrag(ctx) {
     if (p === '/api/auftrag' && req.method === 'DELETE') { const x = findById(url.searchParams.get('id')); if (!x) return json(res, 404, { error: 'nicht gefunden' }), true; fs.rmSync(x.dir, { recursive: true, force: true }); renumber(); return json(res, 200, { ok: true }), true; }
     return false;
   };
+  handle.laeuft = () => [...jobs.values()].some((j) => j.state === 'laeuft'); // für die Selbstaktualisierung: nicht mitten in einer Erstellung neu starten
+  return handle;
 }

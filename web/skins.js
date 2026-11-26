@@ -979,8 +979,13 @@ html:root select{font:600 14px var(--font-body)!important;color:#1E293B;border:1
 .spai{display:flex;align-items:center;gap:8px;width:100%;border:0;background:#fff;padding:13px 16px 13px 24px;font:600 15px var(--font-body);color:#1E293B;text-align:left;border-bottom:1px solid #f0f3f7;cursor:pointer}.spai i{font-style:normal;color:#1f8a3f;font-weight:800}.spai:active{background:#f1f5f9}
 .km2.sp .chead,.km2 .chead{position:relative}.chead .spyr{position:absolute;right:12px;bottom:10px;display:flex;align-items:center;gap:6px;font:600 12px var(--font-body);color:#fff;margin:0}.chead .spyr select{padding:6px 8px;font-size:13px!important;border-radius:8px}
 `; document.head.appendChild(st);
+  const barPos = new Map(), barKey = (bar) => bar.className + '|' + [...bar.querySelectorAll('.tscat,.a2c,.ttchip')].map((x) => x.textContent.trim()).join(',');
+  document.addEventListener('scroll', (e) => { const b = e.target; if (b && b.matches && b.matches('.tscats, .a2chips, .ttmenu')) barPos.set(barKey(b), b.scrollLeft); }, true);
   const fixBars = () => {
-    document.querySelectorAll('.tscats, .a2chips, .ttmenu').forEach((bar) => { const on = bar.querySelector('.tscat.on, .a2c.on, .ttchip.on'); if (!on || bar.scrollWidth <= bar.clientWidth) return; const o = on.closest('.ttchipw') || on; bar.scrollLeft = Math.max(0, o.offsetLeft - (bar.clientWidth - o.offsetWidth) / 2); });
+    // Reiterleisten: letzte Scrollposition behalten und nur so weit schieben, dass der aktive Reiter sichtbar ist (kein Hin- und Herspringen)
+    document.querySelectorAll('.tscats, .a2chips, .ttmenu').forEach((bar) => { const on = bar.querySelector('.tscat.on, .a2c.on, .ttchip.on'); if (!on || bar.scrollWidth <= bar.clientWidth) return; const o = on.closest('.ttchipw') || on, key = barKey(bar);
+      let sl = barPos.has(key) ? barPos.get(key) : 0; if (o.offsetLeft < sl + 8) sl = o.offsetLeft - 8; else if (o.offsetLeft + o.offsetWidth > sl + bar.clientWidth - 8) sl = o.offsetLeft + o.offsetWidth - bar.clientWidth + 8;
+      bar.scrollLeft = Math.max(0, sl); barPos.set(key, bar.scrollLeft); });
     const y = document.querySelector('.km2 .spyr'), h = document.querySelector('.km2 .chead'); if (y && h && !h.contains(y)) h.appendChild(y); };
   const prev = window.uiAfterRender; window.uiAfterRender = function () { prev && prev(); fixBars(); };
 })();

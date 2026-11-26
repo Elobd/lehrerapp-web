@@ -10,15 +10,12 @@ Offene Themen und Entscheidungen: **docs/OFFENE-THEMEN.md** (zu Beginn lesen, na
 - Anleitungen nur im Chat (keine HTML-Berichte). Dateien für das NAS per SendUserFile (Serverdateien als .zip und .txt).
 - Lösungen bevorzugt in der App. Nie Container-Manager „Bearbeiten/Zurücksetzen/Bereinigen/Löschen“ empfehlen.
 
-## NAS-Update (bei JEDER Änderung an server/ oder tailscale/ selbst erledigen, ohne Nachfrage)
-- Oberfläche (web/) holt die NAS automatisch – dafür ist nichts zu tun.
-- Serverdateien: nach dem Push sofort `server-S<n>.zip` (nur die geänderten Dateien, mit Ordnerstruktur `server/…`) plus `server-S<n>-anleitung.txt` erstellen und per SendUserFile schicken. Ein Paket darf frühere, noch nicht bestätigte Pakete enthalten („ersetzt S…“).
-- Anleitung immer konkret und gleich aufgebaut:
-  1. ZIP entpacken.
-  2. Dateien in der File Station im App-Ordner der NAS an dieselbe Stelle kopieren/überschreiben (neue Dateien ausdrücklich nennen, z. B. „kommt in server/gen/“).
-  3. Container Manager → Container **lehrerapp-app** → „Neu starten“ (gleichwertig zu Stoppen + Starten). Den **Tailscale-Container** (Image tailscale/tailscale) nur nennen, wenn tailscale/serve.json geändert wurde. Nie „Bearbeiten/Zurücksetzen/Bereinigen/Löschen“.
-  4. Woran man in der App erkennt, dass es geklappt hat (konkreter Ort + was dort stehen muss).
-- Im Chat dieselben Schritte kurz wiederholen und genau sagen, wo in der App etwas zu finden ist (Menü → Seite → Bereich → Knopfname).
+## NAS-Update (automatisch seit S59)
+- **Server aktualisiert sich selbst:** server/server.js ist nur ein Aufpasser, der server/app.js (eigentlicher Server) als Unterprozess startet. server/aktualisierung.js prüft alle 15 Min (und per Knopf: Einstellungen → „App-Aktualisierung“) den Stand von `main` auf GitHub (öffentliches Repo, ohne API-Limit über info/refs + codeload-Tarball), lädt geänderte Dateien unter server/, prüft .js mit `node --check`, schreibt sie und beendet die App mit Code 75 → Aufpasser startet sie sofort neu. Nie während einer laufenden Material-Erstellung. Abschaltbar mit AUTO_UPDATE=0.
+- Folge für die Arbeit: **Nach `git push origin HEAD:main` ist der Server spätestens nach ~15 Min aktiv – keine ZIP-Dateien und keine Anleitung mehr schicken.** Dem Nutzer nur sagen: „wird automatisch aktiv (oder Einstellungen → App-Aktualisierung → Jetzt prüfen)“.
+- Nur noch nötig bei Änderungen außerhalb von server/ und web/ (z. B. tailscale/serve.json, Dockerfile): dann ZIP + TXT per SendUserFile mit konkreter Anleitung (Container Manager → Container → „Neu starten“; Tailscale-Container heißt nach Image tailscale/tailscale; nie „Bearbeiten/Zurücksetzen/Bereinigen/Löschen“).
+- Fällt die Selbstaktualisierung aus (Status in Einstellungen → App-Aktualisierung), Notfall: geänderte server/-Dateien als ZIP schicken, Container „lehrerapp-app“ → „Neu starten“.
+- Immer genau sagen, wo in der App etwas zu finden ist (Menü → Seite → Bereich → Knopfname).
 - Fehlerdateien der KI: `ki-fehler-<schritt>.txt` im Datenordner (neben ki-schluessel.txt); erste Zeile `stop_reason` erfragen.
 
 ## Verbote
@@ -39,7 +36,7 @@ Offene Themen und Entscheidungen: **docs/OFFENE-THEMEN.md** (zu Beginn lesen, na
 
 ## Technik
 - Reine Vanilla-JS-Single-Page-App. Frontend web/: index.html (dichte Einzeiler-Funktionen), kmap.js (Klassenmappen/Leistungen/Schüler/Sport/Tools), skins.js (Design + angehängte UI-Blöcke S9…S44 mit eigenen `<style>`-Blöcken), material.js, lehrmaterial.js inkl. fahrplan.js, sw.js, shim.js (Offline-Cache/Sync/Login).
-- Server server/ (Node 22, SQLite): server.js, auftrag.js. `/api/ai` nimmt `{prompt, images}` und liefert JSON. Dateien über `/api/file?path=…`.
+- Server server/ (Node 22, SQLite): server.js (Aufpasser/Start), app.js (Server), auftrag.js, podcast.js, aktualisierung.js. `/api/ai` nimmt `{prompt, images}` und liefert JSON. Dateien über `/api/file?path=…`.
 - Globale Objekte: U (UI-Zustand), S.settings (Dokumente per `put('settings',{id,…})`), render(), setView(v), Handlertabellen A (data-act, Klick) und C (data-ch, change), groups(), cinfo(slug) (= S.settings['cn_'+slug] mit students, log, kv, ueoff), saveLog(slug, fn), lessonDates(G,null,von,bis), lessonSlots(G,von,bis) (inkl. Ferien mit Namen), holFor(d), syStart(), studentsSorted(G), KM (Exporte kmap.js), UI (Exporte skins.js: UI.tabs/UI.carousel/UI.pane, homeShell, toolsPage, schoolPage …).
 - Ferienkalender: Liste `NOE` in index.html (NÖ). **Jedes Schuljahr ergänzen** (inkl. Sommerferien), sonst entstehen falsche Stunden.
 - Fallen:
