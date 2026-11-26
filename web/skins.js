@@ -1355,3 +1355,9 @@ h4.gbe{margin:16px 2px 8px;font:800 12px var(--font-body);color:#64748b;text-tra
     if (A.setnav) A.setnav({ dataset: { v: ks[n] } }); else setView(ks[n]);
     try { const m = document.getElementById('main'); m && m.animate && m.animate([{ transform: `translateX(${dx < 0 ? 60 : -60}px)`, opacity: 0.2 }, { transform: 'translateX(0)', opacity: 1 }], { duration: 240, easing: 'cubic-bezier(.22,.8,.3,1)' }); } catch (x) { /* */ } }, { passive: true });
 })();
+
+/* S62: Einheitliche Knopf-Form (wie die Klassen-Auswahl bei „Lehrmaterial erarbeiten“): rechteckig, leicht abgerundet (8px), nie Pillenform */
+(() => { const st = document.createElement('style'); st.id = 'ui62'; st.textContent = `
+.btn,a.btn,label.btn,button.btn,.btn.sm,.btn.good,.btn.bad,.btn.primary,.lsseg .btn,.kmmore.btn{border-radius:8px!important}
+.lsseg{border-radius:8px!important}.lsseg .btn:first-child{border-top-right-radius:0!important;border-bottom-right-radius:0!important}.lsseg .btn:last-child{border-top-left-radius:0!important;border-bottom-left-radius:0!important}
+`; document.head.appendChild(st); })();

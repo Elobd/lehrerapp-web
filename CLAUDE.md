@@ -61,7 +61,7 @@ Offene Themen und Entscheidungen: **docs/OFFENE-THEMEN.md** (zu Beginn lesen, na
 
 ## Design
 - Fachfarben: Geschichte #d99a26, Sport #3b5978, Text #1E293B.
-- Buttons eckig mit leicht abgerundeten Kanten.
+- **Knopf-Form (verbindlich, überall):** rechteckig mit leicht abgerundeten Ecken (border-radius 8px) – wie die Klassen-Auswahl „5. Klasse / 6. Klasse …“ bei Material → Lehrmaterial erarbeiten. Nie Pillen-/Kreisform. Global umgesetzt in skins.js Block S62 (`.btn{border-radius:8px!important}`); neue Knöpfe immer mit Klasse `btn`.
 - Reiter-Menüs über UI.tabs + UI.carousel (Wischen) im Stil von Home („homewrap“).
 - Alle Dropdowns öffnen ein App-eigenes Auswahlfenster (Bottom-Sheet).
 - Kopfzeile: Zeile 1 Datum links, Icons rechts (Sprechblase = To-Do-Diktat, Klassentools, Suche, Einstellungen); Zeile 2 „Offene Stunden (n)“.

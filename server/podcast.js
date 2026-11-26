@@ -148,6 +148,7 @@ export function createPodcast({ FILES_DIR, DATA_DIR, json, body, bodyBuf }) {
       } catch (e) { return json(res, 500, { error: String(e.message || e) }), true; }
     }
     if (p === '/api/podcast/neuerlink' && req.method === 'POST') { try { fs.unlinkSync(TOK); } catch { /* */ } return json(res, 200, { feed: '/podcast/' + token() + '/feed.xml' }), true; }
+    if (p === '/api/podcast/folge' && req.method === 'POST') { const q = JSON.parse((await body(req)) || '{}'), l = folgen(), x = l.find((y) => y.datei === q.datei); if (!x) return json(res, 404, { error: 'Folge nicht gefunden' }), true; if ('gehoert' in q) x.gehoert = !!q.gehoert; if ('archiv' in q) x.archiv = !!q.archiv; fs.writeFileSync(META, JSON.stringify(l, null, 1)); return json(res, 200, { ok: true }), true; } // gehört / Archiv
     if (p === '/api/podcast/folge' && req.method === 'DELETE') { const d = url.searchParams.get('datei') || ''; const l = folgen(); const x = l.find((y) => y.datei === d); if (x) { try { fs.unlinkSync(path.join(DIR, path.basename(x.datei))); } catch { /* */ } fs.writeFileSync(META, JSON.stringify(l.filter((y) => y !== x), null, 1)); } return json(res, 200, { ok: true }), true; }
     return false;
   }

@@ -52,6 +52,7 @@ Neuen Chat so starten: „Thema <Name> aus docs/OFFENE-THEMEN.md. Antworten: …
 - Vertonte Folien aus Präsentation/Grafiken mit ffmpeg – nach den ersten Erfahrungen mit dem Podcast.
 
 ## Erledigt
+- **S62:** Knöpfe überall rechteckig mit 8px-Rundung (skins.js S62, Regel in CLAUDE.md); Bausteinkästchen kleiner; KI-Arbeitsaufträge in Bibliothek → Arbeitsaufträge sichtbar; Podcasts: Epochen-Reiter immer (mit Zählern) wie Bibliothek, Kachel/Liste, „Bearbeiten“ mit „gehört“, Archiv (Ziehen auf „🗄 Archiv“ oder Knopf; Server: POST /api/podcast/folge).
 - **S61:** Wischen links/rechts zwischen Material-Unterseiten (bei Jahresplan erst am Rand der Reiter Geschichte/Sport); Jahresplan-Thema: „KI-Material aus Arbeitsaufträgen“ je Auftrag aufklappbar (Kachel/Liste, × entfernen), Popup „Dateien auswählen“ mit Haken und „Angehakte hinzufügen“ (gespeichert in jahresplan.sub[slug].afm).
 - **S60:** Kein Seiten-Einschub mehr beim Wechsel Material ↔ Podcasts; Reiter der Unterleiste per langem Drücken + Ziehen umsortierbar (gespeichert in settings „setbar“); Seitenköpfe von Lehrmaterial, Jahresplan und Podcasts wie Klassenmappen („Geschichte“ + Zusatz, Anzahl); Jahresplan zeigt „noch X von Y Std. offen“.
 - **S59:** Server-Selbstaktualisierung von GitHub (Aufpasser server.js + app.js, aktualisierung.js, Einstellungen → App-Aktualisierung); Reiterleisten springen nicht mehr; Lehrmaterial/Podcasts mit Seitenkopf wie Jahresplanung; alte Wochenübersicht („uebersicht“) führt auf Home.
