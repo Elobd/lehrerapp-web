@@ -3,6 +3,11 @@
 Pro Thema: Ziel · Stand · offene Fragen · Vorschlag. Nach Abschluss nach „Erledigt“ verschieben (mit Versionskennung).
 Neuen Chat so starten: „Thema <Name> aus docs/OFFENE-THEMEN.md. Antworten: …“
 
+## ➜ Übergabe an den nächsten Chat (Stand S69, 27.11.2026)
+- **Zuerst klären:** Ist auf der NAS die Selbstaktualisierung aktiv? (Einstellungen → „App-Aktualisierung“ muss „Server ist aktuell“ zeigen.) Zuletzt kam „Unbekannte API“ beim PDF-Knopf = alter Server. Nutzer hat den kompletten server-Ordner als ZIP bekommen (einmal von Hand einspielen, Container „lehrerapp-app“ → „Neu starten“).
+- **Danach testen lassen:** PDFs (LibreOffice wird beim ersten Mal per apk im Container installiert – Meldung erfragen), Gesamt-PDF, Bild aus Webseite aufs Cover ziehen, File-Station-Link (Einstellungen → App-Aktualisierung → NAS-Ordner), PowerPoint „Bilder“.
+- **Offen ohne Entscheidung:** Word/PowerPoint in der App bearbeiten (Vorschlag „Ersetzen“-Knopf), USB-Erkennung (Container sieht den Stick nicht – Synology „USB Copy“ mit NAS-Ordner files/Druckaufträge vorgeschlagen), Werkzeugleiste auch für eigene (nicht KI-)Arbeitsaufträge, Seitenkopf auch für Bibliothek/Druckablage, Video zum Thema.
+
 ---
 
 ## 1. Schülerfotos am Smartphone werden nicht angezeigt

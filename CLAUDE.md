@@ -59,10 +59,31 @@ Offene Themen und Entscheidungen: **docs/OFFENE-THEMEN.md** (zu Beginn lesen, na
 - Bausteine stehen zentral in der Liste `BAUSTEINE` (server/auftrag.js); „Baustein ergänzen“ in der App zeigt sie automatisch an und baut über die Umgebungsvariable `NUR` nur deren Dateien neu (gen.py).
 - Neuer Baustein = Eintrag in `BAUSTEINE` (KI-Schritt) in auftrag.js + Mock + neue Funktion in gen.py im Stil der bestehenden (lib.py nutzen) + Eintrag in `jobs`. Bestehende Funktionen/Design dabei nicht verändern. Test lokal mit `AI_MOCK=1` und server/gen/beispiel.json.
 
-## Design
-- Fachfarben: Geschichte #d99a26, Sport #3b5978, Text #1E293B.
-- **Knopf-Form (verbindlich, überall):** rechteckig mit leicht abgerundeten Ecken (border-radius 8px) – wie die Klassen-Auswahl „5. Klasse / 6. Klasse …“ bei Material → Lehrmaterial erarbeiten. Nie Pillen-/Kreisform. Global umgesetzt in skins.js Block S62 (`.btn{border-radius:8px!important}`); neue Knöpfe immer mit Klasse `btn`.
-- Grüne „erledigt“-Häkchen immer mit `UI.ck(größe)` (Pinsel-Haken, skins.js S63), nicht mit dem Zeichen ✓.
-- Reiter-Menüs über UI.tabs + UI.carousel (Wischen) im Stil von Home („homewrap“).
-- Alle Dropdowns öffnen ein App-eigenes Auswahlfenster (Bottom-Sheet).
-- Kopfzeile: Zeile 1 Datum links, Icons rechts (Sprechblase = To-Do-Diktat, Klassentools, Suche, Einstellungen); Zeile 2 „Offene Stunden (n)“.
+## Design-System (verbindlich – neue Teile immer so bauen)
+**Farben**
+- Geschichte #d99a26 (heller Hintergrund #fdf6e9), Sport #3b5978 (hell #eef3f8), Text #1E293B.
+- Grautöne: Nebentext #64748b, blass #94a3b8, Linien #e2e8f0 / #eef1f5, Flächen #f1f5f9 / #f8fafc, Rahmen von Eingaben/Knöpfen #d6dde6.
+- Erfolg grün #1f7a3a auf #edf7ee (Rand #86c79a), Fehler rot #b3261e auf #fdecea, Epochenfarben siehe server/gen/lib.py `EPOCHEN` (Grundlagen #4A5A8C, Frühgeschichte #783F04, Antike #F1C232, Mittelalter #38761D, Neuzeit #134F5C, Zeitgeschichte #B41617).
+
+**Knöpfe & Auswahl**
+- Knopf = Klasse `btn` (+ `sm`, `good` = grün, `bad` = rot): rechteckig, **border-radius 8px**, nie Pillen-/Kreisform (global skins.js S62). Vorbild: Klassen-Auswahl „5. Klasse …“ (Material → Lehrmaterial erarbeiten).
+- Kleine Wahlknöpfe/Chips: `erbsb` (weiß, Rand #d6dde6, 6–8px Radius, aktiv = orange #d99a26 mit weißer Schrift); Filterleisten wie Bibliothek: `matkm` + `matchip` mit Zähler `<small class="matcnt">(n)</small>`, leere = `zero` (blass).
+- Umschalter Kacheln/Liste: `<span class="lsseg">` mit zwei `btn sm` (aktiv `good`).
+- Kleine Symbolknöpfe (USB, Download ↓, Ordner): `usbbtn` 32×30, Rand #d6dde6, aktiv/erledigt grün `on`. Reihenfolge rechts: … USB, dann Download-Pfeil ganz rechts.
+- Plus/Minus: zwei kleine Knöpfe nebeneinander rechts oben im Kästchen (`erbpm`, 21×19).
+- Häkchen-Kästchen (Checkbox) 16–17px, `accent-color:#d99a26`.
+
+**Schrift (Handy 390 px Breite ist Maßstab)**
+- Seitentitel in Karten (h2) 14,5–16px; Fließtext 13–14px; Nebentext/Meta 11,5–12,5px; Kästchen „Was soll erstellt werden?“: Titel 11px, Unterzeile 9,5px; Chips 10,5–12,5px; Gruppenüberschriften 11,5px fett GROSS mit Trennlinie (`kigrp`).
+- Kompakt bauen: wenig Höhe, Zusatzinfos in dieselbe Zeile (z. B. „Anwesenheit kontrolliert“ + „anwesend: 13 / 15“ nebeneinander).
+
+**Bausteine der Oberfläche**
+- Seitenkopf wie Klassenmappen: `<section class="dd fg pghd"><div class="ddh"><span class="ddic">SVG_HELM</span><span class="ddt"><b>Geschichte</b><small>Zusatz</small></span><span class="ddn">Anzahl</span></div></section>` (Sport: `fs` + SVG_RUN). Steht direkt unter der Reiterleiste (`setBar`), auf allen Material-Seiten gleiche Höhe.
+- Karten: `section.card`; Kartenkopf `.hd` grau innerhalb der Box (kein seitenbreiter Balken; Achtung Kartenklasse `fb` erzeugt sonst einen box-shadow-Balken).
+- Aufklappbereiche: `<details>` mit `summary` (Zustand in U.* merken).
+- Popups/Fenster: `div.lspop > .lspopb > .lspoph (Titel + Schließen) + .lspopc`; Auswahlfenster `#selpick`/`#sppick` erscheinen automatisch an der Tippstelle (skins.js S48).
+- Typ-Symbole vor Dateinamen: farbige Kürzel P (PowerPoint #c43e1c), PDF (#b91c1c), W (Word #2b579a), X (Excel #1d6f42), JPG (#0f766e), ♪ (Audio #7c3aed) – material.js `kiIc`.
+- Erledigt-Häkchen nur mit `UI.ck(größe)` (Pinsel-Haken), USB-Symbol `UI.usbIc(größe)`.
+- Reiter-Menüs über UI.tabs + UI.carousel (Wischen) im Stil von Home („homewrap“); Material-Unterseiten per Wischen wechseln; Reiter der Unterleiste per langem Drücken + Ziehen sortierbar (gespeichert in settings „setbar“).
+- Alle `<select>` öffnen das App-eigene Auswahlfenster.
+- Kopfzeile: Zeile 1 Datum links, Icons rechts (Sprechblase = To-Do-Diktat, USB grau/grün, Klassentools, Suche, Einstellungen); Zeile 2 „Offene Stunden (n)“.
