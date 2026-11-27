@@ -61,6 +61,7 @@ Neuen Chat so starten: „Thema <Name> aus docs/OFFENE-THEMEN.md. Antworten: …
 - USB-Erkennung braucht die Einbindung des Sticks in den Container (USB_PATH); bis dahin NAS-Ordner files/Druckaufträge/<Datum> (Synology „USB Copy“ kann ihn beim Anstecken exportieren).
 
 ## Erledigt
+- S83: Einzel-Stoppuhr: Start/Stopp 200 px hoch, „Versuch verwerfen“ (stellt vorherigen Wert her), Profil-Link, Liste „Heute gemessen“ (Uhrzeit, Status, ✕), Punktetabelle in Klassentools, 5CS als Standardklasse (auch Bahnen), Sperrbildschirm-Steuerung über Media Session (UI.sperr in skins.js, auch allgemeine Stoppuhr). Am Handy noch zu prüfen.
 - S82: Seilklettern-Status je Messung (Stand / Sitzen / nicht geschafft) in der Tabelle antippbar und nachträglich änderbar; Stoppuhr hat Knopf „Abgebrochen – nicht geschafft“ (keine Zeit, Status ab).
 - S81: Seilklettern-Stoppuhr mit Wahl „aus dem Stand“ / „aus dem Sitzen“ (gespeichert je Messung als pos, in der Tabelle als „Stand“/„Sitz“ unter dem Wert). Offen: Bestenliste/Punkte unterscheiden noch nicht.
 - S80: Einzel-Stoppuhr auch unter Klassentools → Sport → „Stoppuhr Einzeln (Seilklettern)“ mit Klassen- und Disziplinwahl.

@@ -691,7 +691,7 @@ html:root body .pastbox .attb,html:root body .ccard .ics .attb.open{background:#
   const beep = () => { try { const a = new (window.AudioContext || window.webkitAudioContext)(), o = a.createOscillator(), g = a.createGain(); o.connect(g); g.connect(a.destination); o.frequency.value = 880; g.gain.value = 0.2; o.start(); setTimeout(() => { o.stop(); a.close(); }, 700); } catch (e) { /* */ } };
   let tmTimer = null;
   const tmLoop = () => { if (tmTimer) return; tmTimer = setInterval(() => { let any = false; ['cd', 'sw'].forEach((k) => { const el = document.getElementById('tmd-' + k); if (el) el.textContent = tmFmt(tmNow(k)); if (TM[k].run) any = true; }); if (TM.cd.run && tmNow('cd') <= 0) { TM.cd.run = false; TM.cd.acc = TM.cd.ms; TM.cd.done = true; beep(); const b = document.querySelector('[data-act=tmgo][data-k=cd]'); if (b) { b.textContent = 'Start'; b.classList.remove('run'); } } if (!any && !document.getElementById('tmd-cd')) { clearInterval(tmTimer); tmTimer = null; } }, 40); };
-  const tmCard = (k) => { const cd = k === 'cd', t = TM[k]; return `<div class="tmc" id="tmc-${k}"><div class="tmtop"><b>${cd ? 'Countdown' : 'Stoppuhr'}</b><button class="tmfs" data-act="tmfs" data-k="${k}" aria-label="Vollbild" title="Vollbild">⛶</button></div><div class="tmrow"><div class="tmdisp" id="tmd-${k}">${tmFmt(tmNow(k))}</div><div class="tmbtns"><button class="tmb start${t.run ? ' run' : ''}" data-act="tmgo" data-k="${k}">${t.run ? 'Stopp' : 'Start'}</button><button class="tmb" data-act="tmrs" data-k="${k}" aria-label="Zurücksetzen">↺</button></div></div>${cd ? `<div class="tmpre">${[1, 3, 5, 10, 15, 20].map((m) => `<button data-act="tmset" data-m="${m}">${m} Min</button>`).join('')}<button data-act="tmadd" data-m="-1">−1</button><button data-act="tmadd" data-m="1">+1</button></div>` : ''}</div>`; };
+  const tmCard = (k) => { const cd = k === 'cd', t = TM[k]; return `<div class="tmc" id="tmc-${k}"><div class="tmtop"><b>${cd ? 'Countdown' : 'Stoppuhr'}</b>${!cd && UI.sperr ? `<button class="erbsb tmlk${UI.sperr.owner() === 'clock' ? ' on' : ''}" data-act="tmlock" title="Start/Stopp auch am Sperrbildschirm">📱 Sperrbildschirm${UI.sperr.owner() === 'clock' ? ' an' : ''}</button>` : ''}<button class="tmfs" data-act="tmfs" data-k="${k}" aria-label="Vollbild" title="Vollbild">⛶</button></div><div class="tmrow"><div class="tmdisp" id="tmd-${k}">${tmFmt(tmNow(k))}</div><div class="tmbtns"><button class="tmb start${t.run ? ' run' : ''}" data-act="tmgo" data-k="${k}">${t.run ? 'Stopp' : 'Start'}</button><button class="tmb" data-act="tmrs" data-k="${k}" aria-label="Zurücksetzen">↺</button></div></div>${cd ? `<div class="tmpre">${[1, 3, 5, 10, 15, 20].map((m) => `<button data-act="tmset" data-m="${m}">${m} Min</button>`).join('')}<button data-act="tmadd" data-m="-1">−1</button><button data-act="tmadd" data-m="1">+1</button></div>` : ''}</div>`; };
   const tmBody = () => { setTimeout(tmLoop, 30); return tmCard('cd') + '<div style="height:14px"></div>' + tmCard('sw'); };
 
   /* ---------- Sportarten: Regeln ---------- */
@@ -720,6 +720,10 @@ html:root body .pastbox .attb,html:root body .ccard .ics .attb.open{background:#
 
   Object.assign(A, {
     tmgo: (e) => { const k = e.dataset.k, t = TM[k]; if (t.run) { t.acc += Date.now() - t.t0; t.run = false; } else { if (k === 'cd' && (t.done || tmNow('cd') <= 0)) { t.acc = 0; t.done = false; } t.t0 = Date.now(); t.run = true; } e.textContent = t.run ? 'Stopp' : 'Start'; e.classList.toggle('run', t.run); tmLoop(); },
+    tmlock: () => { if (!UI.sperr) return; if (UI.sperr.owner() === 'clock') UI.sperr.off(); else UI.sperr.on('clock', {
+      title: () => 'Stoppuhr ' + tmFmt(tmNow('sw')).replace(/,\d+$/, ''), sub: () => (TM.sw.run ? 'läuft – ⏯ stoppt, ⏭ zurücksetzen' : 'angehalten – ⏯ startet, ⏭ zurücksetzen'), running: () => TM.sw.run,
+      toggle: () => { const t = TM.sw; if (t.run) { t.acc += Date.now() - t.t0; t.run = false; } else { t.t0 = Date.now(); t.run = true; } const b = document.querySelector('[data-act=tmgo][data-k=sw]'); if (b) { b.textContent = t.run ? 'Stopp' : 'Start'; b.classList.toggle('run', t.run); } tmLoop(); },
+      next: () => { const t = TM.sw; t.run = false; t.acc = 0; const el = document.getElementById('tmd-sw'); if (el) el.textContent = tmFmt(0); const b = document.querySelector('[data-act=tmgo][data-k=sw]'); if (b) { b.textContent = 'Start'; b.classList.remove('run'); } } }); render(); },
     tmrs: (e) => { const k = e.dataset.k, t = TM[k]; t.run = false; t.acc = 0; t.done = false; const b = document.querySelector(`[data-act=tmgo][data-k=${k}]`); if (b) { b.textContent = 'Start'; b.classList.remove('run'); } const el = document.getElementById('tmd-' + k); if (el) el.textContent = tmFmt(tmNow(k)); },
     tmset: (e) => { const t = TM.cd; t.ms = +e.dataset.m * 60000; t.run = false; t.acc = 0; t.done = false; render(); },
     tmadd: (e) => { const t = TM.cd; t.ms = Math.max(10000, t.ms + (+e.dataset.m) * 60000); const el = document.getElementById('tmd-cd'); if (el) el.textContent = tmFmt(tmNow('cd')); },
@@ -1498,4 +1502,31 @@ svg.ck{display:inline-block;vertical-align:-2px;flex:none}
       const [hc, mc] = [...el.querySelectorAll('.tpcol')], t = pad(Math.max(0, Math.min(23, Math.round(hc.scrollTop / H)))) + ':' + pad(Math.max(0, Math.min(59, Math.round(mc.scrollTop / H)))); el.remove();
       saveLog(sl, (log) => { const x = log.find((y) => y.id === id); if (!x) return; x.late = Object.assign({}, x.late || {}, { [sid]: t }); }); render(); }); };
   const st = document.createElement('style'); st.id = 'ui78'; st.textContent = `.tpk{position:relative;display:flex;justify-content:center;align-items:center;gap:6px;height:${H * 5}px}.tpband{position:absolute;left:10%;right:10%;top:${H * 2}px;height:${H}px;border-top:2px solid #d99a26;border-bottom:2px solid #d99a26;background:#fdf6e9;border-radius:8px;pointer-events:none}.tpcol{position:relative;z-index:1;width:84px;height:${H * 5}px;overflow-y:auto;scroll-snap-type:y mandatory;padding:${H * 2}px 0;box-sizing:border-box;scrollbar-width:none;-webkit-overflow-scrolling:touch}.tpcol::-webkit-scrollbar{display:none}.tpi{height:${H}px;line-height:${H}px;text-align:center;font:600 22px var(--font-body);scroll-snap-align:center;cursor:pointer;color:#1E293B}.tpc{z-index:1;font:700 22px var(--font-body)}`; document.head.appendChild(st);
+})();
+
+/* S83: Sperrbildschirm-Steuerung über die Medien-Steuerung des Handys (stiller Ton im Hintergrund).
+   ⏯ = Start/Stopp, ⏭/⏮ = Zusatzfunktion des Werkzeugs. Titel zeigt die laufende Zeit (sekundengenau). */
+(function () {
+  const L = { owner: '', h: null, audio: null, tm: null, lt: '', ls: '' };
+  const silentUrl = () => { const sr = 8000, n = sr * 10, b = new ArrayBuffer(44 + n), v = new DataView(b), w = (o, t) => [...t].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+    w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, sr, true); v.setUint32(28, sr, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true); w(36, 'data'); v.setUint32(40, n, true); for (let i = 0; i < n; i++) v.setUint8(44 + i, 128);
+    return URL.createObjectURL(new Blob([b], { type: 'audio/wav' })); };
+  const ms = () => navigator.mediaSession;
+  function upd() { if (!L.h || !ms()) return; let t = '', s0 = ''; try { t = L.h.title(); s0 = L.h.sub(); } catch (e) { /* */ } if (t === L.lt && s0 === L.ls) return; L.lt = t; L.ls = s0;
+    try { ms().metadata = new MediaMetadata({ title: t, artist: s0, album: 'Lehrer-App', artwork: [{ src: 'icon-512.png', sizes: '512x512', type: 'image/png' }] }); ms().playbackState = L.h.running && L.h.running() ? 'playing' : 'paused'; } catch (e) { /* */ } }
+  const act = (fn) => () => { try { L.audio && L.audio.play(); } catch (e) { /* */ } try { L.h && L.h[fn] && L.h[fn](); } catch (e) { /* */ } L.lt = ''; upd(); };
+  UI.sperr = {
+    owner: () => L.owner,
+    on(owner, h) {
+      if (!('mediaSession' in navigator) || typeof MediaMetadata === 'undefined') { toast('Dieses Handy bzw. dieser Browser unterstützt keine Steuerung am Sperrbildschirm'); return false; }
+      L.owner = owner; L.h = h; L.lt = '';
+      if (!L.audio) { L.audio = new Audio(silentUrl()); L.audio.loop = true; L.audio.setAttribute('playsinline', ''); }
+      L.audio.play().then(() => toast('Sperrbildschirm an: ⏯ in der Medien-Steuerung = Start/Stopp')).catch(() => toast('Ton für die Sperrbildschirm-Steuerung konnte nicht starten'));
+      [['play', 'toggle'], ['pause', 'toggle'], ['nexttrack', 'next'], ['previoustrack', 'prev']].forEach(([a, f]) => { try { ms().setActionHandler(a, act(f)); } catch (e) { /* */ } });
+      try { ms().setActionHandler('stop', () => { UI.sperr.off(); render(); }); } catch (e) { /* */ }
+      upd(); clearInterval(L.tm); L.tm = setInterval(upd, 500); return true;
+    },
+    off() { L.owner = ''; L.h = null; clearInterval(L.tm); L.tm = null; if (L.audio) L.audio.pause(); try { ms().metadata = null; ['play', 'pause', 'nexttrack', 'previoustrack', 'stop'].forEach((a) => { try { ms().setActionHandler(a, null); } catch (e) { /* */ } }); } catch (e) { /* */ } },
+  };
+  const st = document.createElement('style'); st.textContent = '.tmtop .tmlk{margin-left:auto;margin-right:6px;font-size:12px;padding:4px 8px;height:auto}'; document.head.appendChild(st);
 })();
