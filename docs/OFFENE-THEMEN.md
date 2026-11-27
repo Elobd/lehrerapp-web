@@ -61,6 +61,7 @@ Neuen Chat so starten: „Thema <Name> aus docs/OFFENE-THEMEN.md. Antworten: …
 - USB-Erkennung braucht die Einbindung des Sticks in den Container (USB_PATH); bis dahin NAS-Ordner files/Druckaufträge/<Datum> (Synology „USB Copy“ kann ihn beim Anstecken exportieren).
 
 ## Erledigt
+- S86: QR-Code-Generator in Klassentools → Allgemein (8 „Scan me“-Vorlagen, Text + Farbe wählbar, Kopieren/PNG/JPG; web/vendor/qrcode.js MIT, alles lokal im Browser).
 - S85: Mehrere Versuche je Tag: alle in it.vers[sid] (v,t,pos), gewertet/angezeigt der beste (it.pts); Stoppuhren hängen Versuche an; Handeingabe „4,10 / 4,25“ = mehrere Versuche; Knopf „n Versuche“ in der Zelle öffnet Liste mit ★ bester und ✕ löschen.
 - S84: Lehrmaterial-Köpfe dunkelgrau; „Baustein ergänzen“ bei vorhandenem Baustein = weitere Version (Dateien „…_2“, „…_2_LOESUNG“; data.versionen; Podcast wird weiter ersetzt); Wunsch-Fenster mit „Jetzt erstellen“ (Abbrechen brach vorher still ab); Desktop weißer Streifen unter Hauptmenü; Stoppuhren nur noch in Klassentools; Bestenliste neu (sbx), Übersichtskarten passen Höhe an.
 - S83: Einzel-Stoppuhr: Start/Stopp 200 px hoch, „Versuch verwerfen“ (stellt vorherigen Wert her), Profil-Link, Liste „Heute gemessen“ (Uhrzeit, Status, ✕), Punktetabelle in Klassentools, 5CS als Standardklasse (auch Bahnen), Sperrbildschirm-Steuerung über Media Session (UI.sperr in skins.js, auch allgemeine Stoppuhr). Am Handy noch zu prüfen.
