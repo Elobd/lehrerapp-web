@@ -12,7 +12,7 @@ import igen, lib as L
 FONT='Source Sans Pro'; SCALE=1.32
 def C(h): return RGBColor.from_string(h)
 def build(data,out,vorlage,im):
-    prs=Presentation(vorlage); AO=L.AO; col=L.COL; T=re.sub(r'[^A-Za-z0-9ÄÖÜäöüß_-]+','-',data.get('titel','Arbeitsauftrag')).strip('-')[:60]
+    prs=Presentation(vorlage); AO=L.AO; col=L.COL; T=re.sub(r'[^A-Za-z0-9ÄÖÜäöüß_-]+','-',data.get('titel','Arbeitsauftrag')).strip('-')[:60]+('_%s'%data['version'] if data.get('version') else '')
     def blob_of(n,name):
         try:
             for sh in prs.slides[n-1].shapes:
@@ -172,7 +172,7 @@ def build(data,out,vorlage,im):
     fn=os.path.join(out,'01_Praesentation_%s.pptx'%T); prs.save(fn); return fn
 def thumbnails(data,out,imgd,col):
     """Erste Seite je Dokument als Bild: echt (LibreOffice+pdftoppm), sonst gezeichnete Platzhalter-Seite."""
-    T=re.sub(r'[^A-Za-z0-9ÄÖÜäöüß_-]+','-',data.get('titel','Arbeitsauftrag')).strip('-')[:60]; res={}
+    T=re.sub(r'[^A-Za-z0-9ÄÖÜäöüß_-]+','-',data.get('titel','Arbeitsauftrag')).strip('-')[:60]+('_%s'%data['version'] if data.get('version') else ''); res={}
     names={'textblatt':'02_Textblatt_%s.docx'%T,'arbeitsblatt':'03_Arbeitsblatt_%s.docx'%T,'lueckentext':'04_Lueckentext_%s.docx'%T,'kreuzwort':'05_Kreuzwortraetsel_%s.docx'%T,'checkup':'06_Check-up_SingleChoice_%s.docx'%T}
     so=shutil.which('soffice') or shutil.which('libreoffice'); pp=shutil.which('pdftoppm')
     for k,fn in names.items():

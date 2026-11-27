@@ -56,6 +56,7 @@ Offene Themen und Entscheidungen: **docs/OFFENE-THEMEN.md** (zu Beginn lesen, na
 - Abbruch kostet nichts doppelt: fertige Teile bleiben in `_neu_<id>` (+ `_param.json`, `kosten_bisher`); „Fortsetzen“ (`/api/auftrag/fortsetzen`) überspringt Fertiges (Gliederung, Kapitel, Bausteine mit `has`).
 - Podcast: server/podcast.js (Sprachdienst ElevenLabs/OpenAI/Azure, Konfig in DATA_DIR/sprachausgabe.json, Folgen in files/Podcast + folgen.json, öffentlicher Feed nur über geheimen Token-Link `/podcast/<token>/feed.xml`).
 - Präsentationsvorlage liegt nur am NAS (Material/Vorlage/praesentation.pptx), nie committen.
+- „Baustein ergänzen“ bei schon vorhandenem Baustein erzeugt eine **weitere Version** (auftrag.js `VFELD`, `data.versionen`, gen.py `TSAFE` → Dateiname `…_2`, Lösung `…_2_LOESUNG`); bisherige Dateien bleiben. Nur der Podcast wird ersetzt.
 - Bausteine stehen zentral in der Liste `BAUSTEINE` (server/auftrag.js); „Baustein ergänzen“ in der App zeigt sie automatisch an und baut über die Umgebungsvariable `NUR` nur deren Dateien neu (gen.py).
 - Neuer Baustein = Eintrag in `BAUSTEINE` (KI-Schritt) in auftrag.js + Mock + neue Funktion in gen.py im Stil der bestehenden (lib.py nutzen) + Eintrag in `jobs`. Bestehende Funktionen/Design dabei nicht verändern. Test lokal mit `AI_MOCK=1` und server/gen/beispiel.json.
 

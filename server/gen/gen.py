@@ -6,6 +6,8 @@ from lib import *
 from docx.enum.table import WD_ROW_HEIGHT_RULE
 import igen
 SAFE=lambda s: re.sub(r'[^A-Za-z0-9ÄÖÜäöüß_-]+','-',str(s)).strip('-')[:60] or 'Arbeitsauftrag'
+# Dateiname mit Versionsnummer (weitere Version eines Bausteins: „…_2“, Lösung „…_2_LOESUNG“)
+TSAFE=lambda data: SAFE(data.get('titel'))+('_%s'%data['version'] if data.get('version') else '')
 BOX={'forschung':('EEF3F4',None,False),'kontroverse':('FBEDEA','B41617',False),'didaktik':('EDF5EC','38761D',False),'merke':('FBF3E4',None,False),'begriff':(LIGHT,None,False),'quelle':('EEF3F4',None,True),'zahl':('F6EBD9',None,False),'nachdenken':('F2F2F2','888888',False)}
 def box_typ(d,typ,titel,text,font):
     k=str(typ or 'begriff').lower(); k='nachdenken' if k.startswith('nach') or k.startswith('zum') else k; fill,bar,it=BOX.get(k,BOX['begriff'])
@@ -39,7 +41,7 @@ def textblatt(data,out,im):
     if tb.get('glossar'):
         h2(d,'Glossar',font=F)
         for g in tb['glossar']: para(d,'**%s:** %s'%(g.get('begriff',''),g.get('text','')),font=F,size=10.5,after=2)
-    quellen(d,L.QUELLEN,font=F); fn=os.path.join(out,'02_Textblatt_%s.docx'%SAFE(data.get('titel'))); d.save(fn); return fn
+    quellen(d,L.QUELLEN,font=F); fn=os.path.join(out,'02_Textblatt_%s.docx'%TSAFE(data)); d.save(fn); return fn
 def namezeile(d,font): name_row(d,font)
 def aufgabe_kopf(d,nr,titel,afb,font):
     p=d.add_paragraph(); no_space(p,10,3); p.paragraph_format.keep_with_next=True; par_border_bottom(p,L.COL,6)
@@ -77,7 +79,7 @@ def handout(data,out,im):
     if ho.get('literatur'):
         h2(d,'Literatur und Quellen',font=F)
         for x in ho['literatur']: para(d,x,font=F,size=10,after=2)
-    quellen(d,L.QUELLEN,font=F); fn=os.path.join(out,'01_Lehrer-Handout_%s.docx'%SAFE(data.get('titel'))); d.save(fn); return fn
+    quellen(d,L.QUELLEN,font=F); fn=os.path.join(out,'01_Lehrer-Handout_%s.docx'%TSAFE(data)); d.save(fn); return fn
 def arbeitsblatt(data,out,loesung):
     F=FONT_S; ab=data.get('arbeitsblatt') or {}; tasks=(ab.get('aufgaben') or [])[:8]
     d=new_doc(font=F,size=10.5); build_header_footer(d,'Arbeitsblatt – Offene Fragen',data.get('titel',''),loesung=loesung,font=F)
@@ -110,7 +112,7 @@ def arbeitsblatt(data,out,loesung):
         if typ=='skizze' and not loesung:
             t=d.add_table(1,1); t.alignment=WD_TABLE_ALIGNMENT.CENTER; c=t.rows[0].cells[0]; cell_borders(c,top=(6,'999999'),bottom=(6,'999999'),left=(6,'999999'),right=(6,'999999')); t.rows[0].height=Cm(7.0); t.rows[0].height_rule=WD_ROW_HEIGHT_RULE.AT_LEAST; c.paragraphs[0].add_run(' '); para(d,'',after=2)
     if not loesung: box(d,'Hinweis','Halte zwei Sätze zu einer der letzten Aufgaben für ein kurzes Gespräch bereit. Deine Lehrkraft kann nachfragen. Handskizzen und eigene Beispiele sind erwünscht.',font=F,fill='F2F2F2',bar='888888'); quellen(d,L.QUELLEN,font=F)
-    fn=os.path.join(out,'03_Arbeitsblatt_%s%s.docx'%(SAFE(data.get('titel')),'_LOESUNG' if loesung else '')); d.save(fn); return fn
+    fn=os.path.join(out,'03_Arbeitsblatt_%s%s.docx'%(TSAFE(data),'_LOESUNG' if loesung else '')); d.save(fn); return fn
 def luecken(data,out,loesung):
     F=FONT_C; lt=data.get('luecken') or {}; TEXT=lt.get('text','') ; extra=lt.get('zusatz') or []
     words=re.findall(r'\{([^}]+)\}',TEXT); d=new_doc(font=F,size=12); build_header_footer(d,'Lückentext',data.get('titel',''),loesung=loesung,font=F)
@@ -132,7 +134,7 @@ def luecken(data,out,loesung):
         c=t.rows[i//4].cells[i%4]; shade_cell(c,LIGHT if w not in extra else 'F6EBD9'); cell_margins(c,30,30,80,80); p=c.paragraphs[0]; p.alignment=WD_ALIGN_PARAGRAPH.CENTER; no_space(p); r=p.add_run(w); setfont(r,F,10.5,True,color='222222')
     if not loesung:
         para(d,'Erkläre einen der nicht verwendeten Begriffe in einem Satz:',font=F,size=11,before=8); p=d.add_paragraph(); no_space(p); p.paragraph_format.line_spacing=1.8; r=p.add_run('_'*90); setfont(r,F,10,color='999999'); quellen(d,L.QUELLEN,font=F)
-    fn=os.path.join(out,'04_Lueckentext_%s%s.docx'%(SAFE(data.get('titel')),'_LOESUNG' if loesung else '')); d.save(fn); return fn
+    fn=os.path.join(out,'04_Lueckentext_%s%s.docx'%(TSAFE(data),'_LOESUNG' if loesung else '')); d.save(fn); return fn
 def kreuzwort(data,out,loesung,cache={}):
     F=FONT_C; W=[]
     for k in data.get('kreuzwort') or []:
@@ -167,7 +169,7 @@ def kreuzwort(data,out,loesung,cache={}):
             p=b.add_paragraph(); no_space(p,0,1); p.paragraph_format.left_indent=Cm(0.7); p.paragraph_format.first_line_indent=Cm(-0.7); r=p.add_run('%d  '%n_); setfont(r,F,9,True,color=L.COL); r=p.add_run(cl+('  → '+w if loesung else '')+'  (%d)'%len(w)); setfont(r,F,9)
     if not loesung:
         p=a.add_paragraph(); no_space(p,12,0); r=p.add_run('Name: ______________________________   Datum: ______________   Klasse: ________'); setfont(r,F,11,True,color='555555'); quellen(d,L.QUELLEN,font=F)
-    fn=os.path.join(out,'05_Kreuzwortraetsel_%s%s.docx'%(SAFE(data.get('titel')),'_LOESUNG' if loesung else '')); d.save(fn); return fn
+    fn=os.path.join(out,'05_Kreuzwortraetsel_%s%s.docx'%(TSAFE(data),'_LOESUNG' if loesung else '')); d.save(fn); return fn
 def _cross(words,size=21):
     best=None
     for att in range(300):
@@ -212,7 +214,7 @@ def _sauber(t): return re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]','',str(t))
 
 def checkups(data,out):
     _FEHLER_DIR[0]=out; F=FONT_S; ck=data.get('checkup') or {}; SC=[(_sauber(q['frage']),[_sauber(a) for a in q['antworten'][:4]],int(q['richtig'])) for q in ck.get('single') or [] if len(q.get('antworten',[]))>=4]; MC=[(_sauber(q['frage']),[_sauber(a) for a in q['antworten'][:4]],[int(i) for i in q['richtig']]) for q in ck.get('multiple') or [] if len(q.get('antworten',[]))>=4 and q.get('richtig')]
-    res=[]; T=SAFE(data.get('titel')); EXP=data.get('exporte') or {}; EX=lambda k: EXP.get(k,True)  # Exporte abwählbar (fehlt = alle)
+    res=[]; T=TSAFE(data); EXP=data.get('exporte') or {}; EX=lambda k: EXP.get(k,True)  # Exporte abwählbar (fehlt = alle)
     AZ=data.get('anzahl') or {}; NDOC={'sc':int(AZ.get('single') or 15),'mc':int(AZ.get('multiple') or 15)}; NQ={'sc':max(20,NDOC['sc']),'mc':max(20,NDOC['mc'])}  # gewählte Anzahl (alt: 15 im Blatt, 20 im Quiz)
     def doc(qs,mode,loes,num):
         d=new_doc(font=F,size=11); build_header_footer(d,'Check-up (%s)'%('Single Choice' if mode=='sc' else 'Multiple Choice'),data.get('titel',''),loesung=loes,font=F)
@@ -309,7 +311,7 @@ def wiederholung(data,out):
                     for p in c.paragraphs: p.paragraph_format.keep_with_next=True
             for j,c in enumerate(r_.cells): c.width=wd[j]
         for j in range(5): t.columns[j].width=wd[j]
-    quellen(d,L.QUELLEN,font=F); fn=os.path.join(out,'08_Wiederholung-muendlich_%s.docx'%SAFE(data.get('titel'))); d.save(fn); return fn
+    quellen(d,L.QUELLEN,font=F); fn=os.path.join(out,'08_Wiederholung-muendlich_%s.docx'%TSAFE(data)); d.save(fn); return fn
 def build_all(data,out,vorlage=None,cover_custom=None):
     os.makedirs(out,exist_ok=True); L.configure({'titel':data.get('titel'),'untertitel':data.get('untertitel'),'epoche':data.get('epoche'),'zeitraum':data.get('zeitraum'),'quellen':data.get('quellenliste') or []})
     import lib as LL
@@ -326,7 +328,7 @@ def build_all(data,out,vorlage=None,cover_custom=None):
     if data.get('prozess'): im['steps']=igen.steps(os.path.join(imgd,'steps.png'),data['prozess'],data.get('prozess_titel','Überblick'),L.COL)
     res=[]
     from PIL import Image
-    if not os.environ.get('NUR'): Image.open(im['cover']).convert('RGB').save(os.path.join(out,'Cover_%s.jpg'%SAFE(data.get('titel'))),quality=93,subsampling=0); res.append('Cover_%s.jpg'%SAFE(data.get('titel')))
+    if not os.environ.get('NUR'): Image.open(im['cover']).convert('RGB').save(os.path.join(out,'Cover_%s.jpg'%TSAFE(data)),quality=93,subsampling=0); res.append('Cover_%s.jpg'%TSAFE(data))
     # NUR=schluessel,... (Umgebung): nur diese Bausteine neu bauen (Baustein nachträglich ergänzen)
     nur=set(x for x in os.environ.get('NUR','').split(',') if x)
     jobs=[('handout',lambda:handout(data,out,im)),('textblatt',lambda:textblatt(data,out,im)),('arbeitsblatt',lambda:arbeitsblatt(data,out,False)),('arbeitsblatt',lambda:arbeitsblatt(data,out,True)),('luecken',lambda:luecken(data,out,False)),('luecken',lambda:luecken(data,out,True)),('kreuzwort',lambda:kreuzwort(data,out,False)),('kreuzwort',lambda:kreuzwort(data,out,True)),('checkup',lambda:checkups(data,out)),('wiederholung',lambda:wiederholung(data,out))]

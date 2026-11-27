@@ -1530,3 +1530,6 @@ svg.ck{display:inline-block;vertical-align:-2px;flex:none}
   };
   const st = document.createElement('style'); st.textContent = '.tmtop .tmlk{margin-left:auto;margin-right:6px;font-size:12px;padding:4px 8px;height:auto}'; document.head.appendChild(st);
 })();
+
+/* S84: Desktop – weißer Streifen zwischen Hauptmenü (dunkel) und Untermenü */
+(() => { const st = document.createElement('style'); st.id = 'ui84'; st.textContent = `@media(min-width:1000px) and (hover:hover) and (pointer:fine){html:root .nav{position:relative!important;margin-bottom:12px!important;clip-path:inset(0 -100vmax -12px)!important}html:root .nav::after{content:'';position:absolute;left:-100vmax;right:-100vmax;top:100%;height:12px;background:#fff;pointer-events:none}}`; document.head.appendChild(st); })();

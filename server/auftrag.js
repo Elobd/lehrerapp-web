@@ -230,6 +230,8 @@ export function createAuftrag(ctx) {
     try { await pdfsErstellen(dir, (m) => say(m, 9)); } catch (e) { job.warn = (job.warn ? job.warn + ' ' : '') + 'PDFs: ' + String(e.message || e); } const fin = path.join(path.dirname(dir), 'zz ' + slug(p.titel) + ' ' + job.id); fs.renameSync(dir, fin); job.dir = fin; renumber(); job.state = 'fertig'; say('Fertig.');
   }
   // Baustein nachträglich: nur dieser KI-Schritt, Grundlage ist das vorhandene Textblatt; nur seine Dateien werden neu gebaut
+  // Datenfelder je Baustein – für „weitere Version“ (Podcast: wird weiterhin ersetzt)
+  const VFELD = { handout: ['handout'], arbeitsblatt: ['arbeitsblatt'], luecken: ['luecken'], kreuzwort: ['kreuzwort'], single: ['checkup.single'], multiple: ['checkup.multiple'], wdh: ['wiederholung'], praesentation: ['praesentation'] };
   async function ergaenze(job, x, B, hint) {
     const say = (m) => { job.msg = m; }, data = x.m, o = data.optionen || {};
     const tb = data.textblatt || {}, text = [(tb.kurz || []).join('\n'), ...(tb.kapitel || []).map((k) => (k.titel || '') + '\n' + (k.absaetze || []).join('\n') + '\n' + (k.boxen || []).map((b) => b.text || '').join('\n'))].join('\n\n');
@@ -239,13 +241,26 @@ export function createAuftrag(ctx) {
     say('Bibliotheken prüfen …'); await ensureLibs(say);
     acc = neuerZaehler(); job.kosten = acc;
     Object.defineProperty(data, '_dir', { value: x.dir, enumerable: false, writable: true });
+    // Schon vorhanden → weitere Version (eigene Dateien „…_2“), die bisherigen bleiben unverändert
+    const felder = VFELD[B.k], alsVersion = !!(felder && B.has(data));
+    if (alsVersion) {
+      const nr = 2 + (data.versionen || []).filter((v) => v.k === B.k).length, d2 = JSON.parse(JSON.stringify(data)); Object.defineProperty(d2, '_dir', { value: x.dir, enumerable: false, writable: true });
+      felder.forEach((f) => { const [a, b] = f.split('.'); if (b) { d2[a] = Object.assign({}, d2[a]); delete d2[a][b]; } else delete d2[a]; });
+      try { await B.run(d2, p, (m) => say(m.replace(/^\d\/9 /, '') + ' (Version ' + nr + ')'), () => {}); } catch (e) { if (!e.weich) throw e; job.warn = e.message; } finally { const k = rund(acc); acc = null; data.kosten_ergaenzt = (data.kosten_ergaenzt || []).concat([{ k: B.k, usd: k.usd, am: Date.now(), version: nr }]); save(); }
+      const neu = {}; felder.forEach((f) => { const [a, b] = f.split('.'); if (b) { neu[a] = Object.assign({}, neu[a], { [b]: (d2[a] || {})[b] }); } else neu[a] = d2[a]; });
+      const vd = Object.assign(JSON.parse(JSON.stringify(data)), neu, { version: nr }); delete vd.versionen;
+      data.versionen = (data.versionen || []).concat([{ k: B.k, nr, am: Date.now(), daten: neu }]); save();
+      const vf = path.join(x.dir, '_version.json'); fs.writeFileSync(vf, JSON.stringify(vd));
+      say('Dokumente werden erzeugt …'); try { await generiere(job, x.dir, B.gen, false, vf); } finally { fs.rmSync(vf, { force: true }); }
+      try { await pdfsErstellen(x.dir, say); } catch (e) { job.warn = 'PDFs: ' + String(e.message || e); } job.state = 'fertig'; say('Fertig: ' + B.n + ' – Version ' + nr + ' ergänzt (bisherige Dateien bleiben).'); return;
+    }
     try { await B.run(data, p, (m) => say(m.replace(/^\d\/9 /, '')), save); } catch (e) { if (!e.weich) throw e; job.warn = e.message; } finally { const k = rund(acc); acc = null; data.kosten_ergaenzt = (data.kosten_ergaenzt || []).concat([{ k: B.k, usd: k.usd, am: Date.now() }]); save(); }
     say('Dokumente werden erzeugt …'); await generiere(job, x.dir, B.gen); try { await pdfsErstellen(x.dir, say); } catch (e) { job.warn = 'PDFs: ' + String(e.message || e); } job.state = 'fertig'; say('Fertig: ' + B.n + ' ergänzt.');
   }
-  async function generiere(job, dir, nur, ohnePraes) {
+  async function generiere(job, dir, nur, ohnePraes, jsonDatei) {
     if (nur && !nur.length) return; // Baustein ohne Word-Dateien (z. B. Podcast)
     const cc = path.join(dir, 'cover_custom.png'); void cc;
-    const args = ['gen.py', path.join(dir, 'auftrag.json'), dir]; if (fs.existsSync(VORLAGE)) args.push(VORLAGE);
+    const args = ['gen.py', jsonDatei || path.join(dir, 'auftrag.json'), dir]; if (fs.existsSync(VORLAGE)) args.push(VORLAGE);
     const r = await py(args, nur ? { env: { ...pyEnv(), NUR: nur.join(',') } } : {}); if (r.code !== 0) throw new Error('Dokumente konnten nicht erzeugt werden: ' + (r.e || r.o).slice(-400));
     if (r.e && /FEHLER/.test(r.e) && job) job.warn = r.e.slice(-400);
     if (!fs.existsSync(VORLAGE) && job && !ohnePraes && (!nur || nur.includes('praesentation'))) job.warn = (job.warn ? job.warn + ' ' : '') + 'Hinweis: Keine Präsentationsvorlage hochgeladen (Material/Vorlage/praesentation.pptx), daher ohne Präsentation.';
@@ -285,7 +300,7 @@ export function createAuftrag(ctx) {
     return scan().map((x) => { const nr = /^(\d+)\s/.exec(path.basename(x.dir)); const rel = path.relative(FILES_DIR, x.dir).split(path.sep).join('/');
       const files = []; const walk = (d, pre) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { if (e.name.startsWith('_') || e.name === 'auftrag.json' || e.name.startsWith('cover_custom')) continue; if (e.isDirectory()) walk(path.join(d, e.name), pre + e.name + '/'); else files.push(pre + e.name); } }; walk(x.dir, '');
       files.sort((a, b) => (/^\d/.test(a) === /^\d/.test(b) ? a.localeCompare(b, 'de') : /^\d/.test(a) ? -1 : 1));
-      return { bs: BAUSTEINE.map((B) => ({ k: B.k, n: B.n, has: B.has(x.m) })), usd: x.m.kosten ? x.m.kosten.usd + (x.m.kosten_ergaenzt || []).reduce((a, b) => a + (b.usd || 0), 0) : null, thema: x.m.thema || '', id: x.m.id, titel: x.m.titel, klasse: x.m.klasse, epoche: x.m.epoche, jahr: x.m.jahr, nr: nr ? nr[1] : '', dir: rel, files, cover: files.find((f) => /^Cover_.*\.jpg$/.test(f)) || '' };
+      return { bs: BAUSTEINE.map((B) => ({ k: B.k, n: B.n, has: B.has(x.m), v: 1 + (x.m.versionen || []).filter((v) => v.k === B.k).length, ver: !!VFELD[B.k] })), usd: x.m.kosten ? x.m.kosten.usd + (x.m.kosten_ergaenzt || []).reduce((a, b) => a + (b.usd || 0), 0) : null, thema: x.m.thema || '', id: x.m.id, titel: x.m.titel, klasse: x.m.klasse, epoche: x.m.epoche, jahr: x.m.jahr, nr: nr ? nr[1] : '', dir: rel, files, cover: files.find((f) => /^Cover_.*\.jpg$/.test(f)) || '' };
     }).sort((a, b) => String(a.klasse).localeCompare(String(b.klasse)) || String(a.nr).localeCompare(String(b.nr)));
   }
   const findById = (id) => scan().find((x) => String(x.m.id) === String(id));

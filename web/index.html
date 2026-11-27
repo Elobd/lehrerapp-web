@@ -339,7 +339,7 @@ body[data-fach=gpb] .kmh,body[data-fach=bspk] .kmh{border-bottom-color:rgba(0,0,
   <nav class="nav" id="nav"></nav>
   <main id="main" class="wrap" style="padding:0"></main>
 </div>
-<div id="appver" class="muted sm" style="text-align:center;padding:4px 0 18px;opacity:.7">Version 27.11.2026 · Neue Oberfläche S83</div>
+<div id="appver" class="muted sm" style="text-align:center;padding:4px 0 18px;opacity:.7">Version 27.11.2026 · Neue Oberfläche S84</div>
 <div id="drw" class="drw" aria-hidden="true"><div class="drwbg" data-act="drwx"></div><aside class="drwp" role="dialog" aria-label="Einstellungen"><div class="drwh"><b>Einstellungen</b><button class="drwc" data-act="drwx" aria-label="Schließen">×</button></div><div id="drwl" class="drwl"></div><p class="muted sm" style="margin:12px 4px 0">Am Symbol ⠿ ziehen, um die Reihenfolge zu ändern.</p></aside></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
@@ -1576,7 +1576,7 @@ document.addEventListener('touchend',ev=>{if(!t)return;const c=ev.changedTouches
   const esc2=t=>String(t==null?'':t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   function dlg(msg,o){o=o||{};return new Promise(res=>{const el=document.createElement('div');el.className='lspop';el.style.zIndex=6000;
     const del=/lösch|entfern|leeren|ersetz|verwerf/i.test(msg)&&!o.input;
-    el.innerHTML=`<div class="lspopb askb" role="alertdialog" style="width:min(460px,100%)"><div class="lspopc"><p class="askm">${esc2(msg).replace(/\n/g,'<br>')}</p>${o.input?`<input class="askin" value="${esc2(o.def||'')}" autocomplete="off">`:''}</div><div class="askbtn"><button class="btn" data-k="no">Abbrechen</button><button class="btn ${del?'bad':'primary'}" data-k="ok">${del?'Löschen':'OK'}</button></div></div>`;
+    el.innerHTML=`<div class="lspopb askb" role="alertdialog" style="width:min(460px,100%)"><div class="lspopc"><p class="askm">${esc2(msg).replace(/\n/g,'<br>')}</p>${o.input?`<input class="askin" value="${esc2(o.def||'')}" autocomplete="off">`:''}</div><div class="askbtn"><button class="btn" data-k="no">${esc2(o.no||'Abbrechen')}</button><button class="btn ${del?'bad':'primary'}" data-k="ok">${esc2(o.ok||(del?'Löschen':'OK'))}</button></div></div>`;
     document.body.appendChild(el);const inp=el.querySelector('.askin'),done=v=>{document.removeEventListener('keydown',kd,true);el.remove();res(v)};
     const kd=ev=>{if(ev.key==='Escape'){ev.preventDefault();ev.stopPropagation();done(o.input?null:false)}else if(ev.key==='Enter'&&!(ev.target&&ev.target.tagName==='BUTTON')){ev.preventDefault();ev.stopPropagation();done(o.input?(inp?inp.value:''):true)}};
     document.addEventListener('keydown',kd,true);
