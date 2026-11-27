@@ -61,6 +61,7 @@ Neuen Chat so starten: „Thema <Name> aus docs/OFFENE-THEMEN.md. Antworten: …
 - USB-Erkennung braucht die Einbindung des Sticks in den Container (USB_PATH); bis dahin NAS-Ordner files/Druckaufträge/<Datum> (Synology „USB Copy“ kann ihn beim Anstecken exportieren).
 
 ## Erledigt
+- S80: Einzel-Stoppuhr auch unter Klassentools → Sport → „Stoppuhr Einzeln (Seilklettern)“ mit Klassen- und Disziplinwahl.
 - S79: Einzel-Stoppuhr für Sekunden-Disziplinen (Seilklettern, Klimmhang, Pendellauf): Leistungen → Disziplin → Klassentools → Schüler antippen → Start/Stopp → Zeit mit heutigem Datum eingetragen.
 - **S78:** „verspätet“: Uhrzeit wird beim Antippen immer automatisch auf die aktuelle Uhrzeit gesetzt; Zeit antippen → Fenster mit zwei Scroll-Rädern (Stunden/Minuten, Übernehmen/Abbrechen). WebUntis-Upload der Verspätungen weiter offen (wartet auf Mitschnitt/Screenshot).
 - **S77:** Knopf „Anwesenheit kontrolliert“ wieder über die ganze Breite (mit „anwesend: x / y“ darin).
