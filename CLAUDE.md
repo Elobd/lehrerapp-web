@@ -38,6 +38,7 @@ Offene Themen und Entscheidungen: **docs/OFFENE-THEMEN.md** (zu Beginn lesen, na
 - Reine Vanilla-JS-Single-Page-App. Frontend web/: index.html (dichte Einzeiler-Funktionen), kmap.js (Klassenmappen/Leistungen/Schüler/Sport/Tools), skins.js (Design + angehängte UI-Blöcke S9…S44 mit eigenen `<style>`-Blöcken), material.js, lehrmaterial.js inkl. fahrplan.js, sw.js, shim.js (Offline-Cache/Sync/Login).
 - Server server/ (Node 22, SQLite): server.js (Aufpasser/Start), app.js (Server), auftrag.js, podcast.js, aktualisierung.js. `/api/ai` nimmt `{prompt, images}` und liefert JSON. Dateien über `/api/file?path=…`.
 - Globale Objekte: U (UI-Zustand), S.settings (Dokumente per `put('settings',{id,…})`), render(), setView(v), Handlertabellen A (data-act, Klick) und C (data-ch, change), groups(), cinfo(slug) (= S.settings['cn_'+slug] mit students, log, kv, ueoff), saveLog(slug, fn), lessonDates(G,null,von,bis), lessonSlots(G,von,bis) (inkl. Ferien mit Namen), holFor(d), syStart(), studentsSorted(G), KM (Exporte kmap.js), UI (Exporte skins.js: UI.tabs/UI.carousel/UI.pane, homeShell, toolsPage, schoolPage …).
+- Sport-Leistungen: je Messung (Datum) `it.pts[sid]` = bester Versuch, alle Versuche in `it.vers[sid] = [{v,t,pos}]` (kmap.js `spAttempt`/`spBestSet`/`spHand`); Status Seilklettern in `it.pos`.
 - Ferienkalender: Liste `NOE` in index.html (NÖ). **Jedes Schuljahr ergänzen** (inkl. Sommerferien), sonst entstehen falsche Stunden.
 - Fallen:
   - Klassenname `tdr` ist von den Tool-Kästchen belegt (To-Do nutzt `tdrow`).
